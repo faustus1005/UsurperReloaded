@@ -1,0 +1,40 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">Game Configuration</div>
+    <div class="panel-body">
+        <p class="text-dim" style="margin-bottom: 15px;">
+            Edit game settings below. These mirror the original Usurper editor's configuration options.
+        </p>
+        <form method="POST">
+            {% for group_name, fields in config_groups.items() %}
+            <fieldset class="admin-fieldset">
+                <legend>{{ group_name }}</legend>
+                {% for key, label, field_type in fields %}
+                <div class="admin-field">
+                    <label for="{{ key }}">{{ label }}</label>
+                    {% if field_type == 'toggle' %}
+                    <label class="toggle-label">
+                        <input type="checkbox" name="{{ key }}" id="{{ key }}"
+                               {% if config_values[key]|lower == 'true' %}checked{% endif %}>
+                        <span class="toggle-text">{{ 'Enabled' if config_values[key]|lower == 'true' else 'Disabled' }}</span>
+                    </label>
+                    {% elif field_type == 'number' %}
+                    <input type="number" name="{{ key }}" id="{{ key }}"
+                           value="{{ config_values[key] }}" class="admin-input admin-input-sm">
+                    {% else %}
+                    <input type="text" name="{{ key }}" id="{{ key }}"
+                           value="{{ config_values[key] }}" class="admin-input">
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </fieldset>
+            {% endfor %}
+
+            <div class="admin-form-actions">
+                <button type="submit" class="btn">Save Configuration</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">
+        Player Editor
+        <div style="float:right;">
+            <a href="{{ url_for('admin_players', show='humans') }}" class="btn btn-sm {% if show == 'humans' %}btn-active{% endif %}">Humans</a>
+            <a href="{{ url_for('admin_players', show='npcs') }}" class="btn btn-sm {% if show == 'npcs' %}btn-active{% endif %}">NPCs</a>
+        </div>
+    </div>
+    <div class="panel-body">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Lvl</th>
+                    <th>Race</th>
+                    <th>Class</th>
+                    <th>HP</th>
+                    <th>Gold</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in players %}
+                <tr>
+                    <td class="text-dim">{{ p.id }}</td>
+                    <td>
+                        {{ p.name }}
+                        {% if p.is_king %}<span class="badge badge-gold">King</span>{% endif %}
+                        {% if p.is_god %}<span class="badge badge-blue">God</span>{% endif %}
+                    </td>
+                    <td>{{ p.level }}</td>
+                    <td>{{ p.race }}</td>
+                    <td>{{ p.player_class }}</td>
+                    <td>{{ p.hp }}/{{ p.max_hp }}</td>
+                    <td class="text-gold">{{ p.gold }}g</td>
+                    <td>
+                        {% if p.is_poisoned %}<span class="badge badge-green">Poisoned</span>{% endif %}
+                        {% if p.is_imprisoned %}<span class="badge badge-red">Jailed</span>{% endif %}
+                        {% if p.is_blind %}<span class="badge badge-dim">Blind</span>{% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('admin_edit_player', player_id=p.id) }}" class="btn btn-sm">Edit</a>
+                        <form method="POST" action="{{ url_for('admin_delete_player', player_id=p.id) }}"
+                              class="inline-form" onsubmit="return confirm('Delete {{ p.name }}? This cannot be undone.')">
+                            <button type="submit" class="btn btn-sm btn-danger">Del</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if not players %}
+        <p class="text-dim">No {{ 'NPCs' if show == 'npcs' else 'players' }} found.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

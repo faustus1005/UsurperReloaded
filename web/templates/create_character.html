@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Create Character{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Create Your Character</div>
+    <div class="panel-body">
+        <form method="POST">
+            <div class="form-group">
+                <label for="name">Character Name</label>
+                <input type="text" id="name" name="name" class="form-control"
+                       required minlength="2" maxlength="30" autofocus
+                       placeholder="Enter your character name">
+            </div>
+
+            <div class="form-group">
+                <label>Sex</label>
+                <div class="race-class-grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <div class="race-class-option">
+                        <input type="radio" name="sex" id="sex_male" value="1" checked>
+                        <label for="sex_male">Male</label>
+                    </div>
+                    <div class="race-class-option">
+                        <input type="radio" name="sex" id="sex_female" value="2">
+                        <label for="sex_female">Female</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Race</label>
+                <div class="race-class-grid">
+                    {% for race in RACES %}
+                    <div class="race-class-option">
+                        <input type="radio" name="race" id="race_{{ race }}" value="{{ race }}"
+                               {% if loop.first %}checked{% endif %}>
+                        <label for="race_{{ race }}">{{ race }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="bonus-info" id="race-info">
+                    <strong>Race Bonuses:</strong> STR/DEF/STA/AGI/CHA/DEX/WIS/HP/MANA<br>
+                    {% for race, bonuses in race_bonuses.items() %}
+                    <span id="rb_{{ race }}" style="{% if not loop.first %}display:none{% endif %}">
+                        {{ race }}: {{ bonuses|join(', ') }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Class</label>
+                <div class="race-class-grid">
+                    {% for cls in CLASSES %}
+                    <div class="race-class-option">
+                        <input type="radio" name="player_class" id="class_{{ cls }}" value="{{ cls }}"
+                               {% if loop.first %}checked{% endif %}>
+                        <label for="class_{{ cls }}">{{ cls }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="bonus-info" id="class-info">
+                    <strong>Class Bonuses:</strong> STR/DEF/STA/AGI/CHA/DEX/WIS/HP/MANA<br>
+                    {% for cls, bonuses in class_bonuses.items() %}
+                    <span id="cb_{{ cls }}" style="{% if not loop.first %}display:none{% endif %}">
+                        {{ cls }}: {{ bonuses|join(', ') }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block mt-2">Enter the Realm</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('input[name="race"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        document.querySelectorAll('[id^="rb_"]').forEach(function(el) { el.style.display = 'none'; });
+        var el = document.getElementById('rb_' + this.value);
+        if (el) el.style.display = 'inline';
+    });
+});
+document.querySelectorAll('input[name="player_class"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        document.querySelectorAll('[id^="cb_"]').forEach(function(el) { el.style.display = 'none'; });
+        var el = document.getElementById('cb_' + this.value);
+        if (el) el.style.display = 'inline';
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Player Combat{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Dormitory - Player Combat</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-1">
+            Challenge another adventurer to combat!
+            Player fights remaining today: <span class="text-gold">{{ player.player_fights }}</span>
+        </p>
+
+        {% if player.player_fights <= 0 %}
+        <p class="text-red">You have no player fights remaining today.</p>
+        {% elif player.hp < player.max_hp // 3 %}
+        <p class="text-red">You are too wounded to fight. Heal at the inn first.</p>
+        {% else %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Race</th>
+                    <th>Class</th>
+                    <th>Level</th>
+                    <th>Alignment</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in targets %}
+                <tr>
+                    <td class="text-gold">{{ t.name }}{% if t.is_npc %} <span class="text-dim">[NPC]</span>{% endif %}</td>
+                    <td>{{ t.race }}</td>
+                    <td>{{ t.player_class }}</td>
+                    <td>{{ t.level }}</td>
+                    <td class="alignment-{% if t.chivalry > t.darkness %}good{% elif t.darkness > t.chivalry %}evil{% else %}neutral{% endif %}">
+                        {{ t.alignment_string() }}
+                    </td>
+                    <td>
+                        <form method="POST" action="{{ url_for('pvp_fight', target_id=t.id) }}">
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Challenge {{ t.name }}?')">Fight</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

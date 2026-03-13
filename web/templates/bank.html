@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Bank{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">{{ town_name }} Bank</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            The bank manager adjusts his spectacles. "How may I assist you today?"
+        </p>
+
+        <div class="stats-grid mb-2">
+            <div class="stat-item"><span class="label">Gold in Hand</span><span class="value text-gold">{{ player.gold }}</span></div>
+            <div class="stat-item"><span class="label">Gold in Bank</span><span class="value text-gold">{{ player.bank_gold }}</span></div>
+        </div>
+
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 250px;">
+                <h4 class="text-gold mb-1">Deposit</h4>
+                <form method="POST" action="{{ url_for('bank_deposit') }}" class="inline-form">
+                    <input type="number" name="amount" class="form-control" min="1"
+                           max="{{ player.gold }}" placeholder="Amount">
+                    <button type="submit" class="btn btn-success">Deposit</button>
+                </form>
+            </div>
+            <div style="flex: 1; min-width: 250px;">
+                <h4 class="text-gold mb-1">Withdraw</h4>
+                <form method="POST" action="{{ url_for('bank_withdraw') }}" class="inline-form">
+                    <input type="number" name="amount" class="form-control" min="1"
+                           max="{{ player.bank_gold }}" placeholder="Amount">
+                    <button type="submit" class="btn btn-primary">Withdraw</button>
+                </form>
+            </div>
+        </div>
+
+        <p class="text-dim mt-2">The bank pays 1% daily interest on your savings.</p>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

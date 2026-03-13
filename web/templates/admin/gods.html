@@ -1,0 +1,47 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">
+        God Editor
+        <a href="{{ url_for('admin_new_god') }}" class="btn btn-sm" style="float:right;">+ New God</a>
+    </div>
+    <div class="panel-body">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Domain</th>
+                    <th>Alignment</th>
+                    <th>Level</th>
+                    <th>Believers</th>
+                    <th>Active</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in gods %}
+                <tr>
+                    <td class="text-dim">{{ g.id }}</td>
+                    <td>{{ g.name }}</td>
+                    <td>{{ g.domain }}</td>
+                    <td>
+                        <span class="alignment-{{ g.alignment }}">{{ g.alignment|capitalize }}</span>
+                    </td>
+                    <td>{{ g.level }} ({{ g.title() }})</td>
+                    <td>{{ g.believer_count() }}</td>
+                    <td>{{ 'Yes' if g.is_active else 'No' }}</td>
+                    <td>
+                        <a href="{{ url_for('admin_edit_god', god_id=g.id) }}" class="btn btn-sm">Edit</a>
+                        <form method="POST" action="{{ url_for('admin_delete_god', god_id=g.id) }}"
+                              class="inline-form" onsubmit="return confirm('Delete {{ g.name }}?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Del</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

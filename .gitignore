@@ -1,0 +1,5 @@
+usurper*.zip
+bin/
+obj/
+RELEASE/EDITOR.EXE
+RELEASE/USURPER.EXE

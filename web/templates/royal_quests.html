@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Royal Quests{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Royal Quests</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            Quests decreed by the ruler of {{ town_name }}. Complete them for glory and reward!
+        </p>
+
+        {% if my_quests %}
+        <div class="panel mb-2" style="border-color: var(--gold-dark);">
+            <div class="panel-header">Your Active Quests</div>
+            <div class="panel-body">
+                {% for q in my_quests %}
+                <div class="item-card">
+                    <div class="item-info">
+                        <span class="text-gold">{{ q.title }}</span>
+                        {% if q.comment %}<span class="text-dim"> - {{ q.comment }}</span>{% endif %}
+                        <br>
+                        <span class="text-dim">
+                            Progress: {{ q.monsters_killed }}/{{ q.monsters_required }} monsters |
+                            Days: {{ q.days_elapsed }}/{{ q.days_to_complete }} |
+                            Reward: {{ q.reward_type }} ({{ ['','Low','Medium','High'][q.reward_size] }})
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if available %}
+        <h3 class="text-gold mt-2 mb-1">Available Quests</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Quest</th>
+                    <th>Difficulty</th>
+                    <th>Monsters</th>
+                    <th>Days</th>
+                    <th>Levels</th>
+                    <th>Reward</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in available %}
+                <tr>
+                    <td class="text-gold">{{ q.title }}{% if q.comment %}<br><span class="text-dim">{{ q.comment }}</span>{% endif %}</td>
+                    <td>{{ q.difficulty }}/10</td>
+                    <td>{{ q.monsters_required }}</td>
+                    <td>{{ q.days_to_complete }}</td>
+                    <td>{{ q.min_level }}-{{ q.max_level }}</td>
+                    <td>{{ q.reward_type }} ({{ ['','Low','Med','High'][q.reward_size] }})</td>
+                    <td>
+                        {% if player.level >= q.min_level and player.level <= q.max_level %}
+                        <form method="POST" action="{{ url_for('claim_quest', quest_id=q.id) }}">
+                            <button type="submit" class="btn btn-sm btn-success">Claim</button>
+                        </form>
+                        {% else %}
+                        <span class="text-dim">Lv{{ q.min_level }}-{{ q.max_level }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-dim mt-2">No quests are available right now.</p>
+        {% endif %}
+
+        {% if completed %}
+        <h3 class="text-secondary mt-2 mb-1">Completed Quests</h3>
+        <table>
+            <thead><tr><th>Quest</th><th>Status</th></tr></thead>
+            <tbody>
+                {% for q in completed %}
+                <tr>
+                    <td>{{ q.title }}</td>
+                    <td class="text-green">Completed</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+
+{% if is_king and king_record %}
+<div class="panel">
+    <div class="panel-header">Create Royal Quest ({{ king_record.quests_left }} remaining today)</div>
+    <div class="panel-body">
+        {% if king_record.quests_left > 0 %}
+        <form method="POST" action="{{ url_for('create_quest') }}">
+            <div class="mb-1">
+                <label>Difficulty (1-10):</label>
+                <input type="number" name="difficulty" class="form-control" value="5" min="1" max="10" style="width: 80px;">
+            </div>
+            <div class="mb-1">
+                <label>Days to Complete:</label>
+                <input type="number" name="days" class="form-control" value="3" min="1" max="15" style="width: 80px;">
+            </div>
+            <div class="mb-1">
+                <label>Level Range:</label>
+                <input type="number" name="min_level" class="form-control" value="1" min="1" max="30" style="width: 60px;">
+                <span> - </span>
+                <input type="number" name="max_level" class="form-control" value="30" min="1" max="30" style="width: 60px;">
+            </div>
+            <div class="mb-1">
+                <label>Reward:</label>
+                <select name="reward_type" class="form-control" style="width: 140px;">
+                    <option value="experience">Experience</option>
+                    <option value="gold">Gold</option>
+                    <option value="potions">Potions</option>
+                    <option value="chivalry">Chivalry</option>
+                    <option value="darkness">Darkness</option>
+                </select>
+                <select name="reward_size" class="form-control" style="width: 100px;">
+                    <option value="1">Low</option>
+                    <option value="2" selected>Medium</option>
+                    <option value="3">High</option>
+                </select>
+            </div>
+            <div class="mb-1">
+                <label>Penalty (optional):</label>
+                <select name="penalty_type" class="form-control" style="width: 140px;">
+                    <option value="">None</option>
+                    <option value="experience">Experience</option>
+                    <option value="gold">Gold</option>
+                </select>
+                <select name="penalty_size" class="form-control" style="width: 100px;">
+                    <option value="0">None</option>
+                    <option value="1">Low</option>
+                    <option value="2">Medium</option>
+                </select>
+            </div>
+            <div class="mb-1">
+                <label>Comment:</label>
+                <input type="text" name="comment" class="form-control" placeholder="Optional description" maxlength="200">
+            </div>
+            <div class="mb-1">
+                <label>Assign to player (optional):</label>
+                <input type="text" name="target_name" class="form-control" placeholder="Player name (blank = public)">
+            </div>
+            <button type="submit" class="btn btn-primary">Create Quest</button>
+        </form>
+        {% else %}
+        <p class="text-dim">No quest slots remaining today.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('castle') }}" class="btn">Back to Castle</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

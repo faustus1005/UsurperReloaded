@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Dungeon Event{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">{{ event.name }}</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">{{ event.description }}</p>
+
+        <div class="mt-2">
+            {% for key, choice in event.choices.items() %}
+            <form method="POST" action="{{ url_for('resolve_dungeon_event') }}" style="display:inline; margin-right: 8px;">
+                <input type="hidden" name="event_id" value="{{ event.id }}">
+                <input type="hidden" name="choice" value="{{ key }}">
+                <button type="submit" class="btn btn-primary mb-1">{{ choice.label }}</button>
+            </form>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('dungeon') }}" class="btn">Back to Dungeon</a>
+</div>
+{% endblock %}

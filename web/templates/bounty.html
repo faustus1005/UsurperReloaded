@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Bounty Board{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Bounty Board - Most Wanted</div>
+    <div class="panel-body">
+        {% if wanted %}
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Wanted</th>
+                    <th>Class</th>
+                    <th>Level</th>
+                    <th>Bounty</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for w in wanted %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td class="text-red">{{ w.player.name }}</td>
+                    <td>{{ w.player.player_class }}</td>
+                    <td>{{ w.player.level }}</td>
+                    <td class="text-gold">{{ w.total_bounty }}g</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-dim">No active bounties. The realm is at peace... for now.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Post a Bounty</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-1">Place a price on someone's head. Minimum 50 gold.</p>
+        <form method="POST" action="{{ url_for('post_bounty') }}">
+            <div class="form-group">
+                <label>Target Player Name</label>
+                <input type="text" name="target" class="form-control" placeholder="Player name" required>
+            </div>
+            <div class="form-group">
+                <label>Bounty Amount (gold)</label>
+                <input type="number" name="amount" class="form-control" min="50" value="50" required>
+            </div>
+            <div class="form-group">
+                <label>Reason</label>
+                <input type="text" name="reason" class="form-control" value="Wanted Dead or Alive" maxlength="100">
+            </div>
+            <button type="submit" class="btn btn-danger">Post Bounty</button>
+        </form>
+    </div>
+</div>
+
+{% if my_bounties %}
+<div class="panel">
+    <div class="panel-header">Your Active Bounties</div>
+    <div class="panel-body">
+        {% for b in my_bounties %}
+        <div class="item-card">
+            <div class="item-info">
+                <span class="text-red">{{ b.target.name }}</span> -
+                <span class="text-gold">{{ b.amount }}g</span> -
+                <span class="text-dim">{{ b.reason }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

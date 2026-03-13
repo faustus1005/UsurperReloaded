@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Throne Challenge{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        {% if result == 'victory' %}
+        Victory! The Throne is Yours!
+        {% else %}
+        Defeat at the Castle Gates
+        {% endif %}
+    </div>
+    <div class="panel-body">
+        <div class="combat-log">
+            {% for entry in combat_log %}
+            {% if entry %}
+            <p{% if '===' in entry %} class="text-gold"{% elif 'defeated' in entry or 'defeated' in entry.lower() %} class="text-red"{% elif 'falls' in entry or 'slain' in entry or 'claimed' in entry %} class="text-green"{% endif %}>{{ entry }}</p>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('castle') }}" class="btn">Back to Castle</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

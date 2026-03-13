@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title_suffix %} - {{ dungeon_name }}{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">{{ dungeon_name }}</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            You stand at the entrance to the dark dungeon complex.
+            Danger and treasure await those brave enough to venture inside.
+        </p>
+
+        <div class="stats-grid mb-2">
+            <div class="stat-item"><span class="label">Dungeon Level</span><span class="value">{{ player.level }}</span></div>
+            <div class="stat-item"><span class="label">Fights Remaining</span><span class="value">{{ player.fights_remaining }}</span></div>
+            <div class="stat-item"><span class="label">HP</span><span class="value hp">{{ player.hp }} / {{ player.max_hp }}</span></div>
+            {% if player.max_mana > 0 %}
+            <div class="stat-item"><span class="label">Mana</span><span class="value mana">{{ player.mana }} / {{ player.max_mana }}</span></div>
+            {% endif %}
+            <div class="stat-item"><span class="label">Healing Potions</span><span class="value">{{ player.healing_potions }}</span></div>
+        </div>
+
+        {% if player.fights_remaining > 0 and player.hp > 0 %}
+        <form method="POST" action="{{ url_for('dungeon_explore') }}">
+            <button type="submit" class="btn btn-primary btn-block">Explore the Dungeon</button>
+        </form>
+        {% elif player.hp <= 0 %}
+        <p class="text-red text-center">You are too wounded to explore. Visit the inn to rest.</p>
+        {% else %}
+        <p class="text-dim text-center">You have no dungeon fights remaining today. Come back tomorrow.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

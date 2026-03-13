@@ -1,0 +1,65 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">Admin Dashboard</div>
+    <div class="panel-body">
+        <div class="admin-stats-grid">
+            <div class="admin-stat-card">
+                <span class="stat-number">{{ stats.total_players }}</span>
+                <span class="stat-desc">Human Players</span>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-number">{{ stats.total_npcs }}</span>
+                <span class="stat-desc">NPCs</span>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-number">{{ stats.total_items }}</span>
+                <span class="stat-desc">Items</span>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-number">{{ stats.total_monsters }}</span>
+                <span class="stat-desc">Monsters</span>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-number">{{ stats.total_teams }}</span>
+                <span class="stat-desc">Teams</span>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-number">{{ stats.total_gods }}</span>
+                <span class="stat-desc">Gods</span>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-number">{{ stats.total_users }}</span>
+                <span class="stat-desc">User Accounts</span>
+            </div>
+            <div class="admin-stat-card">
+                <span class="stat-number">{{ stats.total_bounties }}</span>
+                <span class="stat-desc">Active Bounties</span>
+            </div>
+        </div>
+
+        {% if king %}
+        <div class="admin-info-row">
+            <strong>Current Monarch:</strong> {{ king.name }} (Level {{ king.level }} {{ king.race }} {{ king.player_class }})
+        </div>
+        {% else %}
+        <div class="admin-info-row text-dim">The throne is vacant.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Quick Actions</div>
+    <div class="panel-body">
+        <div class="admin-actions">
+            <form method="POST" action="{{ url_for('admin_run_maintenance') }}" class="inline-form">
+                <button type="submit" class="btn btn-sm">Run Daily Maintenance</button>
+            </form>
+            <form method="POST" action="{{ url_for('admin_clear_news') }}" class="inline-form"
+                  onsubmit="return confirm('Clear all news entries?')">
+                <button type="submit" class="btn btn-sm btn-danger">Clear News</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

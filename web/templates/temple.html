@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Temple of the Gods{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Temple of the Gods</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            A sacred place where mortals commune with the divine.
+        </p>
+
+        {% if current_god %}
+        <div class="panel mb-2" style="border-color: var(--gold-dark);">
+            <div class="panel-header">Your Deity: {{ current_god.name }}</div>
+            <div class="panel-body">
+                <p>{{ current_god.title() }} of {{ current_god.domain }} ({{ current_god.alignment }})</p>
+                <p class="text-dim">{{ current_god.description }}</p>
+                <p>Believers: <span class="text-gold">{{ current_god.believer_count() }}</span></p>
+
+                <div class="mt-1">
+                    <form method="POST" action="{{ url_for('pray') }}" style="display:inline;">
+                        <button type="submit" class="btn btn-primary btn-sm">Pray for Blessing</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('forsake') }}" style="display:inline;" class="ml-1">
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Forsake your deity?')">Forsake</button>
+                    </form>
+                </div>
+
+                <hr class="separator">
+                <h4 class="text-secondary mb-1">Sacrifice Gold</h4>
+                <form method="POST" action="{{ url_for('sacrifice') }}" class="inline-form">
+                    <input type="number" name="amount" class="form-control" placeholder="Gold amount" min="1" style="width: 120px;">
+                    <button type="submit" class="btn btn-primary btn-sm">Sacrifice</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <h3 class="text-gold mt-2 mb-1">The Altars</h3>
+        {% if gods %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Deity</th>
+                    <th>Title</th>
+                    <th>Domain</th>
+                    <th>Alignment</th>
+                    <th>Believers</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for god in gods %}
+                <tr>
+                    <td class="text-gold">{{ god.name }}</td>
+                    <td>{{ god.title() }}</td>
+                    <td>{{ god.domain }}</td>
+                    <td>
+                        {% if god.alignment == 'good' %}<span class="text-green">Good</span>
+                        {% elif god.alignment == 'evil' %}<span class="text-red">Evil</span>
+                        {% else %}Neutral{% endif %}
+                    </td>
+                    <td>{{ god.believer_count() }}</td>
+                    <td>
+                        {% if not current_god or current_god.name != god.name %}
+                        <form method="POST" action="{{ url_for('worship') }}" style="display:inline;">
+                            <input type="hidden" name="god_name" value="{{ god.name }}">
+                            <button type="submit" class="btn btn-sm btn-success">Worship</button>
+                        </form>
+                        {% if current_god and current_god.name != god.name %}
+                        <form method="POST" action="{{ url_for('desecrate') }}" style="display:inline;">
+                            <input type="hidden" name="god_name" value="{{ god.name }}">
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Desecrate this altar? Risk divine wrath!')">Desecrate</button>
+                        </form>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-gold">Your Deity</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-dim">No deities are known in this realm.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

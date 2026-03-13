@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Admin Panel{% endblock %}
+{% block content %}
+<div class="admin-wrapper">
+    <nav class="admin-nav">
+        <div class="admin-nav-header">Game Editor</div>
+        <a href="{{ url_for('admin_dashboard') }}" class="admin-nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="{{ url_for('admin_config') }}" class="admin-nav-link {% if request.endpoint == 'admin_config' %}active{% endif %}">Configuration</a>
+        <a href="{{ url_for('admin_items') }}" class="admin-nav-link {% if request.endpoint in ('admin_items', 'admin_edit_item', 'admin_new_item') %}active{% endif %}">Items</a>
+        <a href="{{ url_for('admin_monsters') }}" class="admin-nav-link {% if request.endpoint in ('admin_monsters', 'admin_edit_monster', 'admin_new_monster') %}active{% endif %}">Monsters</a>
+        <a href="{{ url_for('admin_players') }}" class="admin-nav-link {% if request.endpoint in ('admin_players', 'admin_edit_player') %}active{% endif %}">Players</a>
+        <a href="{{ url_for('admin_gods') }}" class="admin-nav-link {% if request.endpoint in ('admin_gods', 'admin_edit_god', 'admin_new_god') %}active{% endif %}">Gods</a>
+        <a href="{{ url_for('admin_users') }}" class="admin-nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}">Users</a>
+        <a href="{{ url_for('main_menu') }}" class="admin-nav-link back-link">Back to Game</a>
+    </nav>
+    <div class="admin-content">
+        {% block admin_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">Edit Player: {{ player.name }} {% if player.is_npc %}(NPC){% endif %}</div>
+    <div class="panel-body">
+        <form method="POST">
+            <fieldset class="admin-fieldset">
+                <legend>Identity</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="name">Name</label>
+                        <input type="text" name="name" value="{{ player.name }}" class="admin-input" required>
+                    </div>
+                    <div class="admin-field">
+                        <label for="race">Race</label>
+                        <select name="race" class="admin-input">
+                            {% for r in races %}
+                            <option value="{{ r }}" {% if player.race == r %}selected{% endif %}>{{ r }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="admin-field">
+                        <label for="player_class">Class</label>
+                        <select name="player_class" class="admin-input">
+                            {% for c in classes %}
+                            <option value="{{ c }}" {% if player.player_class == c %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="sex">Sex</label>
+                        <select name="sex" class="admin-input">
+                            <option value="1" {% if player.sex == 1 %}selected{% endif %}>Male</option>
+                            <option value="2" {% if player.sex == 2 %}selected{% endif %}>Female</option>
+                        </select>
+                    </div>
+                    <div class="admin-field">
+                        <label for="age">Age</label>
+                        <input type="number" name="age" value="{{ player.age }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="level">Level</label>
+                        <input type="number" name="level" value="{{ player.level }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Core Stats</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label>STR</label>
+                        <input type="number" name="strength" value="{{ player.strength }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>DEF</label>
+                        <input type="number" name="defence" value="{{ player.defence }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>STA</label>
+                        <input type="number" name="stamina" value="{{ player.stamina }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>AGI</label>
+                        <input type="number" name="agility" value="{{ player.agility }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label>CHA</label>
+                        <input type="number" name="charisma" value="{{ player.charisma }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>DEX</label>
+                        <input type="number" name="dexterity" value="{{ player.dexterity }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>WIS</label>
+                        <input type="number" name="wisdom" value="{{ player.wisdom }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Vitals</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label>HP</label>
+                        <input type="number" name="hp" value="{{ player.hp }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Max HP</label>
+                        <input type="number" name="max_hp" value="{{ player.max_hp }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Mana</label>
+                        <input type="number" name="mana" value="{{ player.mana }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Max Mana</label>
+                        <input type="number" name="max_mana" value="{{ player.max_mana }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Progression & Economy</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label>Experience</label>
+                        <input type="number" name="experience" value="{{ player.experience }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Gold</label>
+                        <input type="number" name="gold" value="{{ player.gold }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Bank Gold</label>
+                        <input type="number" name="bank_gold" value="{{ player.bank_gold }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label>Chivalry</label>
+                        <input type="number" name="chivalry" value="{{ player.chivalry }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Darkness</label>
+                        <input type="number" name="darkness" value="{{ player.darkness }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Daily Limits</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label>Dungeon Fights</label>
+                        <input type="number" name="fights_remaining" value="{{ player.fights_remaining }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Player Fights</label>
+                        <input type="number" name="player_fights" value="{{ player.player_fights }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Thefts</label>
+                        <input type="number" name="thefts_remaining" value="{{ player.thefts_remaining }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Brawls</label>
+                        <input type="number" name="brawls_remaining" value="{{ player.brawls_remaining }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Combat</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label>Weapon Power</label>
+                        <input type="number" name="weapon_power" value="{{ player.weapon_power }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Armor Power</label>
+                        <input type="number" name="armor_power" value="{{ player.armor_power }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Monster Kills</label>
+                        <input type="number" name="monster_kills" value="{{ player.monster_kills }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Player Kills</label>
+                        <input type="number" name="player_kills" value="{{ player.player_kills }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field">
+                    <label>Healing Potions</label>
+                    <input type="number" name="healing_potions" value="{{ player.healing_potions }}" class="admin-input admin-input-sm">
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Status Flags</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="is_poisoned" {% if player.is_poisoned %}checked{% endif %}> Poisoned</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="is_blind" {% if player.is_blind %}checked{% endif %}> Blind</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="has_plague" {% if player.has_plague %}checked{% endif %}> Plague</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="is_imprisoned" {% if player.is_imprisoned %}checked{% endif %}> Imprisoned</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="is_king" {% if player.is_king %}checked{% endif %}> King/Queen</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="is_god" {% if player.is_god %}checked{% endif %}> Is God</label>
+                    </div>
+                </div>
+            </fieldset>
+
+            <div class="admin-form-actions">
+                <button type="submit" class="btn">Save Changes</button>
+                <a href="{{ url_for('admin_players', show='npcs' if player.is_npc else 'humans') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

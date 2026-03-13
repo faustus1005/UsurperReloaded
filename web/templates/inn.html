@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title_suffix %} - {{ inn_name }}{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">{{ inn_name }}</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            The warm glow of the fireplace fills the room. The innkeeper greets you with a nod.
+            "Welcome, traveler. Need a room for the night?"
+        </p>
+
+        <div class="stats-grid mb-2">
+            <div class="stat-item"><span class="label">HP</span><span class="value hp">{{ player.hp }} / {{ player.max_hp }}</span></div>
+            {% if player.max_mana > 0 %}
+            <div class="stat-item"><span class="label">Mana</span><span class="value mana">{{ player.mana }} / {{ player.max_mana }}</span></div>
+            {% endif %}
+            <div class="stat-item"><span class="label">Gold</span><span class="value text-gold">{{ player.gold }}</span></div>
+        </div>
+
+        <form method="POST" action="{{ url_for('inn_rest') }}">
+            <button type="submit" class="btn btn-primary">
+                Rest at the Inn ({{ rest_cost }} gold)
+            </button>
+        </form>
+        <p class="text-dim mt-1">Resting restores half your HP and Mana.</p>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Level Master{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">{{ master_name }}</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            The ancient master studies you carefully.
+            {% if can_level %}
+            "I sense great power within you. You are ready to advance!"
+            {% else %}
+            "You must prove yourself further before I can train you."
+            {% endif %}
+        </p>
+
+        <div class="stats-grid mb-2">
+            <div class="stat-item"><span class="label">Current Level</span><span class="value">{{ player.level }}</span></div>
+            <div class="stat-item"><span class="label">Experience</span><span class="value">{{ player.experience }}</span></div>
+            <div class="stat-item"><span class="label">XP Needed</span><span class="value">{{ xp_needed }}</span></div>
+        </div>
+
+        {% if can_level %}
+        <form method="POST" action="{{ url_for('train_level') }}">
+            <button type="submit" class="btn btn-primary btn-block">Train to Level {{ player.level + 1 }}!</button>
+        </form>
+        {% else %}
+        <p class="text-dim text-center">
+            You need {{ xp_needed - player.experience }} more experience to reach level {{ player.level + 1 }}.
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

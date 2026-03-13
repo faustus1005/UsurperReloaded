@@ -1,0 +1,150 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">{{ 'Create New Item' if is_new is defined else 'Edit Item: ' + item.name }}</div>
+    <div class="panel-body">
+        <form method="POST" action="{{ url_for('admin_new_item') if is_new is defined else url_for('admin_edit_item', item_id=item.id) }}">
+            <fieldset class="admin-fieldset">
+                <legend>Basic Info</legend>
+                <div class="admin-field">
+                    <label for="name">Name</label>
+                    <input type="text" name="name" id="name" value="{{ item.name }}" class="admin-input" required>
+                </div>
+                <div class="admin-field">
+                    <label for="item_type">Type</label>
+                    <select name="item_type" id="item_type" class="admin-input">
+                        {% for t in item_types %}
+                        <option value="{{ t }}" {% if item.item_type == t %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="admin-field">
+                    <label for="description">Description</label>
+                    <input type="text" name="description" id="description" value="{{ item.description }}" class="admin-input">
+                </div>
+                <div class="admin-field">
+                    <label for="value">Gold Value</label>
+                    <input type="number" name="value" id="value" value="{{ item.value }}" class="admin-input admin-input-sm">
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Stat Bonuses</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="attack_bonus">Attack</label>
+                        <input type="number" name="attack_bonus" value="{{ item.attack_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="armor_bonus">Armor</label>
+                        <input type="number" name="armor_bonus" value="{{ item.armor_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="hp_bonus">HP</label>
+                        <input type="number" name="hp_bonus" value="{{ item.hp_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="mana_bonus">Mana</label>
+                        <input type="number" name="mana_bonus" value="{{ item.mana_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="strength_bonus">STR</label>
+                        <input type="number" name="strength_bonus" value="{{ item.strength_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="defence_bonus">DEF</label>
+                        <input type="number" name="defence_bonus" value="{{ item.defence_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="stamina_bonus">STA</label>
+                        <input type="number" name="stamina_bonus" value="{{ item.stamina_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="agility_bonus">AGI</label>
+                        <input type="number" name="agility_bonus" value="{{ item.agility_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="charisma_bonus">CHA</label>
+                        <input type="number" name="charisma_bonus" value="{{ item.charisma_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="dexterity_bonus">DEX</label>
+                        <input type="number" name="dexterity_bonus" value="{{ item.dexterity_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="wisdom_bonus">WIS</label>
+                        <input type="number" name="wisdom_bonus" value="{{ item.wisdom_bonus }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Properties</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="min_level">Min Level</label>
+                        <input type="number" name="min_level" value="{{ item.min_level }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="max_level">Max Level</label>
+                        <input type="number" name="max_level" value="{{ item.max_level }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="strength_required">STR Required</label>
+                        <input type="number" name="strength_required" value="{{ item.strength_required }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="in_shop" {% if item.in_shop %}checked{% endif %}> Available in Shop</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="in_dungeon" {% if item.in_dungeon %}checked{% endif %}> Found in Dungeon</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="is_unique" {% if item.is_unique %}checked{% endif %}> Unique</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="is_cursed" {% if item.is_cursed %}checked{% endif %}> Cursed</label>
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="good_only" {% if item.good_only %}checked{% endif %}> Good Only</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="evil_only" {% if item.evil_only %}checked{% endif %}> Evil Only</label>
+                    </div>
+                </div>
+                <div class="admin-field">
+                    <label for="class_restrictions">Class Restrictions (comma-separated, blank=all)</label>
+                    <input type="text" name="class_restrictions" value="{{ item.class_restrictions }}" class="admin-input"
+                           placeholder="e.g. Magician,Sage,Cleric">
+                </div>
+                <div class="admin-field">
+                    <label for="shop_category">Shop Category</label>
+                    <select name="shop_category" class="admin-input">
+                        <option value="" {% if not item.shop_category %}selected{% endif %}>Default (weapon/armor)</option>
+                        <option value="weapon" {% if item.shop_category == 'weapon' %}selected{% endif %}>Weapon Shop</option>
+                        <option value="armor" {% if item.shop_category == 'armor' %}selected{% endif %}>Armor Shop</option>
+                        <option value="magic" {% if item.shop_category == 'magic' %}selected{% endif %}>Magic Shop</option>
+                        <option value="alchemist" {% if item.shop_category == 'alchemist' %}selected{% endif %}>Alchemist</option>
+                        <option value="healing" {% if item.shop_category == 'healing' %}selected{% endif %}>Healing Hut</option>
+                        <option value="general" {% if item.shop_category == 'general' %}selected{% endif %}>General Store</option>
+                        <option value="shady" {% if item.shop_category == 'shady' %}selected{% endif %}>Shady Dealer</option>
+                    </select>
+                </div>
+            </fieldset>
+
+            <div class="admin-form-actions">
+                <button type="submit" class="btn">{{ 'Create Item' if is_new is defined else 'Save Changes' }}</button>
+                <a href="{{ url_for('admin_items') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

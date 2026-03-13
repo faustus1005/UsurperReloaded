@@ -1,0 +1,68 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">{{ 'Create New God' if is_new is defined else 'Edit God: ' + god.name }}</div>
+    <div class="panel-body">
+        <form method="POST" action="{{ url_for('admin_new_god') if is_new is defined else url_for('admin_edit_god', god_id=god.id) }}">
+            <fieldset class="admin-fieldset">
+                <legend>Identity</legend>
+                <div class="admin-field">
+                    <label for="name">Name</label>
+                    <input type="text" name="name" value="{{ god.name }}" class="admin-input" required>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="domain">Domain</label>
+                        <input type="text" name="domain" value="{{ god.domain }}" class="admin-input" placeholder="e.g. War, Love, Death">
+                    </div>
+                    <div class="admin-field">
+                        <label for="alignment">Alignment</label>
+                        <select name="alignment" class="admin-input">
+                            <option value="good" {% if god.alignment == 'good' %}selected{% endif %}>Good</option>
+                            <option value="neutral" {% if god.alignment == 'neutral' %}selected{% endif %}>Neutral</option>
+                            <option value="evil" {% if god.alignment == 'evil' %}selected{% endif %}>Evil</option>
+                        </select>
+                    </div>
+                    <div class="admin-field">
+                        <label for="sex">Sex</label>
+                        <select name="sex" class="admin-input">
+                            <option value="1" {% if god.sex == 1 %}selected{% endif %}>Male</option>
+                            <option value="2" {% if god.sex == 2 %}selected{% endif %}>Female</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="admin-field">
+                    <label for="description">Description</label>
+                    <input type="text" name="description" value="{{ god.description }}" class="admin-input">
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Power</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="level">Level (1-9)</label>
+                        <input type="number" name="level" value="{{ god.level }}" min="1" max="9" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="experience">Divine Power (XP)</label>
+                        <input type="number" name="experience" value="{{ god.experience }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="deeds_left">Deeds Left</label>
+                        <input type="number" name="deeds_left" value="{{ god.deeds_left }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field">
+                    <label><input type="checkbox" name="is_active" {% if god.is_active %}checked{% endif %}> Active</label>
+                </div>
+            </fieldset>
+
+            <div class="admin-form-actions">
+                <button type="submit" class="btn">{{ 'Create God' if is_new is defined else 'Save Changes' }}</button>
+                <a href="{{ url_for('admin_gods') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

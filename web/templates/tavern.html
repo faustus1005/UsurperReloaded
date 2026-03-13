@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Tavern{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Bob's Tavern</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            The tavern is filled with rowdy patrons, the smell of ale, and the sound of
+            fists meeting faces. What'll it be?
+        </p>
+
+        <div class="menu-grid">
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-red">&#9994;</span>
+                <span class="label">Bar Brawl</span>
+                <span class="sublabel">{{ player.brawls_remaining }} brawls left</span>
+                <form method="POST" action="{{ url_for('tavern_brawl') }}" class="mt-1">
+                    <button type="submit" class="btn btn-danger btn-sm btn-block"
+                        {% if player.brawls_remaining <= 0 or player.hp < player.max_hp // 4 %}disabled{% endif %}>
+                        Start Brawl
+                    </button>
+                </form>
+            </div>
+
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-gold">&#127866;</span>
+                <span class="label">Drinking Contest</span>
+                <span class="sublabel">Entry: {{ drink_cost }}g</span>
+                <form method="POST" action="{{ url_for('drinking_contest') }}" class="mt-1">
+                    <button type="submit" class="btn btn-primary btn-sm btn-block"
+                        {% if player.gold < drink_cost %}disabled{% endif %}>
+                        Enter Contest
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

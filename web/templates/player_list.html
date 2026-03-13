@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Players{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Adventurers of {{ town_name }}</div>
+    <div class="panel-body">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Race</th>
+                    <th>Class</th>
+                    <th>Level</th>
+                    <th>Team</th>
+                    <th>Status</th>
+                    <th>Alignment</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in players %}
+                <tr>
+                    <td class="text-gold">{{ p.name }}{% if p.is_king %} ({{ 'King' if p.sex == 1 else 'Queen' }}){% endif %}{% if p.is_npc %} <span class="text-dim">[NPC]</span>{% endif %}</td>
+                    <td>{{ p.race }}</td>
+                    <td>{{ p.player_class }}</td>
+                    <td>{{ p.level }}</td>
+                    <td>{{ p.team_name if p.team_name else '-' }}</td>
+                    <td>{% if p.is_imprisoned %}<span class="text-red">Imprisoned</span>{% elif p.married %}Married{% else %}-{% endif %}</td>
+                    <td class="alignment-{% if p.chivalry > p.darkness %}good{% elif p.darkness > p.chivalry %}evil{% else %}neutral{% endif %}">
+                        {{ p.alignment_string() }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

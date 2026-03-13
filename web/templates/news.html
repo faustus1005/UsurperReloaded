@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title_suffix %} - News{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">{{ town_name }} Daily News</div>
+    <div class="panel-body">
+        {% if entries %}
+        {% for entry in entries %}
+        <div class="news-entry">
+            <span class="category">{{ entry.category }}</span>
+            {{ entry.message }}
+            <span class="timestamp">{{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </div>
+        {% endfor %}
+
+        <div class="mt-2 text-center">
+            {% if has_prev %}
+            <a href="{{ url_for('news', page=page-1) }}" class="btn btn-sm">Previous</a>
+            {% endif %}
+            <span class="text-dim">Page {{ page }}</span>
+            {% if has_next %}
+            <a href="{{ url_for('news', page=page+1) }}" class="btn btn-sm">Next</a>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="text-dim">No news yet. The realm is quiet...</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

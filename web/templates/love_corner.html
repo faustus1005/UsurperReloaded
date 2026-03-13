@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Love Corner{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Love Corner</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            A quiet corner of town where hearts are won and broken.
+        </p>
+
+        {% if spouse %}
+        <div class="panel mb-2" style="border-color: var(--hp-red);">
+            <div class="panel-header">Marriage</div>
+            <div class="panel-body">
+                <p>You are married to <span class="text-gold">{{ spouse.name }}</span>
+                   (Lv{{ spouse.level }} {{ spouse.race }} {{ spouse.player_class }})</p>
+                {% if player.is_pregnant %}
+                <p class="text-gold mt-1">You are expecting a child! (Day {{ player.pregnancy_days }}/3)</p>
+                {% endif %}
+                {% if player.children_count > 0 %}
+                <p class="mt-1">Children: <span class="text-gold">{{ player.children_count }}</span>
+                    <a href="{{ url_for('children') }}" class="btn btn-sm btn-primary" style="margin-left: 8px;">View Children</a>
+                </p>
+                {% endif %}
+                <div class="mt-1">
+                    <form method="POST" action="{{ url_for('intimacy') }}" style="display:inline;">
+                        <button type="submit" class="btn btn-primary btn-sm">Spend Time Together</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('divorce_spouse') }}" style="display:inline;" class="ml-1">
+                        <button type="submit" class="btn btn-danger btn-sm"
+                                onclick="return confirm('Are you sure you want to divorce {{ spouse.name }}?')">
+                            Divorce
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% elif not player.married %}
+        <div class="panel mb-2">
+            <div class="panel-header">Propose Marriage</div>
+            <div class="panel-body">
+                <form method="POST" action="{{ url_for('propose') }}" class="inline-form">
+                    <input type="text" name="target" class="form-control" placeholder="Player name" required>
+                    <button type="submit" class="btn btn-primary btn-sm">Propose</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if proposals %}
+        <div class="panel mb-2" style="border-color: var(--gold-dark);">
+            <div class="panel-header">Marriage Proposals</div>
+            <div class="panel-body">
+                {% for p in proposals %}
+                <div class="item-card">
+                    <div class="item-info">
+                        <span class="text-gold">{{ p.player1.name }}</span>
+                        <span class="text-dim">Lv{{ p.player1.level }} {{ p.player1.race }} {{ p.player1.player_class }}</span>
+                    </div>
+                    <div class="item-actions">
+                        <form method="POST" action="{{ url_for('accept_proposal', proposer_id=p.player1_id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-success btn-sm">Accept</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('decline_proposal', proposer_id=p.player1_id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-danger btn-sm">Decline</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Social Relations</div>
+    <div class="panel-body">
+        {% if relationships %}
+        <table>
+            <thead>
+                <tr><th>Player</th><th>Relation</th><th>Level</th></tr>
+            </thead>
+            <tbody>
+                {% for r in relationships %}
+                {% if r.type != 'proposal' %}
+                <tr>
+                    <td class="text-gold">{{ r.player.name }}</td>
+                    <td>
+                        {% if r.type == 'married' %}<span class="text-red">Spouse</span>
+                        {% elif r.type == 'ally' %}<span class="text-green">Ally</span>
+                        {% elif r.type == 'rival' %}<span class="text-red">Rival</span>
+                        {% else %}{{ r.type }}{% endif %}
+                    </td>
+                    <td>{{ r.player.level }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-dim">No social connections yet.</p>
+        {% endif %}
+
+        <hr class="separator">
+        <h4 class="text-secondary mb-1">Add Relationship</h4>
+        <form method="POST" action="{{ url_for('add_relation') }}" class="inline-form">
+            <input type="text" name="target" class="form-control" placeholder="Player name" required>
+            <select name="rel_type" class="form-control" style="width: 120px;">
+                <option value="ally">Ally</option>
+                <option value="rival">Rival</option>
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        </form>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

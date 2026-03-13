@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Royal Castle{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Royal Castle</div>
+    <div class="panel-body">
+        {% if king %}
+        <div class="stats-grid mb-2">
+            <div class="stat-item">
+                <span class="label">{{ 'King' if king.sex == 1 else 'Queen' }}</span>
+                <span class="value">{{ king.name }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Level</span>
+                <span class="value">{{ king.level }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Race / Class</span>
+                <span class="value">{{ king.race }} {{ king.player_class }}</span>
+            </div>
+            {% if king_record %}
+            <div class="stat-item">
+                <span class="label">Moat Guards</span>
+                <span class="value">{{ king_record.moat_guards }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Tax Rate</span>
+                <span class="value">{{ king_record.tax_rate }}%</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Royal Treasury</span>
+                <span class="value">{{ king_record.treasury }}g</span>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if player.id != king.id %}
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Challenge the Throne</h3>
+        <p class="text-secondary mb-1">
+            You must defeat {{ king_record.moat_guards }} moat guards and then the
+            {{ 'King' if king.sex == 1 else 'Queen' }} in combat.
+            Requires level 5+ and at least half HP.
+        </p>
+        <form method="POST" action="{{ url_for('challenge_king') }}" style="display:inline;">
+            <button type="submit" class="btn btn-danger" onclick="return confirm('Challenge the throne? This could be deadly!')">
+                Challenge {{ 'King' if king.sex == 1 else 'Queen' }} {{ king.name }}
+            </button>
+        </form>
+        <a href="{{ url_for('royal_quests') }}" class="btn btn-primary" style="margin-left: 8px;">View Royal Quests</a>
+        {% else %}
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Royal Powers</h3>
+
+        <div class="panel mb-1">
+            <div class="panel-header">Hire Moat Guards (100g each from treasury)</div>
+            <div class="panel-body">
+                <form method="POST" action="{{ url_for('hire_guards') }}" class="inline-form">
+                    <input type="number" name="count" class="form-control" value="1" min="1" max="50" style="width: 80px;">
+                    <button type="submit" class="btn btn-primary btn-sm">Hire Guards</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="panel mb-1">
+            <div class="panel-header">Deposit to Royal Treasury</div>
+            <div class="panel-body">
+                <form method="POST" action="{{ url_for('castle_deposit') }}" class="inline-form">
+                    <input type="number" name="amount" class="form-control" placeholder="Amount" min="1" style="width: 120px;">
+                    <button type="submit" class="btn btn-primary btn-sm">Deposit</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="panel mb-1">
+            <div class="panel-header">Imprison a Player</div>
+            <div class="panel-body">
+                <form method="POST" action="{{ url_for('imprison_player') }}" class="inline-form">
+                    <input type="text" name="target" class="form-control" placeholder="Player name" required>
+                    <button type="submit" class="btn btn-danger btn-sm">Imprison</button>
+                </form>
+            </div>
+        </div>
+
+        {% if prisoners %}
+        <div class="panel mb-1">
+            <div class="panel-header">Prisoners</div>
+            <div class="panel-body">
+                {% for p in prisoners %}
+                <div class="item-card">
+                    <div class="item-info">
+                        <span class="text-gold">{{ p.name }}</span>
+                        <span class="text-dim"> - Lv{{ p.level }} {{ p.player_class }}</span>
+                    </div>
+                    <form method="POST" action="{{ url_for('release_player') }}">
+                        <input type="hidden" name="target" value="{{ p.name }}">
+                        <button type="submit" class="btn btn-success btn-sm">Release</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="panel mb-1">
+            <div class="panel-header">Royal Quests</div>
+            <div class="panel-body">
+                <a href="{{ url_for('royal_quests') }}" class="btn btn-primary">Manage Royal Quests</a>
+            </div>
+        </div>
+
+        <div class="mt-2">
+            <form method="POST" action="{{ url_for('abdicate') }}">
+                <button type="submit" class="btn btn-danger" onclick="return confirm('Abdicate the throne? This cannot be undone!')">Abdicate Throne</button>
+            </form>
+        </div>
+        {% endif %}
+        {% else %}
+        <p class="text-secondary mb-1">The throne is vacant! No ruler sits upon the throne.</p>
+        <p class="text-dim mb-1">Any adventurer of level 5 or above may claim the throne.</p>
+        <form method="POST" action="{{ url_for('challenge_king') }}">
+            <button type="submit" class="btn btn-primary">Claim the Throne</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% if history %}
+<div class="panel">
+    <div class="panel-header">History of Monarchs</div>
+    <div class="panel-body">
+        <table>
+            <thead>
+                <tr><th>Ruler</th><th>Crowned</th><th>Dethroned</th></tr>
+            </thead>
+            <tbody>
+                {% for h in history %}
+                <tr>
+                    <td class="text-gold">{{ h.player.name }}</td>
+                    <td>{{ h.crowned_at.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ h.dethroned_at.strftime('%Y-%m-%d') if h.dethroned_at else 'N/A' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}
