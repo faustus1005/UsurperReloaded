@@ -125,6 +125,29 @@ The game will be available at `http://localhost:5000`.
 
 The database is automatically created and seeded with monsters, items, NPCs, gods, and default configuration on first run.
 
+### Proxmox VE (LXC Community Script)
+
+This repository includes a host-side script that creates and provisions an LXC container on a Proxmox VE node:
+
+```bash
+scripts/proxmox-community-install.sh
+```
+
+Example usage:
+
+```bash
+chmod +x scripts/proxmox-community-install.sh
+CTID=120 HOSTNAME=usurper \
+REPO_URL=https://github.com/<your-org>/UsurperReloaded.git \
+PASSWORD='use-a-strong-root-password' \
+bash scripts/proxmox-community-install.sh
+```
+
+Notes:
+- Run it on the **Proxmox host** as root (not inside a container).
+- Update `REPO_URL` to your actual Git repository before running.
+- Override defaults via environment variables (`CTID`, `MEMORY`, `DISK`, `BRIDGE`, `APP_PORT`, etc.).
+
 ### Enabling SSL (HTTPS)
 
 To protect passwords in transit, you can enable SSL in one of two ways:
