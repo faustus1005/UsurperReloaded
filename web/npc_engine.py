@@ -87,7 +87,7 @@ def generate_npc_name(sex):
     names = NPC_FIRST_NAMES_M if sex == 1 else NPC_FIRST_NAMES_F
     for _ in range(50):
         name = f"{random.choice(names)} {random.choice(NPC_SURNAMES)}"
-        if not Player.query.filter_by(name=name).first():
+        if not Player.query.filter(Player.name.ilike(name)).first():
             return name
     # Fallback with number suffix
     base = f"{random.choice(names)} {random.choice(NPC_SURNAMES)}"

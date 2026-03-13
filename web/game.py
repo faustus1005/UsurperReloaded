@@ -611,7 +611,7 @@ def get_leaderboard():
 
 def send_mail(sender, receiver_name, subject, message):
     """Send mail to another player."""
-    receiver = Player.query.filter_by(name=receiver_name).first()
+    receiver = Player.query.filter(Player.name.ilike(receiver_name)).first()
     if not receiver:
         return False, f"Player '{receiver_name}' not found."
 
@@ -910,7 +910,7 @@ def king_hire_guards(king_record, count):
 
 def king_imprison(king, target_name):
     """Imprison a player by royal decree."""
-    target = Player.query.filter_by(name=target_name).first()
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
     if not target:
         return False, "Player not found."
     if target.id == king.id:
@@ -941,7 +941,7 @@ def king_imprison(king, target_name):
 
 def king_release(king, target_name):
     """Release a prisoner."""
-    target = Player.query.filter_by(name=target_name).first()
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
     if not target:
         return False, "Player not found."
     if not target.is_imprisoned:
@@ -1200,7 +1200,7 @@ def post_bounty(poster, target_name, amount, reason='Wanted Dead or Alive'):
     if amount > poster.gold:
         return False, "You don't have enough gold."
 
-    target = Player.query.filter_by(name=target_name).first()
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
     if not target:
         return False, "Player not found."
     if target.id == poster.id:
@@ -1246,7 +1246,7 @@ def get_wanted_list():
 
 def propose_marriage(player, target_name):
     """Propose marriage to another player or NPC via mail."""
-    target = Player.query.filter_by(name=target_name).first()
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
     if not target:
         return False, "Player not found."
     if target.id == player.id:
@@ -1389,7 +1389,7 @@ def add_relationship(player, target_name, rel_type):
     if rel_type not in ('ally', 'rival'):
         return False, "Invalid relationship type."
 
-    target = Player.query.filter_by(name=target_name).first()
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
     if not target:
         return False, "Player not found."
     if target.id == player.id:
@@ -1524,10 +1524,13 @@ def claim_town(attacker_team, player):
     if player.team_fights < 1:
         return False, [], "No team fights remaining today."
 
-    player.team_fights -= 1
-
     # Find current town controller
     controlling_team = Team.query.filter_by(town_control=True).first()
+
+    if controlling_team and controlling_team.id == attacker_team.id:
+        return False, [], "Your team already controls the town!"
+
+    player.team_fights -= 1
 
     if not controlling_team:
         # No one controls the town - easy takeover
@@ -1551,9 +1554,6 @@ def claim_town(attacker_team, player):
                 db.session.add(mail)
 
         return True, log, ""
-
-    if controlling_team.id == attacker_team.id:
-        return False, [], "Your team already controls the town!"
 
     # Check if defenders have living, free members
     def_alive = [m.player for m in controlling_team.members
@@ -1670,14 +1670,14 @@ def transfer_leadership(player, team, target_name):
     """Transfer team leadership to another member."""
     if team.leader_id != player.id:
         return False, "Only the leader can transfer leadership."
-    target = Player.query.filter_by(name=target_name).first()
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
     if not target:
         return False, "Player not found."
     membership = TeamMember.query.filter_by(team_id=team.id, player_id=target.id).first()
     if not membership:
         return False, f"{target.name} is not in your team."
     team.leader_id = target.id
-    news = NewsEntry(category='social',
+    news = NewsEntry(player_id=target.id, category='social',
                      message=f"{target.name} is now the leader of {team.name}!")
     db.session.add(news)
     return True, f"Leadership transferred to {target.name}."
@@ -1687,7 +1687,7 @@ def kick_member(player, team, target_name):
     """Kick a member from the team (leader only)."""
     if team.leader_id != player.id:
         return False, "Only the leader can kick members."
-    target = Player.query.filter_by(name=target_name).first()
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
     if not target:
         return False, "Player not found."
     if target.id == player.id:
@@ -1752,7 +1752,7 @@ def create_royal_quest(king, difficulty, reward_type, reward_size,
     )
 
     if target_name:
-        target = Player.query.filter_by(name=target_name).first()
+        target = Player.query.filter(Player.name.ilike(target_name)).first()
         if not target or target.id == king.id:
             return False, None, f"Player '{target_name}' not found or cannot assign quest to yourself."
         quest.occupier_id = target.id
