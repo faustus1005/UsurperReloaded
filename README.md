@@ -97,7 +97,25 @@ A comprehensive admin panel inspired by the original Usurper editor, accessible 
 
 ### Installation
 
+#### Linux / macOS
+
 ```bash
+cd web
+pip install -r requirements.txt
+python app.py
+```
+
+#### Windows (Command Prompt)
+
+```cmd
+cd web
+pip install -r requirements.txt
+python app.py
+```
+
+#### Windows (PowerShell)
+
+```powershell
 cd web
 pip install -r requirements.txt
 python app.py
@@ -113,20 +131,81 @@ To protect passwords in transit, you can enable SSL in one of two ways:
 
 **Option 1 -- Your own certificate** (recommended for production):
 
+Linux / macOS:
 ```bash
 SSL_CERT=/path/to/cert.pem SSL_KEY=/path/to/privkey.pem python app.py
 ```
 
+Windows (Command Prompt):
+```cmd
+set SSL_CERT=C:\path\to\cert.pem
+set SSL_KEY=C:\path\to\privkey.pem
+python app.py
+```
+
+Windows (PowerShell):
+```powershell
+$env:SSL_CERT = "C:\path\to\cert.pem"
+$env:SSL_KEY = "C:\path\to\privkey.pem"
+python app.py
+```
+
 **Option 2 -- Quick self-signed certificate** (for development/testing):
 
+Linux / macOS:
 ```bash
 pip install pyopenssl
 SSL_ADHOC=1 python app.py
 ```
 
+Windows (Command Prompt):
+```cmd
+pip install pyopenssl
+set SSL_ADHOC=1
+python app.py
+```
+
+Windows (PowerShell):
+```powershell
+pip install pyopenssl
+$env:SSL_ADHOC = "1"
+python app.py
+```
+
+**Option 3 -- Generate a self-signed certificate with OpenSSL** (works on all platforms):
+
+If you have OpenSSL installed (comes with Git for Windows, or install via `choco install openssl`):
+
+```bash
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
+```
+
+Then run with the generated files:
+
+Linux / macOS:
+```bash
+SSL_CERT=cert.pem SSL_KEY=key.pem python app.py
+```
+
+Windows (Command Prompt):
+```cmd
+set SSL_CERT=cert.pem
+set SSL_KEY=key.pem
+python app.py
+```
+
+Windows (PowerShell):
+```powershell
+$env:SSL_CERT = "cert.pem"
+$env:SSL_KEY = "key.pem"
+python app.py
+```
+
 When SSL is active the server listens on `https://localhost:5000` and session cookies are automatically marked `Secure` + `HttpOnly`.
 
 You can also set the `PORT` environment variable to change the listening port (default `5000`).
+
+Windows (Command Prompt): `set PORT=8443` | Windows (PowerShell): `$env:PORT = "8443"` | Linux/macOS: `PORT=8443 python app.py`
 
 ### First-Time Setup
 

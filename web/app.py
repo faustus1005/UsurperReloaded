@@ -119,10 +119,10 @@ def register():
             flash('Password must be at least 4 characters.', 'error')
         elif password != confirm:
             flash('Passwords do not match.', 'error')
-        elif User.query.filter_by(username=username).first():
+        elif User.query.filter(User.username.ilike(username)).first():
             flash('Username already taken.', 'error')
         else:
-            user = User(username=username)
+            user = User(username=username.lower())
             user.set_password(password)
             # First user becomes admin automatically
             if User.query.count() == 0 and GameConfig.get('auto_promote_first_admin', 'true').lower() == 'true':
@@ -148,7 +148,7 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
 
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter(User.username.ilike(username)).first()
         if user and user.check_password(password):
             user.last_login = datetime.now(timezone.utc)
             db.session.commit()
@@ -187,7 +187,10 @@ def create_character():
         name = request.form.get('name', '').strip()
         race = request.form.get('race', '')
         player_class = request.form.get('player_class', '')
-        sex = int(request.form.get('sex', 1))
+        try:
+            sex = int(request.form.get('sex', 1))
+        except (ValueError, TypeError):
+            sex = 1
 
         errors = []
         if not name or len(name) < 2 or len(name) > 30:
@@ -198,7 +201,7 @@ def create_character():
             errors.append('Invalid class.')
         if sex not in [1, 2]:
             errors.append('Invalid sex selection.')
-        if Player.query.filter_by(name=name).first():
+        if Player.query.filter(Player.name.ilike(name)).first():
             errors.append('That character name is already taken.')
 
         if errors:
@@ -292,6 +295,10 @@ def dungeon_explore():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
+
+    if player.is_imprisoned:
+        flash("You cannot enter the dungeon while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
 
     if player.fights_remaining <= 0:
         flash("You have no dungeon fights remaining today.", 'warning')
@@ -400,7 +407,11 @@ def combat_spell():
     if not player or not monster:
         return redirect(url_for('dungeon'))
 
-    spell_id = int(request.form.get('spell_id', 0))
+    try:
+        spell_id = int(request.form.get('spell_id', 0))
+    except (ValueError, TypeError):
+        flash("Invalid spell.", 'error')
+        return redirect(url_for('combat'))
     log = session.get('combat_log', [])
 
     success, message, damage = game_logic.cast_spell(player, spell_id, monster)
