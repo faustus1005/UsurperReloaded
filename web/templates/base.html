@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usurper ReLoaded{% block title_suffix %}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% if current_user.is_authenticated and player %}
+    <header class="game-header">
+        <div class="container header-content">
+            <a href="{{ url_for('main_menu') }}" class="game-title">USURPER</a>
+            <div class="player-bar">
+                <span class="stat">
+                    <span class="stat-label">{{ player.name }}</span>
+                    <span class="text-dim">Lv{{ player.level }}</span>
+                </span>
+                <span class="stat hp">
+                    HP: {{ player.hp }}/{{ player.max_hp }}
+                </span>
+                {% if player.max_mana > 0 %}
+                <span class="stat mana">
+                    MP: {{ player.mana }}/{{ player.max_mana }}
+                </span>
+                {% endif %}
+                <span class="stat gold-display">
+                    {{ player.gold }}g
+                </span>
+                {% if is_admin %}<a href="{{ url_for('admin_dashboard') }}" class="nav-link admin-link">Admin</a>{% endif %}
+                <a href="{{ url_for('logout') }}" class="nav-link">Quit</a>
+            </div>
+        </div>
+    </header>
+    {% endif %}
+
+    <main class="main-content">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="game-footer">
+        <div class="container">
+            Usurper ReLoaded &mdash; Originally by Jakob Dangarden &mdash; Web Edition
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

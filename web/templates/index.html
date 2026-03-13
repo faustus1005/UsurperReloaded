@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="landing">
+    <div class="logo">USURPER</div>
+    <div class="tagline">R e L o a d e d</div>
+    <p class="text-secondary mb-2">A Fantasy RPG Adventure</p>
+
+    <div class="actions">
+        <a href="{{ url_for('register') }}" class="btn btn-primary">Create Account</a>
+        <a href="{{ url_for('login') }}" class="btn">Enter the Realm</a>
+    </div>
+
+    <div class="features">
+        <h3>Features</h3>
+        <ul>
+            <li>Choose from 10 races and 11 classes</li>
+            <li>Explore dungeons across 30 levels of danger</li>
+            <li>Battle fearsome monsters and gain treasure</li>
+            <li>Challenge other players to combat in the Dormitory</li>
+            <li>Form teams and fight for town control</li>
+            <li>Challenge the King for the throne and rule the realm</li>
+            <li>Brawl and drink at Bob's Tavern</li>
+            <li>Post bounties on your enemies</li>
+            <li>Find love, propose marriage, and build relationships</li>
+            <li>Buy weapons, armor, and magical equipment</li>
+            <li>Cast powerful spells as a spellcaster</li>
+            <li>Compete on the leaderboard for glory</li>
+        </ul>
+    </div>
+
+    <hr class="separator">
+    <p class="text-dim" style="font-size: 0.8em; margin-top: 15px;">
+        Based on the classic BBS door game by Jakob Dangarden<br>
+        GNU General Public License v2
+    </p>
+</div>
+{% endblock %}

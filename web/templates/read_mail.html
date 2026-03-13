@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Mail{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        {% if mail.subject %}{{ mail.subject }}{% else %}Message{% endif %}
+    </div>
+    <div class="panel-body">
+        <div class="mb-1">
+            <span class="text-secondary">From:</span>
+            <span class="text-gold">{{ mail.sender.name }}</span>
+            <span class="text-dim"> &mdash; {{ mail.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </div>
+        <hr class="separator">
+        <div style="white-space: pre-wrap;">{{ mail.message }}</div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('mail_inbox') }}" class="btn">Back to Mail</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

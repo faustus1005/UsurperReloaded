@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Combat Result{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        {% if result == 'victory' %}
+        Victory!
+        {% else %}
+        Defeat...
+        {% endif %}
+    </div>
+    <div class="panel-body">
+        <div class="combat-log">
+            {% for msg in combat_log %}
+            {% if msg %}
+            <p>{{ msg|safe }}</p>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="stats-grid mt-2">
+            <div class="stat-item"><span class="label">HP</span><span class="value hp">{{ player.hp }} / {{ player.max_hp }}</span></div>
+            <div class="stat-item"><span class="label">Experience</span><span class="value">{{ player.experience }}</span></div>
+            <div class="stat-item"><span class="label">Gold</span><span class="value text-gold">{{ player.gold }}</span></div>
+            <div class="stat-item"><span class="label">Fights Left</span><span class="value">{{ player.fights_remaining }}</span></div>
+        </div>
+
+        <div class="mt-2 text-center">
+            {% if player.hp > 0 and player.fights_remaining > 0 %}
+            <a href="{{ url_for('dungeon') }}" class="btn btn-primary">Continue Exploring</a>
+            {% endif %}
+            <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

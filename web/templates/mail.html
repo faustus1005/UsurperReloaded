@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Mail{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Send Mail</div>
+    <div class="panel-body">
+        <form method="POST" action="{{ url_for('send_mail') }}">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; min-width: 150px;">
+                    <label>To</label>
+                    <input type="text" name="receiver" class="form-control" placeholder="Character name" required>
+                </div>
+                <div class="form-group" style="flex: 2; min-width: 200px;">
+                    <label>Subject</label>
+                    <input type="text" name="subject" class="form-control" placeholder="Subject">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea name="message" class="form-control" rows="3" required placeholder="Write your message..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Send</button>
+        </form>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Inbox</div>
+    <div class="panel-body">
+        {% if received %}
+        {% for m in received %}
+        <a href="{{ url_for('read_mail', mail_id=m.id) }}" class="mail-item{% if not m.is_read %} unread{% endif %}" style="text-decoration: none; display: flex;">
+            <div>
+                <span class="mail-from">{{ m.sender.name }}</span>
+                {% if m.subject %}<span class="text-secondary"> - {{ m.subject }}</span>{% endif %}
+            </div>
+            <span class="mail-date">{{ m.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </a>
+        {% endfor %}
+        {% else %}
+        <p class="text-dim">No mail received.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if sent %}
+<div class="panel">
+    <div class="panel-header">Sent</div>
+    <div class="panel-body">
+        {% for m in sent %}
+        <div class="mail-item">
+            <div>
+                <span class="text-secondary">To:</span>
+                <span class="mail-from">{{ m.receiver.name }}</span>
+                {% if m.subject %}<span class="text-secondary"> - {{ m.subject }}</span>{% endif %}
+            </div>
+            <span class="mail-date">{{ m.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Teams{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Teams of {{ town_name }}</div>
+    <div class="panel-body">
+        {% if my_team %}
+        <div class="panel mb-2" style="border-color: var(--gold-dark);">
+            <div class="panel-header">Your Team: {{ my_team.name }}{% if my_team.town_control %} (Town Control!){% endif %}</div>
+            <div class="panel-body">
+                <p>Leader: <span class="text-gold">{{ my_team.leader.name }}</span></p>
+                <p>Power: <span class="text-gold">{{ my_team.get_power() }}</span> | Wins: {{ my_team.wins }} | Losses: {{ my_team.losses }}</p>
+                <p>Treasury: <span class="text-gold">{{ my_team.treasury }}g</span>
+                {% if my_team.town_control %} | Town Control: {{ my_team.town_control_days }} days{% endif %}</p>
+                <p class="mt-1">Members:</p>
+                <table>
+                    <thead>
+                        <tr><th>Name</th><th>Class</th><th>Level</th><th>HP</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for m in my_team.members %}
+                        <tr>
+                            <td class="text-gold">{{ m.player.name }}{% if m.player.id == my_team.leader_id %} (Leader){% endif %}</td>
+                            <td>{{ m.player.player_class }}</td>
+                            <td>{{ m.player.level }}</td>
+                            <td>{{ m.player.hp }}/{{ m.player.max_hp }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <hr class="separator">
+                <h4 class="text-secondary mb-1">Team Actions</h4>
+
+                <div class="mb-1">
+                    <form method="POST" action="{{ url_for('team_donate') }}" class="inline-form">
+                        <input type="number" name="amount" class="form-control" placeholder="Gold" min="1" style="width: 100px;">
+                        <button type="submit" class="btn btn-primary btn-sm">Donate to Treasury</button>
+                    </form>
+                </div>
+
+                {% if player.id == my_team.leader_id %}
+                <div class="mb-1">
+                    <form method="POST" action="{{ url_for('team_withdraw') }}" class="inline-form">
+                        <input type="number" name="amount" class="form-control" placeholder="Gold" min="1" style="width: 100px;">
+                        <button type="submit" class="btn btn-primary btn-sm">Withdraw from Treasury</button>
+                    </form>
+                </div>
+                <div class="mb-1">
+                    <form method="POST" action="{{ url_for('team_kick') }}" class="inline-form">
+                        <input type="text" name="target" class="form-control" placeholder="Player name" style="width: 150px;">
+                        <button type="submit" class="btn btn-danger btn-sm">Kick Member</button>
+                    </form>
+                </div>
+                <div class="mb-1">
+                    <form method="POST" action="{{ url_for('team_transfer') }}" class="inline-form">
+                        <input type="text" name="target" class="form-control" placeholder="Player name" style="width: 150px;">
+                        <button type="submit" class="btn btn-primary btn-sm">Transfer Leadership</button>
+                    </form>
+                </div>
+                {% endif %}
+
+                <hr class="separator">
+                <h4 class="text-gold mb-1">Gang War / Town Control</h4>
+                <p class="text-dim mb-1">Team fights remaining today: {{ player.team_fights }}</p>
+                {% if player.team_fights > 0 %}
+                <form method="POST" action="{{ url_for('claim_town') }}">
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('Challenge for town control? This means war!')">
+                        {% if my_team.town_control %}Defend Town Control{% else %}Fight for Town Control{% endif %}
+                    </button>
+                </form>
+                {% else %}
+                <p class="text-dim">No team fights remaining today.</p>
+                {% endif %}
+
+                <hr class="separator">
+                <div class="mt-1">
+                    <form method="POST" action="{{ url_for('leave_team') }}" style="display:inline;">
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Leave your team?')">Leave Team</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="panel mb-2">
+            <div class="panel-header">Create a Team</div>
+            <div class="panel-body">
+                <form method="POST" action="{{ url_for('create_team') }}" class="inline-form">
+                    <input type="text" name="team_name" class="form-control" placeholder="Team name" maxlength="30" required>
+                    <button type="submit" class="btn btn-primary">Found Team</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <h3 class="text-gold mt-2 mb-1">All Teams</h3>
+        {% if teams %}
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Team</th>
+                    <th>Leader</th>
+                    <th>Members</th>
+                    <th>Power</th>
+                    <th>W/L</th>
+                    {% if not my_team %}<th></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in teams %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td class="text-gold">{{ t.name }}{% if t.town_control %} (Town Control){% endif %}</td>
+                    <td>{{ t.leader.name }}</td>
+                    <td>{{ t.member_count() }}/5</td>
+                    <td>{{ t.get_power() }}</td>
+                    <td>{{ t.wins }}/{{ t.losses }}</td>
+                    {% if not my_team %}
+                    <td>
+                        {% if t.member_count() < 5 %}
+                        <form method="POST" action="{{ url_for('join_team', team_id=t.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-success">Join</button>
+                        </form>
+                        {% else %}
+                        <span class="text-dim">Full</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-dim">No teams have been founded yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

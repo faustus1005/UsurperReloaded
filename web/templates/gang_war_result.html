@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Gang War{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Gang War Results</div>
+    <div class="panel-body">
+        <div class="combat-log">
+            {% for line in combat_log %}
+            <div class="log-entry{% if 'victorious' in line|lower or 'claims' in line|lower %} text-gold{% elif 'defeated' in line|lower %} text-red{% elif '---' in line %} text-secondary{% endif %}">
+                {{ line }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('teams') }}" class="btn">Back to Teams</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

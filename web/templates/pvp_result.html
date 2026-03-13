@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Combat Result{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        {% if result == 'victory' %}
+        Victory!
+        {% elif result == 'defeat' %}
+        Defeat!
+        {% else %}
+        Draw
+        {% endif %}
+    </div>
+    <div class="panel-body">
+        <div class="combat-log">
+            {% for entry in combat_log %}
+            <p{% if 'Critical' in entry %} class="text-gold"{% elif 'defeated' in entry %} class="text-red"{% elif 'gained' in entry or 'collected' in entry or 'won' in entry %} class="text-green"{% endif %}>{{ entry }}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('pvp') }}" class="btn">Fight Again</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

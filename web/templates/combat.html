@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Combat{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Combat &mdash; {{ monster.name }}</div>
+    <div class="panel-body">
+        <div class="combat-area">
+            <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <h3 class="text-gold mb-1">{{ player.name }}</h3>
+                    <div>
+                        <span class="text-secondary">HP:</span>
+                        <span class="hp">{{ player.hp }} / {{ player.max_hp }}</span>
+                        <div class="health-bar">
+                            <div class="health-bar-fill hp" style="width: {{ (player.hp / player.max_hp * 100)|int }}%"></div>
+                        </div>
+                    </div>
+                    {% if player.max_mana > 0 %}
+                    <div>
+                        <span class="text-secondary">Mana:</span>
+                        <span class="mana">{{ player.mana }} / {{ player.max_mana }}</span>
+                        <div class="health-bar">
+                            <div class="health-bar-fill mana" style="width: {{ (player.mana / player.max_mana * 100)|int }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="text-dim mt-1">Potions: {{ player.healing_potions }}</div>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <h3 class="text-red mb-1">{{ monster.name }}</h3>
+                    <div>
+                        <span class="text-secondary">HP:</span>
+                        <span class="text-red">{{ monster.hp }} / {{ monster.max_hp }}</span>
+                        <div class="health-bar">
+                            <div class="health-bar-fill hp" style="width: {{ (monster.hp / monster.max_hp * 100)|int }}%"></div>
+                        </div>
+                    </div>
+                    <div class="text-dim mt-1">Wielding: {{ monster.weapon_name }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="combat-log">
+            {% for msg in combat_log %}
+            {% if msg %}
+            <p>{{ msg|safe }}</p>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="combat-actions">
+            <form method="POST" action="{{ url_for('combat_attack') }}" style="display:inline">
+                <button type="submit" class="btn btn-primary">Attack</button>
+            </form>
+
+            {% if player.healing_potions > 0 %}
+            <form method="POST" action="{{ url_for('combat_heal') }}" style="display:inline">
+                <button type="submit" class="btn btn-success">Use Potion ({{ player.healing_potions }})</button>
+            </form>
+            {% endif %}
+
+            {% if known_spells %}
+            {% for spell in known_spells %}
+            {% if player.mana >= spell.mana_cost %}
+            <form method="POST" action="{{ url_for('combat_spell') }}" style="display:inline">
+                <input type="hidden" name="spell_id" value="{{ spell.id }}">
+                <button type="submit" class="btn" title="{{ spell.description }}">
+                    {{ spell.name }} ({{ spell.mana_cost }} MP)
+                </button>
+            </form>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('combat_flee') }}" style="display:inline">
+                <button type="submit" class="btn btn-danger">Flee</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

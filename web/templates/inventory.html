@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Inventory{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Equipment</div>
+    <div class="panel-body">
+        <div class="equipment-grid">
+            {% for slot in EQUIPMENT_SLOTS %}
+            <div class="equipment-slot">
+                <div>
+                    <span class="slot-name">{{ slot|replace('_', ' ') }}</span><br>
+                    {% if equipped[slot] %}
+                    <span class="item-name">{{ equipped[slot].name }}</span>
+                    {% else %}
+                    <span class="empty">- empty -</span>
+                    {% endif %}
+                </div>
+                {% if equipped[slot] %}
+                <form method="POST" action="{{ url_for('unequip_item', slot=slot) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm">Unequip</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Inventory ({{ inv_items|length }} / 15)</div>
+    <div class="panel-body">
+        {% if inv_items %}
+        {% for inv_item in inv_items %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ inv_item.item.name }}</div>
+                <div class="item-type">{{ inv_item.item.item_type }}</div>
+                <div class="item-stats">
+                    {% if inv_item.item.attack_bonus > 0 %}ATK +{{ inv_item.item.attack_bonus }} {% endif %}
+                    {% if inv_item.item.armor_bonus > 0 %}DEF +{{ inv_item.item.armor_bonus }} {% endif %}
+                    {% if inv_item.item.strength_bonus != 0 %}STR {{ '%+d'|format(inv_item.item.strength_bonus) }} {% endif %}
+                    {% if inv_item.item.defence_bonus != 0 %}DEF {{ '%+d'|format(inv_item.item.defence_bonus) }} {% endif %}
+                    {% if inv_item.item.agility_bonus != 0 %}AGI {{ '%+d'|format(inv_item.item.agility_bonus) }} {% endif %}
+                    {% if inv_item.item.wisdom_bonus != 0 %}WIS {{ '%+d'|format(inv_item.item.wisdom_bonus) }} {% endif %}
+                    {% if inv_item.item.mana_bonus != 0 %}MANA {{ '%+d'|format(inv_item.item.mana_bonus) }} {% endif %}
+                    | Value: {{ inv_item.item.value }}g
+                </div>
+            </div>
+            <div class="item-actions">
+                {% if inv_item.item.get_slot() %}
+                <form method="POST" action="{{ url_for('equip_item', inv_item_id=inv_item.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-primary">Equip</button>
+                </form>
+                {% endif %}
+                <form method="POST" action="{{ url_for('sell_item', inv_item_id=inv_item.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-danger">Sell ({{ inv_item.item.value // 2 }}g)</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-dim">Your inventory is empty.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Status{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">{{ player.name }} &mdash; {{ player.race }} {{ player.player_class }}</div>
+    <div class="panel-body">
+        <div class="stats-grid">
+            <div class="stat-item"><span class="label">Level</span><span class="value">{{ player.level }}</span></div>
+            <div class="stat-item"><span class="label">Experience</span><span class="value">{{ player.experience }} / {{ xp_next }}</span></div>
+            <div class="stat-item"><span class="label">Sex</span><span class="value">{% if player.sex == 1 %}Male{% else %}Female{% endif %}</span></div>
+            <div class="stat-item"><span class="label">Age</span><span class="value">{{ player.age }}</span></div>
+            <div class="stat-item">
+                <span class="label">Alignment</span>
+                <span class="value alignment-{% if player.chivalry > player.darkness %}good{% elif player.darkness > player.chivalry %}evil{% else %}neutral{% endif %}">
+                    {{ player.alignment_string() }}
+                </span>
+            </div>
+        </div>
+
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Vitals</h3>
+
+        <div class="mb-1">
+            <span class="text-secondary">HP:</span>
+            <span class="hp">{{ player.hp }} / {{ player.max_hp }}</span>
+            <div class="health-bar">
+                <div class="health-bar-fill hp" style="width: {{ (player.hp / player.max_hp * 100)|int if player.max_hp > 0 else 0 }}%"></div>
+            </div>
+        </div>
+
+        {% if player.max_mana > 0 %}
+        <div class="mb-1">
+            <span class="text-secondary">Mana:</span>
+            <span class="mana">{{ player.mana }} / {{ player.max_mana }}</span>
+            <div class="health-bar">
+                <div class="health-bar-fill mana" style="width: {{ (player.mana / player.max_mana * 100)|int if player.max_mana > 0 else 0 }}%"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Stats</h3>
+        <div class="stats-grid">
+            <div class="stat-item"><span class="label">Strength</span><span class="value">{{ player.strength }}</span></div>
+            <div class="stat-item"><span class="label">Defence</span><span class="value">{{ player.defence }}</span></div>
+            <div class="stat-item"><span class="label">Stamina</span><span class="value">{{ player.stamina }}</span></div>
+            <div class="stat-item"><span class="label">Agility</span><span class="value">{{ player.agility }}</span></div>
+            <div class="stat-item"><span class="label">Charisma</span><span class="value">{{ player.charisma }}</span></div>
+            <div class="stat-item"><span class="label">Dexterity</span><span class="value">{{ player.dexterity }}</span></div>
+            <div class="stat-item"><span class="label">Wisdom</span><span class="value">{{ player.wisdom }}</span></div>
+        </div>
+
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Combat</h3>
+        <div class="stats-grid">
+            <div class="stat-item"><span class="label">Attack Power</span><span class="value">{{ player.get_total_attack() }}</span></div>
+            <div class="stat-item"><span class="label">Defense Power</span><span class="value">{{ player.get_total_defense() }}</span></div>
+            <div class="stat-item"><span class="label">Weapon Power</span><span class="value">{{ player.weapon_power }}</span></div>
+            <div class="stat-item"><span class="label">Armor Power</span><span class="value">{{ player.armor_power }}</span></div>
+            <div class="stat-item"><span class="label">Healing Potions</span><span class="value">{{ player.healing_potions }}</span></div>
+        </div>
+
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Record</h3>
+        <div class="stats-grid">
+            <div class="stat-item"><span class="label">Monster Kills</span><span class="value">{{ player.monster_kills }}</span></div>
+            <div class="stat-item"><span class="label">Monster Defeats</span><span class="value">{{ player.monster_defeats }}</span></div>
+            <div class="stat-item"><span class="label">Player Kills</span><span class="value">{{ player.player_kills }}</span></div>
+            <div class="stat-item"><span class="label">Player Defeats</span><span class="value">{{ player.player_defeats }}</span></div>
+            <div class="stat-item"><span class="label">Fights Left</span><span class="value">{{ player.fights_remaining }}</span></div>
+        </div>
+
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Social</h3>
+        <div class="stats-grid">
+            <div class="stat-item"><span class="label">Team</span><span class="value">{{ player.team_name if player.team_name else 'None' }}</span></div>
+            <div class="stat-item"><span class="label">Status</span><span class="value">{% if player.is_king %}{{ 'King' if player.sex == 1 else 'Queen' }}{% elif player.is_imprisoned %}<span class="text-red">Imprisoned</span>{% else %}Citizen{% endif %}</span></div>
+            <div class="stat-item"><span class="label">Married</span><span class="value">{% if player.married and player.spouse %}{{ player.spouse.name }}{% elif player.married %}Yes{% else %}No{% endif %}</span></div>
+        </div>
+
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Wealth</h3>
+        <div class="stats-grid">
+            <div class="stat-item"><span class="label">Gold in Hand</span><span class="value text-gold">{{ player.gold }}</span></div>
+            <div class="stat-item"><span class="label">Gold in Bank</span><span class="value text-gold">{{ player.bank_gold }}</span></div>
+        </div>
+
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Equipment</h3>
+        <div class="equipment-grid">
+            {% for slot in ['weapon', 'shield', 'head', 'body', 'arms', 'hands', 'legs', 'feet', 'waist', 'neck', 'face', 'around_body'] %}
+            <div class="equipment-slot">
+                <span class="slot-name">{{ slot|replace('_', ' ') }}</span>
+                {% if equipped[slot] %}
+                <span class="item-name">{{ equipped[slot].name }}</span>
+                {% else %}
+                <span class="empty">- empty -</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if player.spells_known %}
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Spells Known</h3>
+        <div class="stats-grid">
+            {% for sid in player.get_known_spells() %}
+            {% if SPELLS[sid] is defined %}
+            <div class="stat-item">
+                <span class="label">{{ SPELLS[sid].name }}</span>
+                <span class="value text-blue">{{ SPELLS[sid].mana_cost }} MP</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

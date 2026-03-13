@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title_suffix %} - {{ shop_name }}{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">{{ shop_name }}</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-1">
+            The old mage peers at you from behind stacks of ancient tomes.
+        </p>
+        <p class="text-secondary mb-2">Gold: <span class="text-gold">{{ player.gold }}</span></p>
+
+        {% if available_spells %}
+        <h3 class="text-gold mb-1">Spells Available to Learn</h3>
+        {% for sid, spell in available_spells.items() %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ spell.name }}</div>
+                <div class="item-stats">
+                    Type: {{ spell.type }} | Mana Cost: {{ spell.mana_cost }} | Min Level: {{ spell.min_level }}
+                </div>
+                <div class="text-dim" style="font-size: 0.8em;">{{ spell.description }}</div>
+            </div>
+            <div class="item-actions">
+                <span class="item-price">{{ spell.mana_cost * 10 }}g</span>
+                <form method="POST" action="{{ url_for('learn_spell', spell_id=sid) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-success"
+                            {% if player.gold < spell.mana_cost * 10 %}disabled{% endif %}>Learn</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% elif player.player_class not in ['Alchemist', 'Cleric', 'Magician', 'Paladin', 'Sage'] %}
+        <p class="text-dim">Your class cannot learn spells from this shop.</p>
+        {% else %}
+        <p class="text-dim">No new spells available at your level.</p>
+        {% endif %}
+
+        {% if items %}
+        <hr class="separator">
+        <h3 class="text-gold mb-1">Magical Items</h3>
+        {% for item in items %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ item.name }}</div>
+                <div class="item-type">{{ item.item_type }}</div>
+                <div class="item-stats">
+                    {% if item.wisdom_bonus != 0 %}WIS {{ '%+d'|format(item.wisdom_bonus) }} {% endif %}
+                    {% if item.mana_bonus != 0 %}MANA {{ '%+d'|format(item.mana_bonus) }} {% endif %}
+                    {% if item.attack_bonus > 0 %}ATK +{{ item.attack_bonus }} {% endif %}
+                    {% if item.armor_bonus > 0 %}DEF +{{ item.armor_bonus }} {% endif %}
+                    {% if item.class_restrictions %}({{ item.class_restrictions }}) {% endif %}
+                </div>
+            </div>
+            <div class="item-actions">
+                <span class="item-price">{{ item.value }}g</span>
+                <form method="POST" action="{{ url_for('buy_item', item_id=item.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-success"
+                            {% if player.gold < item.value %}disabled{% endif %}>Buy</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

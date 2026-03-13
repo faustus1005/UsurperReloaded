@@ -1,0 +1,51 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">
+        Item Editor
+        <a href="{{ url_for('admin_new_item') }}" class="btn btn-sm" style="float:right;">+ New Item</a>
+    </div>
+    <div class="panel-body">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Value</th>
+                    <th>ATK</th>
+                    <th>DEF</th>
+                    <th>Lvl</th>
+                    <th>Shop</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td class="text-dim">{{ item.id }}</td>
+                    <td>
+                        {{ item.name }}
+                        {% if item.is_unique %}<span class="badge badge-gold">U</span>{% endif %}
+                        {% if item.is_cursed %}<span class="badge badge-red">C</span>{% endif %}
+                    </td>
+                    <td>{{ item.item_type }}</td>
+                    <td class="text-gold">{{ item.value }}g</td>
+                    <td>{{ item.attack_bonus if item.attack_bonus else '-' }}</td>
+                    <td>{{ item.armor_bonus if item.armor_bonus else '-' }}</td>
+                    <td>{{ item.min_level }}-{{ item.max_level }}</td>
+                    <td>{{ 'Y' if item.in_shop else '' }}{{ '/D' if item.in_dungeon else '' }}</td>
+                    <td>
+                        <a href="{{ url_for('admin_edit_item', item_id=item.id) }}" class="btn btn-sm">Edit</a>
+                        <form method="POST" action="{{ url_for('admin_delete_item', item_id=item.id) }}"
+                              class="inline-form" onsubmit="return confirm('Delete {{ item.name }}?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Del</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

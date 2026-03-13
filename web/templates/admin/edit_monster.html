@@ -1,0 +1,120 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">{{ 'Create New Monster' if is_new is defined else 'Edit Monster: ' + monster.name }}</div>
+    <div class="panel-body">
+        <form method="POST" action="{{ url_for('admin_new_monster') if is_new is defined else url_for('admin_edit_monster', monster_id=monster.id) }}">
+            <fieldset class="admin-fieldset">
+                <legend>Identity</legend>
+                <div class="admin-field">
+                    <label for="name">Name</label>
+                    <input type="text" name="name" id="name" value="{{ monster.name }}" class="admin-input" required>
+                </div>
+                <div class="admin-field">
+                    <label for="phrase">Battle Phrase</label>
+                    <input type="text" name="phrase" value="{{ monster.phrase }}" class="admin-input">
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="weapon_name">Weapon Name</label>
+                        <input type="text" name="weapon_name" value="{{ monster.weapon_name }}" class="admin-input">
+                    </div>
+                    <div class="admin-field">
+                        <label for="armor_name">Armor Name</label>
+                        <input type="text" name="armor_name" value="{{ monster.armor_name }}" class="admin-input">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Stats</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="hp">HP</label>
+                        <input type="number" name="hp" value="{{ monster.hp }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="strength">Strength</label>
+                        <input type="number" name="strength" value="{{ monster.strength }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="defence">Defence</label>
+                        <input type="number" name="defence" value="{{ monster.defence }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="weapon_power">Weapon Power</label>
+                        <input type="number" name="weapon_power" value="{{ monster.weapon_power }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="armor_power">Armor Power</label>
+                        <input type="number" name="armor_power" value="{{ monster.armor_power }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="aggression">Aggression (0-3)</label>
+                        <input type="number" name="aggression" value="{{ monster.aggression }}" min="0" max="3" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Dungeon & Rewards</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="min_dungeon_level">Min Dungeon Level</label>
+                        <input type="number" name="min_dungeon_level" value="{{ monster.min_dungeon_level }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="max_dungeon_level">Max Dungeon Level</label>
+                        <input type="number" name="max_dungeon_level" value="{{ monster.max_dungeon_level }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="experience">XP Reward</label>
+                        <input type="number" name="experience" value="{{ monster.experience }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="gold">Gold Reward</label>
+                        <input type="number" name="gold" value="{{ monster.gold }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Special Abilities</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="magic_level">Magic Level (0=none)</label>
+                        <input type="number" name="magic_level" value="{{ monster.magic_level }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label for="magic_resistance">Magic Resistance</label>
+                        <input type="number" name="magic_resistance" value="{{ monster.magic_resistance }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="is_poisonous" {% if monster.is_poisonous %}checked{% endif %}> Poisonous</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="has_disease" {% if monster.has_disease %}checked{% endif %}> Carries Disease</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="can_drop_weapon" {% if monster.can_drop_weapon %}checked{% endif %}> Can Drop Weapon</label>
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="can_drop_armor" {% if monster.can_drop_armor %}checked{% endif %}> Can Drop Armor</label>
+                    </div>
+                </div>
+            </fieldset>
+
+            <div class="admin-form-actions">
+                <button type="submit" class="btn">{{ 'Create Monster' if is_new is defined else 'Save Changes' }}</button>
+                <a href="{{ url_for('admin_monsters') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

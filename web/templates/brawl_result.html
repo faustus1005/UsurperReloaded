@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Result{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Tavern Activity</div>
+    <div class="panel-body">
+        <div class="combat-log">
+            {% for entry in combat_log %}
+            <p{% if 'knocked out' in entry.lower() %} class="text-green"{% elif 'lost' in entry.lower() or 'beaten' in entry.lower() %} class="text-red"{% elif 'won' in entry.lower() or 'gained' in entry.lower() or 'prize' in entry.lower() %} class="text-gold"{% elif '---' in entry %} class="text-secondary"{% endif %}>{{ entry }}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('tavern') }}" class="btn">Back to Tavern</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}
