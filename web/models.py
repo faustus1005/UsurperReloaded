@@ -262,6 +262,10 @@ class Player(db.Model):
     player_fights = db.Column(db.Integer, default=3)
     thefts_remaining = db.Column(db.Integer, default=2)
     brawls_remaining = db.Column(db.Integer, default=2)
+    intimacy_acts = db.Column(db.Integer, default=5)  # daily intimate interactions
+
+    # Dungeon
+    dungeon_level = db.Column(db.Integer, default=1)  # current dungeon level
 
     # Combat stats
     weapon_power = db.Column(db.Integer, default=0)
@@ -623,7 +627,10 @@ class Relationship(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     player1_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
     player2_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
-    rel_type = db.Column(db.String(20), nullable=False)  # 'married', 'ally', 'rival', 'lover'
+    rel_type = db.Column(db.String(20), nullable=False)  # 'married', 'ally', 'rival', 'lover', 'proposal'
+    # Feeling levels: hate, enemy, anger, suspicious, normal, respect, trust, friendship, passion, love
+    feeling_1to2 = db.Column(db.String(15), default='normal')  # player1's feeling toward player2
+    feeling_2to1 = db.Column(db.String(15), default='normal')  # player2's feeling toward player1
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     player1 = db.relationship('Player', foreign_keys=[player1_id], backref='relationships_as_p1')
