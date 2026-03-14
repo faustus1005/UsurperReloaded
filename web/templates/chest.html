@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Chest Room{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Chest Room</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-1">
+            You unlock the door to the room with your valuables...
+            Ahh, the door opens. You examine the oak Chest which holds your precious belongings.
+        </p>
+        <p class="text-dim mb-2">
+            Items stored: <span class="text-gold">{{ chest_items|length }}</span> / {{ max_chest }}
+        </p>
+
+        {% if chest_items %}
+        <h4 class="text-secondary mb-1">Chest Contents</h4>
+        <table>
+            <thead>
+                <tr><th>Item</th><th>Type</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for ci in chest_items %}
+                <tr>
+                    <td class="text-gold">{{ ci.item.name }}</td>
+                    <td class="text-dim">{{ ci.item.item_type }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('chest_retrieve', chest_item_id=ci.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-primary">Take</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-dim mb-2">Your chest is empty.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if inv_display %}
+<div class="panel">
+    <div class="panel-header">Store Items from Inventory</div>
+    <div class="panel-body">
+        <p class="text-dim mb-1">Select an item from your inventory to store in the chest.</p>
+        <table>
+            <thead>
+                <tr><th>Item</th><th>Type</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for entry in inv_display %}
+                <tr>
+                    <td class="text-gold">{{ entry.item.name }}</td>
+                    <td class="text-dim">{{ entry.item.item_type }}</td>
+                    <td>{% if entry.equipped %}<span class="text-green">Equipped</span>{% else %}<span class="text-dim">Stored</span>{% endif %}</td>
+                    <td>
+                        {% if not entry.equipped %}
+                        <form method="POST" action="{{ url_for('chest_store', inv_item_id=entry.inv_item.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-primary">Store</button>
+                        </form>
+                        {% else %}
+                        <span class="text-dim">Unequip first</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('home') }}" class="btn">Back to Home</a>
+</div>
+{% endblock %}

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from models import (
     db, Player, Monster, Item, InventoryItem, NewsEntry, Mail,
     Team, TeamMember, KingRecord, Bounty, Relationship,
-    Child, RoyalQuest, God, TeamRecord,
+    Child, RoyalQuest, God, TeamRecord, HomeChestItem,
     RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES
 )
 
@@ -80,6 +80,8 @@ def create_character(player, name, race, player_class, sex):
     player.player_fights = 3
     player.thefts_remaining = 2
     player.brawls_remaining = 2
+    player.intimacy_acts = 5
+    player.dungeon_level = 1
 
     # Starting spells for spellcasters
     if player_class == 'Magician':
@@ -586,6 +588,7 @@ def daily_maintenance(player):
     player.thefts_remaining = 2
     player.brawls_remaining = 2
     player.team_fights = 1
+    player.intimacy_acts = 5
     player.hp = player.max_hp
     player.mana = player.max_mana
     player.last_maintenance = now
@@ -1608,6 +1611,389 @@ def get_player_relationships(player):
 
 
 # =========================================================================
+# SOCIAL INTERACTIONS / APPROACH SYSTEM (from original LOVERS.PAS)
+# =========================================================================
+
+# Feeling levels ordered from worst to best (matching original relation constants)
+FEELING_LEVELS = [
+    'hate', 'enemy', 'anger', 'suspicious', 'normal',
+    'respect', 'trust', 'friendship', 'passion', 'love'
+]
+
+
+def _get_feeling_index(feeling):
+    """Get numeric index of a feeling level."""
+    try:
+        return FEELING_LEVELS.index(feeling)
+    except ValueError:
+        return FEELING_LEVELS.index('normal')
+
+
+def _improve_feeling(feeling):
+    """Move feeling one step better."""
+    idx = _get_feeling_index(feeling)
+    if idx < len(FEELING_LEVELS) - 1:
+        return FEELING_LEVELS[idx + 1]
+    return feeling
+
+
+def _worsen_feeling(feeling):
+    """Move feeling one step worse."""
+    idx = _get_feeling_index(feeling)
+    if idx > 0:
+        return FEELING_LEVELS[idx - 1]
+    return feeling
+
+
+def _is_negative_feeling(feeling):
+    """Check if feeling is negative (hate, enemy, anger)."""
+    return feeling in ('hate', 'enemy', 'anger')
+
+
+def _feeling_display(feeling):
+    """Human-readable feeling string."""
+    return {
+        'hate': 'Hatred',
+        'enemy': 'Enemy',
+        'anger': 'Anger',
+        'suspicious': 'Suspicious',
+        'normal': 'Neutral',
+        'respect': 'Respect',
+        'trust': 'Trust',
+        'friendship': 'Friendship',
+        'passion': 'Passion',
+        'love': 'Love',
+    }.get(feeling, 'Neutral')
+
+
+def get_or_create_relation(player, target):
+    """Get or create a relationship record between two players."""
+    rel = Relationship.query.filter(
+        ((Relationship.player1_id == player.id) & (Relationship.player2_id == target.id)) |
+        ((Relationship.player1_id == target.id) & (Relationship.player2_id == player.id))
+    ).filter(Relationship.rel_type.in_(['lover', 'ally', 'rival', 'married'])).first()
+
+    if not rel:
+        rel = Relationship(
+            player1_id=player.id,
+            player2_id=target.id,
+            rel_type='lover',
+            feeling_1to2='normal',
+            feeling_2to1='normal',
+        )
+        db.session.add(rel)
+        db.session.flush()
+    return rel
+
+
+def get_feeling_toward(rel, from_id):
+    """Get the feeling that from_id has toward the other player in the relationship."""
+    if rel.player1_id == from_id:
+        return rel.feeling_1to2 or 'normal'
+    return rel.feeling_2to1 or 'normal'
+
+
+def set_feeling_toward(rel, from_id, feeling):
+    """Set the feeling that from_id has toward the other player."""
+    if rel.player1_id == from_id:
+        rel.feeling_1to2 = feeling
+    else:
+        rel.feeling_2to1 = feeling
+
+
+def get_approachable_players(player, sex_filter='both'):
+    """Get list of players that can be approached for social interactions.
+
+    Based on original LOVERS.PAS approach routine.
+    sex_filter: 'male', 'female', or 'both'
+    """
+    query = Player.query.filter(
+        Player.id != player.id,
+        Player.hp > 0,
+        Player.is_imprisoned == False,
+    )
+
+    if sex_filter == 'male':
+        query = query.filter(Player.sex == 1)
+    elif sex_filter == 'female':
+        query = query.filter(Player.sex == 2)
+
+    return query.order_by(Player.name).all()
+
+
+def approach_player_info(player, target_id):
+    """Get info about the relationship between player and target for the approach screen.
+
+    Returns dict with target info, relationship status, feelings, etc.
+    """
+    target = db.session.get(Player, target_id)
+    if not target:
+        return None
+
+    rel = get_or_create_relation(player, target)
+
+    player_feeling = get_feeling_toward(rel, player.id)
+    target_feeling = get_feeling_toward(rel, target.id)
+
+    # Check if either is married to someone else
+    player_married_to_other = player.married and player.spouse_id != target.id
+    target_married_to_other = target.married and target.spouse_id != player.id
+    married_to_each_other = player.married and player.spouse_id == target.id
+
+    return {
+        'target': target,
+        'relationship': rel,
+        'player_feeling': player_feeling,
+        'target_feeling': target_feeling,
+        'player_feeling_display': _feeling_display(player_feeling),
+        'target_feeling_display': _feeling_display(target_feeling),
+        'married_to_each_other': married_to_each_other,
+        'player_married_to_other': player_married_to_other,
+        'target_married_to_other': target_married_to_other,
+        'intimacy_acts_left': player.intimacy_acts if player.intimacy_acts else 0,
+    }
+
+
+def social_interact(player, target_id, action):
+    """Perform a social interaction with another player.
+
+    Actions: hold_hands, dinner, kiss, go_to_bed
+    Based on original LOVERS.PAS intimate actions.
+
+    Returns (success, message, xp_gained).
+    """
+    target = db.session.get(Player, target_id)
+    if not target:
+        return False, "Player not found.", 0
+
+    if player.id == target.id:
+        return False, "You cannot interact with yourself.", 0
+
+    # Re-check target availability (listing page filters these, but enforce here too)
+    if target.hp <= 0:
+        return False, f"{target.name} is too wounded for social activities.", 0
+    if target.is_imprisoned:
+        return False, f"{target.name} is currently imprisoned.", 0
+
+    if action not in ('hold_hands', 'dinner', 'kiss', 'go_to_bed'):
+        return False, "Invalid action.", 0
+
+    # Check daily intimacy limit (original: player.IntimacyActs)
+    if not player.intimacy_acts or player.intimacy_acts < 1:
+        return False, "You have no intimate sessions left today.", 0
+
+    rel = get_or_create_relation(player, target)
+    target_feeling = get_feeling_toward(rel, target.id)
+    married_to_each_other = player.married and player.spouse_id == target.id
+
+    # Married couples do intimate things at home, not at Love Corner
+    # (original: "Married couples entertain themselves at home!")
+    if married_to_each_other and action in ('hold_hands', 'dinner', 'kiss'):
+        return False, "You are married! Go home and spend time together instead.", 0
+
+    # Check if target is married to someone else (faithfulness check)
+    if target.married and target.spouse_id != player.id:
+        spouse = db.session.get(Player, target.spouse_id)
+        spouse_name = spouse.name if spouse else "someone"
+        return False, f"{target.name} is married to {spouse_name} and is faithful!", 0
+
+    # NPC response logic (from original: pl0^.ai='C')
+    if target.is_npc:
+        # 2/3 chance NPC refuses (original: random(3)<>0)
+        if random.randint(1, 3) != 1:
+            refuse_msgs = {
+                'hold_hands': f"{target.name} refuses to meet you!",
+                'dinner': f"{target.name} refuses to eat with you!",
+                'kiss': f"{target.name} refuses to be kissed by you!",
+                'go_to_bed': f"{target.name} refuses to be intimate with you!",
+            }
+            player.intimacy_acts -= 1
+            return False, refuse_msgs[action], 0
+
+        # NPCs with negative feelings refuse completely
+        if _is_negative_feeling(target_feeling):
+            hate_msgs = {
+                'hold_hands': f"{target.name} doesn't like you very much! Forget about a date!",
+                'dinner': f"{target.name} doesn't like you! Forget about dinner!",
+                'kiss': f"{target.name} doesn't like you! Forget about kissing!",
+                'go_to_bed': f"{target.name} hates you! Forget about it!",
+            }
+            player.intimacy_acts -= 1
+            return False, hate_msgs[action], 0
+    else:
+        # Human player targets get a mail invitation instead of instant interaction
+        action_names = {
+            'hold_hands': 'hold hands',
+            'dinner': 'dinner',
+            'kiss': 'a kiss',
+            'go_to_bed': 'an intimate encounter',
+        }
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=target.id,
+            subject=f"Romantic Invitation",
+            message=f"{player.name} has invited you for {action_names[action]} at the Love Corner!"
+        )
+        db.session.add(mail)
+        player.intimacy_acts -= 1
+        return True, f"Invitation sent to {target.name} for {action_names[action]}!", 0
+
+    # ---- NPC accepted the interaction ----
+
+    # 50% chance NPC improves their feeling toward player (original: random(2)=0)
+    if random.randint(0, 1) == 0:
+        new_feeling = _improve_feeling(target_feeling)
+        set_feeling_toward(rel, target.id, new_feeling)
+
+    # Calculate XP based on action type (from original multipliers)
+    xp_multiplier = {
+        'hold_hands': 155,  # original: player.level*155
+        'dinner': 155,      # original: player.level*155
+        'kiss': 234,        # original: player.level*234
+        'go_to_bed': 244,   # original: player.level*244
+    }[action]
+
+    xp = (player.level * xp_multiplier + target.level * xp_multiplier) // 2
+    xp = max(100, xp)
+
+    # Apply XP
+    player.experience += xp
+    target.experience += xp
+
+    # Reduce daily intimacy acts
+    player.intimacy_acts -= 1
+
+    # Generate success message and news
+    if action == 'hold_hands':
+        msg = f"You go out with {target.name} and have a great time! You both earn {xp:,} experience!"
+        news_msg = f"{player.name} and {target.name} were seen together today. They were holding hands on a park bench."
+        news_cat = 'Dating'
+    elif action == 'dinner':
+        msg = f"You have dinner with {target.name} and enjoy yourself! Everything was great, except the check. You both earn {xp:,} experience!"
+        news_msg = f"{player.name} and {target.name} were seen having dinner this evening."
+        news_cat = 'Dinner Date'
+    elif action == 'kiss':
+        msg = f"You kiss {target.name} passionately! Great Lips! You both earn {xp:,} experience!"
+        news_msg = f"{player.name} kissed {target.name}!"
+        news_cat = 'Love'
+    else:  # go_to_bed
+        msg = f"You embrace {target.name} passionately! Great Event! You earn {xp:,} experience!"
+        news_msg = f"{player.name} slept with {target.name}!"
+        news_cat = 'Romantic Event'
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='social',
+        message=f"{news_cat}: {news_msg}"
+    )
+    db.session.add(news)
+
+    # Jealousy check - if player is married to someone else, spouse gets angry
+    _check_jealousy(player, target)
+    _check_jealousy(target, player)
+
+    return True, msg, xp
+
+
+def _check_jealousy(player, partner):
+    """Check if player's spouse gets jealous about interaction with partner.
+
+    Based on original Jealousy() procedure from RELATION.PAS.
+    """
+    if not player.married or not player.spouse_id:
+        return
+    if player.spouse_id == partner.id:
+        return  # interacting with own spouse, no jealousy
+
+    spouse = db.session.get(Player, player.spouse_id)
+    if not spouse:
+        return
+
+    # Spouse finds out (50% chance)
+    if random.randint(0, 1) == 0:
+        return
+
+    # Send angry mail from spouse
+    mail = Mail(
+        sender_id=spouse.id,
+        receiver_id=player.id,
+        subject="Jealousy!",
+        message=f"{spouse.name} found out about your affair with {partner.name}! "
+                f"Your spouse is furious!"
+    )
+    db.session.add(mail)
+
+    # Worsen spouse's feeling toward player
+    rel = get_or_create_relation(spouse, player)
+    current = get_feeling_toward(rel, spouse.id)
+    set_feeling_toward(rel, spouse.id, _worsen_feeling(current))
+
+    news = NewsEntry(
+        player_id=spouse.id,
+        category='social',
+        message=f"Jealousy! {spouse.name} is furious about {player.name}'s affair with {partner.name}!"
+    )
+    db.session.add(news)
+
+
+def change_feeling(player, target_id, direction):
+    """Player changes their attitude/feeling toward another player.
+
+    direction: 'better' or 'worse'
+    Based on original change_feelings_menu from LOVERS.PAS.
+    """
+    target = db.session.get(Player, target_id)
+    if not target:
+        return False, "Player not found."
+
+    rel = get_or_create_relation(player, target)
+    current = get_feeling_toward(rel, player.id)
+
+    if direction == 'better':
+        new_feeling = _improve_feeling(current)
+    elif direction == 'worse':
+        new_feeling = _worsen_feeling(current)
+    else:
+        return False, "Invalid direction."
+
+    if new_feeling == current:
+        limit = "love" if direction == 'better' else "hate"
+        return False, f"Your feeling is already at {_feeling_display(current)} ({limit})."
+
+    set_feeling_toward(rel, player.id, new_feeling)
+    return True, f"Your feeling toward {target.name} changed from {_feeling_display(current)} to {_feeling_display(new_feeling)}."
+
+
+# =========================================================================
+# DUNGEON LEVEL CHANGE (from original DUNGEONC.PAS)
+# =========================================================================
+
+def change_dungeon_level(player, new_level):
+    """Change the dungeon level the player is exploring.
+
+    From original: players can access levels from their level to level+5.
+    Total of 100 dungeon levels.
+    Returns (success, message).
+    """
+    min_level = max(1, player.level - 5)
+    max_level = min(100, player.level + 5)
+
+    if new_level < min_level or new_level > max_level:
+        return False, f"You can access dungeon levels {min_level} to {max_level}."
+
+    old_level = player.dungeon_level or player.level
+
+    player.dungeon_level = new_level
+
+    if new_level == old_level:
+        return True, f"You remain on dungeon level {new_level}."
+    elif new_level > old_level:
+        return True, f"You descend to dungeon level {new_level}."
+    else:
+        return True, f"You ascend to dungeon level {new_level}."
+
+
+# =========================================================================
 # TEAM / GANG TOWN CLAIMING SYSTEM
 # =========================================================================
 
@@ -2189,6 +2575,505 @@ def get_player_children(player):
     return Child.query.filter(
         (Child.mother_id == player.id) | (Child.father_id == player.id)
     ).all()
+
+
+# =========================================================================
+# HOME SYSTEM (from original HOME.PAS)
+# =========================================================================
+
+MAX_CHEST_ITEMS = 10  # configurable: config.homeitems in original
+
+
+def get_home_info(player):
+    """Get all info needed for the home screen."""
+    spouse = db.session.get(Player, player.spouse_id) if player.spouse_id else None
+    children = get_player_children(player)
+    home_children = [c for c in children if _has_access(player, c) and c.location == 'home']
+    kidnapped_children = [c for c in children if c.kidnapped_by_id and _has_access(player, c)]
+    chest_count = HomeChestItem.query.filter_by(player_id=player.id).count()
+
+    # Marriage duration message
+    marriage_msg = ''
+    if spouse:
+        rel = Relationship.query.filter(
+            ((Relationship.player1_id == player.id) & (Relationship.player2_id == spouse.id)) |
+            ((Relationship.player1_id == spouse.id) & (Relationship.player2_id == player.id))
+        ).filter_by(rel_type='married').first()
+        if rel:
+            days = (datetime.now(timezone.utc) - rel.created_at).days
+            marriage_msg = f"You have been married for {days} day{'s' if days != 1 else ''}."
+            if days > 300:
+                marriage_msg += " *You are a golden couple*"
+            elif days > 100:
+                marriage_msg += " Congratulations!"
+            elif days > 50:
+                marriage_msg += " Keep it up!"
+            elif days > 10:
+                marriage_msg += " Nice going."
+
+    return {
+        'spouse': spouse,
+        'children': children,
+        'home_children': home_children,
+        'kidnapped_children': kidnapped_children,
+        'chest_count': chest_count,
+        'max_chest': MAX_CHEST_ITEMS,
+        'marriage_msg': marriage_msg,
+        'intimacy_acts': player.intimacy_acts if player.intimacy_acts else 0,
+    }
+
+
+def _has_access(player, child):
+    """Check if player has custody access to this child."""
+    if player.sex == 1 and child.father_id == player.id:
+        return child.father_access if child.father_access is not None else True
+    if player.sex == 2 and child.mother_id == player.id:
+        return child.mother_access if child.mother_access is not None else True
+    # Fallback: check if either parent
+    if child.father_id == player.id or child.mother_id == player.id:
+        return True
+    return False
+
+
+def go_to_sleep(player):
+    """Player goes to sleep at home. Ends their session for the day.
+
+    Based on original HOME.PAS 'G' option - Go to sleep.
+    """
+    news = NewsEntry(
+        player_id=player.id,
+        category='social',
+        message=f"Home sweet home: {player.name} fell asleep at home."
+    )
+    db.session.add(news)
+    return True, "You drift off to sleep in the comfort of your own home... Sweet dreams."
+
+
+def have_sex_at_home(player):
+    """Have sex with spouse at home.
+
+    Based on original HOME.PAS 'H' option and RELATION.PAS Sex_Act_Routine.
+    """
+    if not player.married or not player.spouse_id:
+        return False, "You are not married. There's no one here to spend the night with."
+
+    if not player.intimacy_acts or player.intimacy_acts < 1:
+        return False, "You have no intimate sessions left today."
+
+    spouse = db.session.get(Player, player.spouse_id)
+    if not spouse:
+        return False, "Your spouse has disappeared from the World of Usurper!"
+
+    # NPC spouse: 50% chance of refusal (original: random(2) = 0)
+    if spouse.is_npc and random.randint(0, 1) == 0:
+        player.intimacy_acts -= 1
+        return False, f"{spouse.name} doesn't feel like doing it right now."
+
+    # Calculate experience (from original sex_experience function)
+    xp = (player.level * 244 + spouse.level * 244) // 2
+    xp = max(100, xp)
+
+    player.experience += xp
+    spouse.experience += xp
+    player.intimacy_acts -= 1
+
+    # Determine who can become pregnant
+    mother = player if player.sex == 2 else spouse
+    father = spouse if player.sex == 2 else player
+
+    pregnancy_msg = ''
+    if mother.sex == 2 and father.sex == 1 and not mother.is_pregnant:
+        if random.randint(1, 4) == 1:  # 25% pregnancy chance
+            mother.is_pregnant = True
+            mother.pregnancy_days = 0
+            pregnancy_msg = " Wonderful news - you are expecting a child!"
+            news = NewsEntry(
+                category='social',
+                message=f"{player.name} and {spouse.name} are expecting a child!"
+            )
+            db.session.add(news)
+
+    # Romantic descriptions
+    scenes = [
+        f"You and {spouse.name} share a passionate night together.",
+        f"You embrace {spouse.name} tenderly. A wonderful evening!",
+        f"You and {spouse.name} spend the night in each other's arms.",
+        f"A romantic evening by candlelight with {spouse.name}.",
+    ]
+    msg = random.choice(scenes)
+    msg += f" You both earned {xp:,} experience points!"
+    msg += pregnancy_msg
+
+    # News
+    news = NewsEntry(
+        player_id=player.id,
+        category='social',
+        message=f"In Bed: {player.name} and {spouse.name} shared a bed."
+    )
+    db.session.add(news)
+
+    # Mail spouse if human
+    if not spouse.is_npc:
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=spouse.id,
+            subject="Spending the Night",
+            message=f"{player.name} spent the night with you. "
+                    f"You had a wonderful time! You earned {xp:,} experience points."
+        )
+        db.session.add(mail)
+
+    return True, msg
+
+
+# --- Home Chest (Item Storage) ---
+
+def get_chest_items(player):
+    """Get all items stored in player's home chest."""
+    return HomeChestItem.query.filter_by(player_id=player.id).order_by(
+        HomeChestItem.stored_at.desc()
+    ).all()
+
+
+def store_item_in_chest(player, inv_item_id):
+    """Move an item from inventory to home chest.
+
+    Based on original INVENT.PAS Chest_with_Items 'A' option.
+    """
+    chest_count = HomeChestItem.query.filter_by(player_id=player.id).count()
+    if chest_count >= MAX_CHEST_ITEMS:
+        return False, f"Your chest is full! (Max {MAX_CHEST_ITEMS} items)"
+
+    inv_item = InventoryItem.query.filter_by(id=inv_item_id, player_id=player.id).first()
+    if not inv_item:
+        return False, "Item not found in your inventory."
+
+    # Can't store equipped items
+    item = db.session.get(Item, inv_item.item_id)
+    if not item:
+        return False, "Item data not found."
+
+    # Check if item is currently equipped
+    for slot in ['weapon', 'armor', 'shield', 'helmet', 'ring', 'amulet']:
+        if getattr(player, f'equipped_{slot}', None) == item.id:
+            return False, f"Unequip {item.name} before storing it."
+
+    # Move to chest
+    chest_item = HomeChestItem(player_id=player.id, item_id=item.id)
+    db.session.add(chest_item)
+    db.session.delete(inv_item)
+
+    return True, f"You place the {item.name} carefully in your chest."
+
+
+def retrieve_item_from_chest(player, chest_item_id):
+    """Move an item from home chest back to inventory.
+
+    Based on original INVENT.PAS Chest_with_Items 'G' option.
+    """
+    chest_item = HomeChestItem.query.filter_by(
+        id=chest_item_id, player_id=player.id
+    ).first()
+    if not chest_item:
+        return False, "Item not found in your chest."
+
+    # Check inventory space (max 15 items, consistent with rest of game)
+    inv_count = InventoryItem.query.filter_by(player_id=player.id).count()
+    if inv_count >= 15:
+        return False, "Your inventory is full! (Max 15 items)"
+
+    item = db.session.get(Item, chest_item.item_id)
+    if not item:
+        db.session.delete(chest_item)
+        return False, "Item data corrupted."
+
+    # Move to inventory
+    inv_item = InventoryItem(player_id=player.id, item_id=item.id)
+    db.session.add(inv_item)
+    db.session.delete(chest_item)
+
+    return True, f"You take the {item.name} and put it in your inventory."
+
+
+# --- Child Custody Management ---
+
+def share_custody(player, child_id):
+    """Share custody of a child with the other parent.
+
+    Based on original HOME.PAS 'S' (Share custody) option.
+    """
+    child = db.session.get(Child, child_id)
+    if not child:
+        return False, "Child not found."
+
+    if not _has_access(player, child):
+        return False, "You don't have access to this child."
+
+    if child.location != 'home':
+        return False, f"{child.name} must be home before you can share custody."
+
+    # Find the other parent
+    if player.sex == 1:  # father
+        other_parent_id = child.mother_id
+        other_role = "mother"
+    else:
+        other_parent_id = child.father_id
+        other_role = "father"
+
+    other_parent = db.session.get(Player, other_parent_id) if other_parent_id else None
+    if not other_parent:
+        return False, f"{child.name}'s {other_role} has disappeared!"
+
+    # Check if already shared
+    if child.mother_access and child.father_access:
+        return False, f"You already share custody of {child.name}!"
+
+    # Check if parents are married (can't share if married - use nursery instead)
+    # Actually in original, sharing is for divorced couples
+    child.mother_access = True
+    child.father_access = True
+
+    # Notify other parent
+    if not other_parent.is_npc:
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=other_parent.id,
+            subject="Custody Shared!",
+            message=f"{player.name} shared custody of your "
+                    f"{'son' if child.sex == 1 else 'daughter'} {child.name}! "
+                    f"You can once again see your child."
+        )
+        db.session.add(mail)
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='social',
+        message=f"Child Happiness! {player.name} shared custody of {child.name}!"
+    )
+    db.session.add(news)
+
+    return True, f"{child.name} has reunited with both parents! {child.name} is happy!"
+
+
+def abandon_child(player, child_id):
+    """Abandon custody of a child. Other parent gets full custody.
+
+    Based on original HOME.PAS 'A' (Abandon child) option.
+    """
+    child = db.session.get(Child, child_id)
+    if not child:
+        return False, "Child not found."
+
+    if not _has_access(player, child):
+        return False, "You don't have access to this child."
+
+    if child.location != 'home':
+        return False, f"{child.name} must be home before you can abandon them."
+
+    # Can't abandon if married to the other parent
+    if player.sex == 1:
+        other_parent_id = child.mother_id
+    else:
+        other_parent_id = child.father_id
+
+    if player.married and player.spouse_id == other_parent_id:
+        return False, "A child can't be rejected when the parents are married!"
+
+    # Remove player's access
+    if player.sex == 1:
+        child.father_access = False
+        child.mother_access = True
+    else:
+        child.mother_access = False
+        child.father_access = True
+
+    # Check if other parent exists
+    other_parent = db.session.get(Player, other_parent_id) if other_parent_id else None
+    if not other_parent:
+        # No other parent - child goes to orphanage
+        child.location = 'orphanage'
+        child.is_orphan = True
+        news = NewsEntry(
+            player_id=player.id,
+            category='social',
+            message=f"Child Transport: {player.name} sent {child.name} to the Royal Orphanage!"
+        )
+        db.session.add(news)
+        return True, f"{child.name} has been sent to the Royal Orphanage."
+
+    # Notify other parent
+    sex_word = 'son' if child.sex == 1 else 'daughter'
+    if not other_parent.is_npc:
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=other_parent.id,
+            subject="Child Rejected!",
+            message=f"{player.name} rejected your {sex_word} {child.name}! "
+                    f"You are now on your own, with full responsibility."
+        )
+        db.session.add(mail)
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='social',
+        message=f"Child Rejected! {player.name} rejected {child.name}!"
+    )
+    db.session.add(news)
+
+    return True, f"{child.name} was kicked out from the house! {child.name} is now living with the other parent."
+
+
+def send_to_orphanage(player, child_id):
+    """Send a child to the Royal Orphanage.
+
+    Based on original HOME.PAS 'O' (Orphanage) option.
+    """
+    child = db.session.get(Child, child_id)
+    if not child:
+        return False, "Child not found."
+
+    if not _has_access(player, child):
+        return False, "You don't have access to this child."
+
+    if child.location != 'home':
+        return False, f"{child.name} must be home before you can transfer them."
+
+    # Can't transfer if married to the other parent
+    if player.sex == 1:
+        other_parent_id = child.mother_id
+    else:
+        other_parent_id = child.father_id
+
+    if player.married and player.spouse_id == other_parent_id:
+        return False, "A child can't be transferred when the parents are married! Visit the nursery instead."
+
+    child.location = 'orphanage'
+    child.is_orphan = True
+
+    # Remove player's access
+    if player.sex == 1:
+        child.father_access = False
+    else:
+        child.mother_access = False
+
+    # Notify other parent
+    other_parent = db.session.get(Player, other_parent_id) if other_parent_id else None
+    if other_parent and not other_parent.is_npc:
+        sex_word = 'son' if child.sex == 1 else 'daughter'
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=other_parent.id,
+            subject="Child Transferred!",
+            message=f"{player.name} transferred your {sex_word} {child.name} to the Royal Orphanage!"
+        )
+        db.session.add(mail)
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='social',
+        message=f"Child Transport: {player.name} transferred {child.name} to the Royal Orphanage. The townspeople are upset!"
+    )
+    db.session.add(news)
+
+    return True, f"{child.name} has been sent to the Royal Orphanage."
+
+
+def pay_ransom(player, child_id):
+    """Pay ransom to free a kidnapped child.
+
+    Based on original HOME.PAS 'P' (Pay ransom) option.
+    """
+    child = db.session.get(Child, child_id)
+    if not child:
+        return False, "Child not found."
+
+    # Verify the player is actually a parent of this child
+    if not _has_access(player, child):
+        return False, "This is not your child."
+
+    if not child.kidnapped_by_id or child.location != 'kidnapped':
+        return False, f"{child.name} is not kidnapped."
+
+    ransom = child.ransom_amount or 0
+    if ransom <= 0:
+        return False, "No ransom has been demanded."
+
+    if player.gold < ransom:
+        return False, f"You don't have enough gold! Ransom: {ransom:,} gold."
+
+    kidnapper = db.session.get(Player, child.kidnapped_by_id)
+
+    # Pay ransom
+    player.gold -= ransom
+    if kidnapper:
+        kidnapper.gold += ransom
+        if not kidnapper.is_npc:
+            mail = Mail(
+                sender_id=player.id,
+                receiver_id=kidnapper.id,
+                subject="Ransom Paid",
+                message=f"{player.name} paid the ransom for {child.name}! "
+                        f"You received {ransom:,} gold. (good work evil one!)"
+            )
+            db.session.add(mail)
+
+    # Free child
+    child.kidnapped_by_id = None
+    child.ransom_amount = 0
+    child.location = 'home'
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='social',
+        message=f"Released! {child.name} was released after {player.name} paid the {ransom:,} gold ransom!"
+    )
+    db.session.add(news)
+
+    return True, f"{child.name} has been freed! You paid {ransom:,} gold."
+
+
+def get_nursery_children(player):
+    """Get children available for nursery activities."""
+    children = Child.query.filter(
+        ((Child.mother_id == player.id) | (Child.father_id == player.id)),
+        Child.location == 'home',
+        Child.health == 'normal',
+    ).all()
+    return [c for c in children if _has_access(player, c)]
+
+
+def nursery_play(player, child_id):
+    """Play with a child in the nursery, earning XP for both.
+
+    Based on original HOME.PAS Nursery 'P' option - kid parties.
+    """
+    child = db.session.get(Child, child_id)
+    if not child:
+        return False, "Child not found."
+
+    if child.location != 'home' or child.health != 'normal':
+        return False, f"{child.name} is not available."
+
+    if not _has_access(player, child):
+        return False, "You don't have access to this child."
+
+    # Play scenarios
+    scenarios = [
+        f"You play hide and seek with {child.name}! What fun!",
+        f"You tell {child.name} a bedtime story. They listen with wide eyes.",
+        f"You and {child.name} build a castle out of blocks together.",
+        f"You teach {child.name} a few sword moves. They're a natural!",
+        f"{child.name} shows you a drawing they made. It's beautiful!",
+        f"You play catch with {child.name} in the yard.",
+    ]
+
+    xp = player.level * 50 + random.randint(50, 200)
+    player.experience += xp
+
+    msg = random.choice(scenarios)
+    msg += f" You earned {xp:,} experience!"
+
+    return True, msg
 
 
 # =========================================================================

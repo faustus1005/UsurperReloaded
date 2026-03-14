@@ -262,6 +262,10 @@ class Player(db.Model):
     player_fights = db.Column(db.Integer, default=3)
     thefts_remaining = db.Column(db.Integer, default=2)
     brawls_remaining = db.Column(db.Integer, default=2)
+    intimacy_acts = db.Column(db.Integer, default=5)  # daily intimate interactions
+
+    # Dungeon
+    dungeon_level = db.Column(db.Integer, default=1)  # current dungeon level
 
     # Combat stats
     weapon_power = db.Column(db.Integer, default=0)
@@ -623,7 +627,10 @@ class Relationship(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     player1_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
     player2_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
-    rel_type = db.Column(db.String(20), nullable=False)  # 'married', 'ally', 'rival', 'lover'
+    rel_type = db.Column(db.String(20), nullable=False)  # 'married', 'ally', 'rival', 'lover', 'proposal'
+    # Feeling levels: hate, enemy, anger, suspicious, normal, respect, trust, friendship, passion, love
+    feeling_1to2 = db.Column(db.String(15), default='normal')  # player1's feeling toward player2
+    feeling_2to1 = db.Column(db.String(15), default='normal')  # player2's feeling toward player1
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     player1 = db.relationship('Player', foreign_keys=[player1_id], backref='relationships_as_p1')
@@ -649,10 +656,31 @@ class Child(db.Model):
     born_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     is_orphan = db.Column(db.Boolean, default=False)
     kidnapped_by_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=True)
+    # Child location: 'home', 'orphanage', 'kidnapped'
+    location = db.Column(db.String(15), default='home')
+    # Custody tracking (which parent has access)
+    mother_access = db.Column(db.Boolean, default=True)
+    father_access = db.Column(db.Boolean, default=True)
+    ransom_amount = db.Column(db.Integer, default=0)
+    # Child health: 'normal', 'sick', 'dead'
+    health = db.Column(db.String(10), default='normal')
 
     mother = db.relationship('Player', foreign_keys=[mother_id], backref='children_as_mother')
     father = db.relationship('Player', foreign_keys=[father_id], backref='children_as_father')
     kidnapped_by = db.relationship('Player', foreign_keys=[kidnapped_by_id])
+
+
+class HomeChestItem(db.Model):
+    """Items stored in a player's home chest."""
+    __tablename__ = 'home_chest_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    stored_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    player = db.relationship('Player', backref='chest_items')
+    item = db.relationship('Item')
 
 
 class RoyalQuest(db.Model):

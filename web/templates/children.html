@@ -7,7 +7,7 @@
         {% if children %}
         <table>
             <thead>
-                <tr><th>Name</th><th>Sex</th><th>Race</th><th>Age</th><th>Description</th></tr>
+                <tr><th>Name</th><th>Sex</th><th>Race</th><th>Age</th><th>Location</th><th>Description</th></tr>
             </thead>
             <tbody>
                 {% for child in children %}
@@ -16,6 +16,17 @@
                     <td>{{ 'Boy' if child.sex == 1 else 'Girl' }}</td>
                     <td>{{ child.race }}</td>
                     <td>{{ child.age }}</td>
+                    <td>
+                        {% if child.location == 'home' %}
+                        <span class="text-green">Home</span>
+                        {% elif child.location == 'orphanage' %}
+                        <span class="text-red">Orphanage</span>
+                        {% elif child.location == 'kidnapped' %}
+                        <span class="text-red">Kidnapped!</span>
+                        {% else %}
+                        {{ child.location or 'Home' }}
+                        {% endif %}
+                    </td>
                     <td class="text-dim">{{ child.description }}</td>
                 </tr>
                 {% endfor %}
@@ -28,6 +39,7 @@
 </div>
 
 <div class="text-center mt-1">
+    <a href="{{ url_for('home') }}" class="btn">Back to Home</a>
     <a href="{{ url_for('love_corner') }}" class="btn">Back to Love Corner</a>
     <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
 </div>
