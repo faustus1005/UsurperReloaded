@@ -1769,6 +1769,12 @@ def social_interact(player, target_id, action):
     if player.id == target.id:
         return False, "You cannot interact with yourself.", 0
 
+    # Re-check target availability (listing page filters these, but enforce here too)
+    if target.hp <= 0:
+        return False, f"{target.name} is too wounded for social activities.", 0
+    if target.is_imprisoned:
+        return False, f"{target.name} is currently imprisoned.", 0
+
     if action not in ('hold_hands', 'dinner', 'kiss', 'go_to_bed'):
         return False, "Invalid action.", 0
 
@@ -2771,10 +2777,10 @@ def retrieve_item_from_chest(player, chest_item_id):
     if not chest_item:
         return False, "Item not found in your chest."
 
-    # Check inventory space (max 20 items)
+    # Check inventory space (max 15 items, consistent with rest of game)
     inv_count = InventoryItem.query.filter_by(player_id=player.id).count()
-    if inv_count >= 20:
-        return False, "Your inventory is full!"
+    if inv_count >= 15:
+        return False, "Your inventory is full! (Max 15 items)"
 
     item = db.session.get(Item, chest_item.item_id)
     if not item:
@@ -2980,6 +2986,10 @@ def pay_ransom(player, child_id):
     child = db.session.get(Child, child_id)
     if not child:
         return False, "Child not found."
+
+    # Verify the player is actually a parent of this child
+    if not _has_access(player, child):
+        return False, "This is not your child."
 
     if not child.kidnapped_by_id or child.location != 'kidnapped':
         return False, f"{child.name} is not kidnapped."
