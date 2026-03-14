@@ -1,0 +1,8 @@
+{% macro location_img(image_key) %}
+{% set img_path = get_location_image(image_key) %}
+{% if img_path %}
+<div class="location-image">
+    <img src="{{ url_for('static', filename='images/' + img_path) }}" alt="{{ image_key }}">
+</div>
+{% endif %}
+{% endmacro %}

@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - {{ town_name }}{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">Welcome to {{ town_name }}, {{ player.name }}</div>
     <div class="panel-body">
+        {{ location_img('main_menu') }}
         <p class="text-secondary">
             Level {{ player.level }} {{ player.race }} {{ player.player_class }}
             &mdash;

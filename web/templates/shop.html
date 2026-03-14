@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - {{ shop_name }}{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">{{ shop_name }}</div>
     <div class="panel-body">
+        {{ location_img(shop_image_key|default('weapon_shop')) }}
         <p class="text-secondary mb-1">Gold: <span class="text-gold">{{ player.gold }}</span></p>
 
         {% if items %}

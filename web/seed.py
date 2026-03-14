@@ -48,6 +48,20 @@ def seed_config():
         'bishop_name': 'Jakobinus',
         'gossip_name': 'Lydia',
         'bartender_name': 'Ted',
+        # Beauty Nest
+        'beauty_nest_name': 'The Beauty Nest',
+        'beauty_nest_owner': 'Clarissa',
+        'beauty_nest_visits_per_day': '3',
+        'beauty_nest_disease_chance': '3',
+        'beauty_nest_enabled': 'true',
+        # Additional location names
+        'tavern_name': 'Bob\'s Tavern',
+        'dark_alley_name': 'The Dark Alley',
+        'temple_name': 'Temple of the Gods',
+        'castle_name': 'The Royal Castle',
+        'love_corner_name': 'The Love Corner',
+        # Scrolling text
+        'scrolling_text': '',
     }
     for key, value in defaults.items():
         existing = GameConfig.query.filter_by(key=key).first()

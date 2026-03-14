@@ -6,7 +6,7 @@
     <title>Usurper ReLoaded{% block title_suffix %}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body{% if current_user.is_authenticated and player and (scrolling_text or recent_scroll_news) %} class="has-scroll-window"{% endif %}>
     {% if current_user.is_authenticated and player %}
     <header class="game-header">
         <div class="container header-content">
@@ -57,7 +57,61 @@
         </div>
     </footer>
 
+    {% if current_user.is_authenticated and player and (scrolling_text or recent_scroll_news) %}
+    <div class="scroll-window" id="scrollWindow">
+        <div class="scroll-window-header" onclick="toggleScrollWindow()">
+            <span>TOWN CRIER</span>
+            <button class="scroll-window-toggle" id="scrollToggleBtn" title="Collapse/Expand">[_]</button>
+        </div>
+        <div class="scroll-window-body" id="scrollWindowBody">
+            {% if scrolling_text %}
+            <div class="scroll-text-content">{{ scrolling_text }}</div>
+            <hr class="separator" style="margin: 8px 0;">
+            {% endif %}
+            {% if recent_scroll_news %}
+            {% for entry in recent_scroll_news %}
+            <div class="scroll-entry">
+                <span class="category">{{ entry.category }}</span>
+                {{ entry.message }}
+                <span class="timestamp">{{ entry.created_at.strftime('%H:%M') }}</span>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <script src="{{ url_for('static', filename='js/player-search.js') }}"></script>
+    <script>
+    function toggleScrollWindow() {
+        var sw = document.getElementById('scrollWindow');
+        var btn = document.getElementById('scrollToggleBtn');
+        var body = document.body;
+        if (sw.classList.contains('collapsed')) {
+            sw.classList.remove('collapsed');
+            btn.textContent = '[_]';
+            body.classList.remove('scroll-collapsed');
+            localStorage.setItem('scrollWindowCollapsed', 'false');
+        } else {
+            sw.classList.add('collapsed');
+            btn.textContent = '[+]';
+            body.classList.add('scroll-collapsed');
+            localStorage.setItem('scrollWindowCollapsed', 'true');
+        }
+    }
+    // Restore collapsed state on load
+    (function() {
+        if (localStorage.getItem('scrollWindowCollapsed') === 'true') {
+            var sw = document.getElementById('scrollWindow');
+            var btn = document.getElementById('scrollToggleBtn');
+            if (sw) {
+                sw.classList.add('collapsed');
+                btn.textContent = '[+]';
+                document.body.classList.add('scroll-collapsed');
+            }
+        }
+    })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,13 +1,15 @@
 {% extends "base.html" %}
-{% block title_suffix %} - The Beauty Nest{% endblock %}
+{% from "macros.html" import location_img %}
+{% block title_suffix %} - {{ nest_name }}{% endblock %}
 {% block content %}
 <div class="panel">
-    <div class="panel-header">The Beauty Nest</div>
+    <div class="panel-header">{{ nest_name }}</div>
     <div class="panel-body">
+        {{ location_img('beauty_nest') }}
         <p class="text-secondary mb-2">
             As you enter the worn-down old establishment at the end of the main street,
             you notice all kinds of strange creatures coming and going. A stout half-elf woman
-            with a shrewd gaze appears from behind a beaded curtain. It is Clarissa, the proprietress.
+            with a shrewd gaze appears from behind a beaded curtain. It is {{ owner_name }}, the proprietress.
         </p>
         <p class="text-dim mb-1">
             "Looking for some company, handsome?" she asks with a knowing smile.
@@ -20,7 +22,7 @@
 
         {% if player.beauty_nest_visits and player.beauty_nest_visits > 0 %}
         <hr class="separator">
-        <p class="text-dim mb-1">Clarissa introduces you to the companions:</p>
+        <p class="text-dim mb-1">{{ owner_name }} introduces you to the companions:</p>
 
         {% for companion in companions %}
         <div class="item-card">

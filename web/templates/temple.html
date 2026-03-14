@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - Temple of the Gods{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">Temple of the Gods</div>
     <div class="panel-body">
+        {{ location_img('temple') }}
         <p class="text-secondary mb-2">
             A sacred place where mortals commune with the divine.
         </p>
