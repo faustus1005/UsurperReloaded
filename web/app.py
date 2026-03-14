@@ -268,6 +268,37 @@ def status():
                            LEVEL_XP=LEVEL_XP)
 
 
+# ==================== PLAYER SEARCH API ====================
+
+@app.route('/api/player_search')
+@login_required
+def player_search():
+    """Search for players/NPCs by name prefix. Min 3 chars required.
+
+    Returns JSON list of matching players for autocomplete fields.
+    """
+    q = request.args.get('q', '').strip()
+    if len(q) < 3:
+        return jsonify([])
+
+    matches = Player.query.filter(
+        Player.name.ilike(f'%{q}%')
+    ).order_by(Player.name).limit(15).all()
+
+    results = []
+    for p in matches:
+        results.append({
+            'id': p.id,
+            'name': p.name,
+            'level': p.level,
+            'race': p.race,
+            'player_class': p.player_class,
+            'is_npc': p.is_npc,
+            'sex': 'M' if p.sex == 1 else 'F',
+        })
+    return jsonify(results)
+
+
 # ==================== DUNGEON ====================
 
 @app.route('/dungeon')

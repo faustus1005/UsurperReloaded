@@ -44,7 +44,7 @@
             <div class="panel-header">Propose Marriage</div>
             <div class="panel-body">
                 <form method="POST" action="{{ url_for('propose') }}" class="inline-form">
-                    <input type="text" name="target" class="form-control" placeholder="Player name" required>
+                    <input type="text" name="target" class="form-control player-search" placeholder="Search player (3+ chars)..." required>
                     <button type="submit" class="btn btn-primary btn-sm">Propose</button>
                 </form>
             </div>
@@ -122,7 +122,7 @@
         <hr class="separator">
         <h4 class="text-secondary mb-1">Add Relationship</h4>
         <form method="POST" action="{{ url_for('add_relation') }}" class="inline-form">
-            <input type="text" name="target" class="form-control" placeholder="Player name" required>
+            <input type="text" name="target" class="form-control player-search" placeholder="Search player (3+ chars)..." required>
             <select name="rel_type" class="form-control" style="width: 120px;">
                 <option value="ally">Ally</option>
                 <option value="rival">Rival</option>
