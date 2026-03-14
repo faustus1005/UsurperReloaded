@@ -286,7 +286,14 @@ def dungeon():
         return redirect(url_for('main_menu'))
 
     dungeon_name = GameConfig.get('dungeon_name', 'The Dungeon Complex')
-    return render_template('dungeon.html', dungeon_name=dungeon_name)
+    # Initialize dungeon level if not set
+    if not player.dungeon_level or player.dungeon_level < 1:
+        player.dungeon_level = player.level
+        db.session.commit()
+    min_level = max(1, player.level - 5)
+    max_level = min(100, player.level + 5)
+    return render_template('dungeon.html', dungeon_name=dungeon_name,
+                           min_dungeon_level=min_level, max_dungeon_level=max_level)
 
 
 @app.route('/dungeon/explore', methods=['POST'])
@@ -308,7 +315,7 @@ def dungeon_explore():
         flash("You are too wounded to fight.", 'error')
         return redirect(url_for('main_menu'))
 
-    dungeon_level = min(player.level, 100)
+    dungeon_level = player.dungeon_level if player.dungeon_level else min(player.level, 100)
 
     # 30% chance of non-combat event
     if random.randint(1, 100) <= 30:
@@ -1332,8 +1339,10 @@ def love_corner():
         Player.id != player.id
     ).order_by(Player.name).all()
 
+    married_couples = Relationship.query.filter_by(rel_type='married').all()
     return render_template('love_corner.html', relationships=relationships,
-                           spouse=spouse, proposals=proposals, players_list=players_list)
+                           spouse=spouse, proposals=proposals, players_list=players_list,
+                           married_couples=married_couples)
 
 
 @app.route('/love_corner/propose', methods=['POST'])
@@ -1427,6 +1436,89 @@ def children():
     kids = game_logic.get_player_children(player)
     spouse = db.session.get(Player, player.spouse_id) if player.spouse_id else None
     return render_template('children.html', children=kids, spouse=spouse)
+
+
+# ==================== SOCIAL INTERACTIONS / APPROACH ====================
+
+@app.route('/love_corner/approach')
+@login_required
+def approach():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    sex_filter = request.args.get('sex_filter', 'both')
+    players_list = game_logic.get_approachable_players(player, sex_filter)
+    return render_template('approach.html', players_list=players_list, sex_filter=sex_filter)
+
+
+@app.route('/love_corner/approach/<int:target_id>')
+@login_required
+def approach_player(target_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    info = game_logic.approach_player_info(player, target_id)
+    if not info:
+        flash("Player not found.", 'error')
+        return redirect(url_for('approach'))
+
+    db.session.commit()
+    return render_template('approach_player.html', info=info)
+
+
+@app.route('/love_corner/interact', methods=['POST'])
+@login_required
+def social_interact():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    target_id = int(request.form.get('target_id', 0))
+    action = request.form.get('action', '')
+
+    success, msg, xp = game_logic.social_interact(player, target_id, action)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('approach_player', target_id=target_id))
+
+
+@app.route('/love_corner/change_feeling', methods=['POST'])
+@login_required
+def change_feeling():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    target_id = int(request.form.get('target_id', 0))
+    direction = request.form.get('direction', '')
+
+    success, msg = game_logic.change_feeling(player, target_id, direction)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('approach_player', target_id=target_id))
+
+
+# ==================== DUNGEON LEVEL CHANGE ====================
+
+@app.route('/dungeon/change_level', methods=['POST'])
+@login_required
+def dungeon_change_level():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    try:
+        new_level = int(request.form.get('new_level', 0))
+    except ValueError:
+        flash("Invalid level.", 'error')
+        return redirect(url_for('dungeon'))
+
+    success, msg = game_logic.change_dungeon_level(player, new_level)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('dungeon'))
 
 
 # ==================== TEAM MANAGEMENT ====================

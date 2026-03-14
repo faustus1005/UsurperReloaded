@@ -5,7 +5,11 @@
     <div class="panel-header">The Love Corner</div>
     <div class="panel-body">
         <p class="text-secondary mb-2">
-            A quiet corner of town where hearts are won and broken.
+            Come and train your romantic skills. There is nothing like a big family and a house.
+            You should also make up to the people you have hurt through the years.
+        </p>
+        <p class="text-dim mb-2">
+            Intimate sessions remaining today: <span class="text-gold">{{ player.intimacy_acts if player.intimacy_acts else 0 }}</span>
         </p>
 
         {% if spouse %}
@@ -74,6 +78,18 @@
 </div>
 
 <div class="panel">
+    <div class="panel-header">Approach Somebody</div>
+    <div class="panel-body">
+        <p class="text-dim mb-1">Meet with someone and spend some quality time together.</p>
+        <div class="mt-1">
+            <a href="{{ url_for('approach', sex_filter='female') }}" class="btn btn-primary btn-sm">Females</a>
+            <a href="{{ url_for('approach', sex_filter='male') }}" class="btn btn-primary btn-sm">Males</a>
+            <a href="{{ url_for('approach', sex_filter='both') }}" class="btn btn-primary btn-sm">Both</a>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
     <div class="panel-header">Social Relations</div>
     <div class="panel-body">
         {% if relationships %}
@@ -90,6 +106,7 @@
                         {% if r.type == 'married' %}<span class="text-red">Spouse</span>
                         {% elif r.type == 'ally' %}<span class="text-green">Ally</span>
                         {% elif r.type == 'rival' %}<span class="text-red">Rival</span>
+                        {% elif r.type == 'lover' %}<span class="text-gold">Lover</span>
                         {% else %}{{ r.type }}{% endif %}
                     </td>
                     <td>{{ r.player.level }}</td>
@@ -114,6 +131,27 @@
         </form>
     </div>
 </div>
+
+{% if married_couples %}
+<div class="panel">
+    <div class="panel-header">Married Couples</div>
+    <div class="panel-body">
+        <table>
+            <thead>
+                <tr><th>Partner 1</th><th>Partner 2</th></tr>
+            </thead>
+            <tbody>
+                {% for r in married_couples %}
+                <tr>
+                    <td class="text-gold">{{ r.player1.name }}</td>
+                    <td class="text-gold">{{ r.player2.name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 <div class="text-center mt-1">
     <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>

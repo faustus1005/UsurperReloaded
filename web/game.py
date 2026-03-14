@@ -80,6 +80,8 @@ def create_character(player, name, race, player_class, sex):
     player.player_fights = 3
     player.thefts_remaining = 2
     player.brawls_remaining = 2
+    player.intimacy_acts = 5
+    player.dungeon_level = 1
 
     # Starting spells for spellcasters
     if player_class == 'Magician':
@@ -586,6 +588,7 @@ def daily_maintenance(player):
     player.thefts_remaining = 2
     player.brawls_remaining = 2
     player.team_fights = 1
+    player.intimacy_acts = 5
     player.hp = player.max_hp
     player.mana = player.max_mana
     player.last_maintenance = now
@@ -1605,6 +1608,383 @@ def get_player_relationships(player):
             'id': r.id
         })
     return result
+
+
+# =========================================================================
+# SOCIAL INTERACTIONS / APPROACH SYSTEM (from original LOVERS.PAS)
+# =========================================================================
+
+# Feeling levels ordered from worst to best (matching original relation constants)
+FEELING_LEVELS = [
+    'hate', 'enemy', 'anger', 'suspicious', 'normal',
+    'respect', 'trust', 'friendship', 'passion', 'love'
+]
+
+
+def _get_feeling_index(feeling):
+    """Get numeric index of a feeling level."""
+    try:
+        return FEELING_LEVELS.index(feeling)
+    except ValueError:
+        return FEELING_LEVELS.index('normal')
+
+
+def _improve_feeling(feeling):
+    """Move feeling one step better."""
+    idx = _get_feeling_index(feeling)
+    if idx < len(FEELING_LEVELS) - 1:
+        return FEELING_LEVELS[idx + 1]
+    return feeling
+
+
+def _worsen_feeling(feeling):
+    """Move feeling one step worse."""
+    idx = _get_feeling_index(feeling)
+    if idx > 0:
+        return FEELING_LEVELS[idx - 1]
+    return feeling
+
+
+def _is_negative_feeling(feeling):
+    """Check if feeling is negative (hate, enemy, anger)."""
+    return feeling in ('hate', 'enemy', 'anger')
+
+
+def _feeling_display(feeling):
+    """Human-readable feeling string."""
+    return {
+        'hate': 'Hatred',
+        'enemy': 'Enemy',
+        'anger': 'Anger',
+        'suspicious': 'Suspicious',
+        'normal': 'Neutral',
+        'respect': 'Respect',
+        'trust': 'Trust',
+        'friendship': 'Friendship',
+        'passion': 'Passion',
+        'love': 'Love',
+    }.get(feeling, 'Neutral')
+
+
+def get_or_create_relation(player, target):
+    """Get or create a relationship record between two players."""
+    rel = Relationship.query.filter(
+        ((Relationship.player1_id == player.id) & (Relationship.player2_id == target.id)) |
+        ((Relationship.player1_id == target.id) & (Relationship.player2_id == player.id))
+    ).filter(Relationship.rel_type.in_(['lover', 'ally', 'rival', 'married'])).first()
+
+    if not rel:
+        rel = Relationship(
+            player1_id=player.id,
+            player2_id=target.id,
+            rel_type='lover',
+            feeling_1to2='normal',
+            feeling_2to1='normal',
+        )
+        db.session.add(rel)
+        db.session.flush()
+    return rel
+
+
+def get_feeling_toward(rel, from_id):
+    """Get the feeling that from_id has toward the other player in the relationship."""
+    if rel.player1_id == from_id:
+        return rel.feeling_1to2 or 'normal'
+    return rel.feeling_2to1 or 'normal'
+
+
+def set_feeling_toward(rel, from_id, feeling):
+    """Set the feeling that from_id has toward the other player."""
+    if rel.player1_id == from_id:
+        rel.feeling_1to2 = feeling
+    else:
+        rel.feeling_2to1 = feeling
+
+
+def get_approachable_players(player, sex_filter='both'):
+    """Get list of players that can be approached for social interactions.
+
+    Based on original LOVERS.PAS approach routine.
+    sex_filter: 'male', 'female', or 'both'
+    """
+    query = Player.query.filter(
+        Player.id != player.id,
+        Player.hp > 0,
+        Player.is_imprisoned == False,
+    )
+
+    if sex_filter == 'male':
+        query = query.filter(Player.sex == 1)
+    elif sex_filter == 'female':
+        query = query.filter(Player.sex == 2)
+
+    return query.order_by(Player.name).all()
+
+
+def approach_player_info(player, target_id):
+    """Get info about the relationship between player and target for the approach screen.
+
+    Returns dict with target info, relationship status, feelings, etc.
+    """
+    target = db.session.get(Player, target_id)
+    if not target:
+        return None
+
+    rel = get_or_create_relation(player, target)
+
+    player_feeling = get_feeling_toward(rel, player.id)
+    target_feeling = get_feeling_toward(rel, target.id)
+
+    # Check if either is married to someone else
+    player_married_to_other = player.married and player.spouse_id != target.id
+    target_married_to_other = target.married and target.spouse_id != player.id
+    married_to_each_other = player.married and player.spouse_id == target.id
+
+    return {
+        'target': target,
+        'relationship': rel,
+        'player_feeling': player_feeling,
+        'target_feeling': target_feeling,
+        'player_feeling_display': _feeling_display(player_feeling),
+        'target_feeling_display': _feeling_display(target_feeling),
+        'married_to_each_other': married_to_each_other,
+        'player_married_to_other': player_married_to_other,
+        'target_married_to_other': target_married_to_other,
+        'intimacy_acts_left': player.intimacy_acts if player.intimacy_acts else 0,
+    }
+
+
+def social_interact(player, target_id, action):
+    """Perform a social interaction with another player.
+
+    Actions: hold_hands, dinner, kiss, go_to_bed
+    Based on original LOVERS.PAS intimate actions.
+
+    Returns (success, message, xp_gained).
+    """
+    target = db.session.get(Player, target_id)
+    if not target:
+        return False, "Player not found.", 0
+
+    if player.id == target.id:
+        return False, "You cannot interact with yourself.", 0
+
+    if action not in ('hold_hands', 'dinner', 'kiss', 'go_to_bed'):
+        return False, "Invalid action.", 0
+
+    # Check daily intimacy limit (original: player.IntimacyActs)
+    if not player.intimacy_acts or player.intimacy_acts < 1:
+        return False, "You have no intimate sessions left today.", 0
+
+    rel = get_or_create_relation(player, target)
+    target_feeling = get_feeling_toward(rel, target.id)
+    married_to_each_other = player.married and player.spouse_id == target.id
+
+    # Married couples do intimate things at home, not at Love Corner
+    # (original: "Married couples entertain themselves at home!")
+    if married_to_each_other and action in ('hold_hands', 'dinner', 'kiss'):
+        return False, "You are married! Go home and spend time together instead.", 0
+
+    # Check if target is married to someone else (faithfulness check)
+    if target.married and target.spouse_id != player.id:
+        spouse = db.session.get(Player, target.spouse_id)
+        spouse_name = spouse.name if spouse else "someone"
+        return False, f"{target.name} is married to {spouse_name} and is faithful!", 0
+
+    # NPC response logic (from original: pl0^.ai='C')
+    if target.is_npc:
+        # 2/3 chance NPC refuses (original: random(3)<>0)
+        if random.randint(1, 3) != 1:
+            refuse_msgs = {
+                'hold_hands': f"{target.name} refuses to meet you!",
+                'dinner': f"{target.name} refuses to eat with you!",
+                'kiss': f"{target.name} refuses to be kissed by you!",
+                'go_to_bed': f"{target.name} refuses to be intimate with you!",
+            }
+            player.intimacy_acts -= 1
+            return False, refuse_msgs[action], 0
+
+        # NPCs with negative feelings refuse completely
+        if _is_negative_feeling(target_feeling):
+            hate_msgs = {
+                'hold_hands': f"{target.name} doesn't like you very much! Forget about a date!",
+                'dinner': f"{target.name} doesn't like you! Forget about dinner!",
+                'kiss': f"{target.name} doesn't like you! Forget about kissing!",
+                'go_to_bed': f"{target.name} hates you! Forget about it!",
+            }
+            player.intimacy_acts -= 1
+            return False, hate_msgs[action], 0
+    else:
+        # Human player targets get a mail invitation instead of instant interaction
+        action_names = {
+            'hold_hands': 'hold hands',
+            'dinner': 'dinner',
+            'kiss': 'a kiss',
+            'go_to_bed': 'an intimate encounter',
+        }
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=target.id,
+            subject=f"Romantic Invitation",
+            message=f"{player.name} has invited you for {action_names[action]} at the Love Corner!"
+        )
+        db.session.add(mail)
+        player.intimacy_acts -= 1
+        return True, f"Invitation sent to {target.name} for {action_names[action]}!", 0
+
+    # ---- NPC accepted the interaction ----
+
+    # 50% chance NPC improves their feeling toward player (original: random(2)=0)
+    if random.randint(0, 1) == 0:
+        new_feeling = _improve_feeling(target_feeling)
+        set_feeling_toward(rel, target.id, new_feeling)
+
+    # Calculate XP based on action type (from original multipliers)
+    xp_multiplier = {
+        'hold_hands': 155,  # original: player.level*155
+        'dinner': 155,      # original: player.level*155
+        'kiss': 234,        # original: player.level*234
+        'go_to_bed': 244,   # original: player.level*244
+    }[action]
+
+    xp = (player.level * xp_multiplier + target.level * xp_multiplier) // 2
+    xp = max(100, xp)
+
+    # Apply XP
+    player.experience += xp
+    target.experience += xp
+
+    # Reduce daily intimacy acts
+    player.intimacy_acts -= 1
+
+    # Generate success message and news
+    if action == 'hold_hands':
+        msg = f"You go out with {target.name} and have a great time! You both earn {xp:,} experience!"
+        news_msg = f"{player.name} and {target.name} were seen together today. They were holding hands on a park bench."
+        news_cat = 'Dating'
+    elif action == 'dinner':
+        msg = f"You have dinner with {target.name} and enjoy yourself! Everything was great, except the check. You both earn {xp:,} experience!"
+        news_msg = f"{player.name} and {target.name} were seen having dinner this evening."
+        news_cat = 'Dinner Date'
+    elif action == 'kiss':
+        msg = f"You kiss {target.name} passionately! Great Lips! You both earn {xp:,} experience!"
+        news_msg = f"{player.name} kissed {target.name}!"
+        news_cat = 'Love'
+    else:  # go_to_bed
+        msg = f"You embrace {target.name} passionately! Great Event! You earn {xp:,} experience!"
+        news_msg = f"{player.name} slept with {target.name}!"
+        news_cat = 'Romantic Event'
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='social',
+        message=f"{news_cat}: {news_msg}"
+    )
+    db.session.add(news)
+
+    # Jealousy check - if player is married to someone else, spouse gets angry
+    _check_jealousy(player, target)
+    _check_jealousy(target, player)
+
+    return True, msg, xp
+
+
+def _check_jealousy(player, partner):
+    """Check if player's spouse gets jealous about interaction with partner.
+
+    Based on original Jealousy() procedure from RELATION.PAS.
+    """
+    if not player.married or not player.spouse_id:
+        return
+    if player.spouse_id == partner.id:
+        return  # interacting with own spouse, no jealousy
+
+    spouse = db.session.get(Player, player.spouse_id)
+    if not spouse:
+        return
+
+    # Spouse finds out (50% chance)
+    if random.randint(0, 1) == 0:
+        return
+
+    # Send angry mail from spouse
+    mail = Mail(
+        sender_id=spouse.id,
+        receiver_id=player.id,
+        subject="Jealousy!",
+        message=f"{spouse.name} found out about your affair with {partner.name}! "
+                f"Your spouse is furious!"
+    )
+    db.session.add(mail)
+
+    # Worsen spouse's feeling toward player
+    rel = get_or_create_relation(spouse, player)
+    current = get_feeling_toward(rel, spouse.id)
+    set_feeling_toward(rel, spouse.id, _worsen_feeling(current))
+
+    news = NewsEntry(
+        player_id=spouse.id,
+        category='social',
+        message=f"Jealousy! {spouse.name} is furious about {player.name}'s affair with {partner.name}!"
+    )
+    db.session.add(news)
+
+
+def change_feeling(player, target_id, direction):
+    """Player changes their attitude/feeling toward another player.
+
+    direction: 'better' or 'worse'
+    Based on original change_feelings_menu from LOVERS.PAS.
+    """
+    target = db.session.get(Player, target_id)
+    if not target:
+        return False, "Player not found."
+
+    rel = get_or_create_relation(player, target)
+    current = get_feeling_toward(rel, player.id)
+
+    if direction == 'better':
+        new_feeling = _improve_feeling(current)
+    elif direction == 'worse':
+        new_feeling = _worsen_feeling(current)
+    else:
+        return False, "Invalid direction."
+
+    if new_feeling == current:
+        limit = "love" if direction == 'better' else "hate"
+        return False, f"Your feeling is already at {_feeling_display(current)} ({limit})."
+
+    set_feeling_toward(rel, player.id, new_feeling)
+    return True, f"Your feeling toward {target.name} changed from {_feeling_display(current)} to {_feeling_display(new_feeling)}."
+
+
+# =========================================================================
+# DUNGEON LEVEL CHANGE (from original DUNGEONC.PAS)
+# =========================================================================
+
+def change_dungeon_level(player, new_level):
+    """Change the dungeon level the player is exploring.
+
+    From original: players can access levels from their level to level+5.
+    Total of 100 dungeon levels.
+    Returns (success, message).
+    """
+    min_level = max(1, player.level - 5)
+    max_level = min(100, player.level + 5)
+
+    if new_level < min_level or new_level > max_level:
+        return False, f"You can access dungeon levels {min_level} to {max_level}."
+
+    old_level = player.dungeon_level or player.level
+
+    player.dungeon_level = new_level
+
+    if new_level == old_level:
+        return True, f"You remain on dungeon level {new_level}."
+    elif new_level > old_level:
+        return True, f"You descend to dungeon level {new_level}."
+    else:
+        return True, f"You ascend to dungeon level {new_level}."
 
 
 # =========================================================================
