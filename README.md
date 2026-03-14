@@ -1,4 +1,4 @@
-# Usurper ReLoaded - Web Edition
+# Usurper Reloaded - Web Edition
 
 A web-based reimplementation of the classic BBS door game **Usurper** by Jakob Dangarden. Fight monsters, battle other players, become king, ascend to godhood, or fall in love and have children -- all from your browser.
 
