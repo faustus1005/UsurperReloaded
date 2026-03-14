@@ -747,7 +747,8 @@ def challenge_king(challenger):
         # No king - claim the throne if strong enough (level 5+)
         if challenger.level < 5:
             return False, "You must be at least level 5 to claim the throne.", []
-        return crown_new_king(challenger)
+        success, msg = crown_new_king(challenger)
+        return success, msg, []
 
     if king.id == challenger.id:
         return False, "You are already the ruler!", []
