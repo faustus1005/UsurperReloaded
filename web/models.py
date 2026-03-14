@@ -61,7 +61,7 @@ CLASS_BONUSES = {
 # Classes that can cast spells
 SPELLCASTER_CLASSES = ['Alchemist', 'Cleric', 'Magician', 'Paladin', 'Sage']
 
-# Experience required per level
+# Experience required per level (100 levels, exponential curve)
 LEVEL_XP = {
     1: 0, 2: 100, 3: 300, 4: 700, 5: 1500,
     6: 3000, 7: 6000, 8: 12000, 9: 24000, 10: 48000,
@@ -69,6 +69,20 @@ LEVEL_XP = {
     16: 650000, 17: 900000, 18: 1200000, 19: 1600000, 20: 2100000,
     21: 2700000, 22: 3400000, 23: 4200000, 24: 5100000, 25: 6200000,
     26: 7500000, 27: 9000000, 28: 11000000, 29: 13500000, 30: 16500000,
+    31: 20000000, 32: 24000000, 33: 28500000, 34: 33500000, 35: 39000000,
+    36: 45000000, 37: 52000000, 38: 60000000, 39: 69000000, 40: 79000000,
+    41: 90000000, 42: 102000000, 43: 115000000, 44: 130000000, 45: 147000000,
+    46: 166000000, 47: 187000000, 48: 210000000, 49: 236000000, 50: 265000000,
+    51: 297000000, 52: 332000000, 53: 370000000, 54: 412000000, 55: 458000000,
+    56: 509000000, 57: 565000000, 58: 627000000, 59: 695000000, 60: 770000000,
+    61: 852000000, 62: 942000000, 63: 1040000000, 64: 1148000000, 65: 1266000000,
+    66: 1396000000, 67: 1538000000, 68: 1694000000, 69: 1865000000, 70: 2053000000,
+    71: 2260000000, 72: 2487000000, 73: 2737000000, 74: 3012000000, 75: 3314000000,
+    76: 3647000000, 77: 4013000000, 78: 4416000000, 79: 4860000000, 80: 5348000000,
+    81: 5885000000, 82: 6476000000, 83: 7127000000, 84: 7843000000, 85: 8632000000,
+    86: 9500000000, 87: 10455000000, 88: 11506000000, 89: 12663000000, 90: 13937000000,
+    91: 15339000000, 92: 16882000000, 93: 18581000000, 94: 20451000000, 95: 22510000000,
+    96: 24777000000, 97: 27272000000, 98: 30019000000, 99: 33042000000, 100: 36370000000,
 }
 
 # Spells available in the game
@@ -97,6 +111,83 @@ SPELLS = {
          'classes': ['Alchemist'], 'description': 'Throws corrosive acid.'},
     12: {'name': 'Resurrection', 'mana_cost': 50, 'type': 'heal', 'min_level': 10,
          'classes': ['Cleric', 'Sage'], 'description': 'Brings back from the brink of death.'},
+    # Mid-level spells (levels 8-20)
+    13: {'name': 'Chain Lightning', 'mana_cost': 25, 'type': 'attack', 'min_level': 8,
+         'classes': ['Magician', 'Sage'], 'description': 'Lightning arcs between multiple foes.'},
+    14: {'name': 'Flame Wall', 'mana_cost': 22, 'type': 'attack', 'min_level': 10,
+         'classes': ['Magician'], 'description': 'Conjures a wall of searing flames.'},
+    15: {'name': 'Divine Shield', 'mana_cost': 20, 'type': 'buff', 'min_level': 8,
+         'classes': ['Cleric', 'Paladin'], 'description': 'Surrounds you with divine protection.'},
+    16: {'name': 'Toxic Plague', 'mana_cost': 18, 'type': 'attack', 'min_level': 7,
+         'classes': ['Alchemist'], 'description': 'Unleashes a virulent disease upon your foe.'},
+    17: {'name': 'Blizzard', 'mana_cost': 30, 'type': 'attack', 'min_level': 12,
+         'classes': ['Magician', 'Sage'], 'description': 'Summons a devastating blizzard.'},
+    18: {'name': 'Smite Evil', 'mana_cost': 25, 'type': 'attack', 'min_level': 12,
+         'classes': ['Paladin', 'Cleric'], 'description': 'Channels righteous fury against evil.'},
+    19: {'name': 'Mass Heal', 'mana_cost': 35, 'type': 'heal', 'min_level': 15,
+         'classes': ['Cleric', 'Sage'], 'description': 'Heals all wounds with a burst of light.'},
+    20: {'name': 'Meteor Storm', 'mana_cost': 40, 'type': 'attack', 'min_level': 18,
+         'classes': ['Magician'], 'description': 'Calls down a rain of meteors.'},
+    # High-level spells (levels 20-40)
+    21: {'name': 'Disintegrate', 'mana_cost': 50, 'type': 'attack', 'min_level': 20,
+         'classes': ['Magician', 'Sage'], 'description': 'Reduces matter to dust.'},
+    22: {'name': 'Wrath of God', 'mana_cost': 45, 'type': 'attack', 'min_level': 22,
+         'classes': ['Cleric', 'Paladin'], 'description': 'Calls down divine wrath upon the wicked.'},
+    23: {'name': 'Death Cloud', 'mana_cost': 35, 'type': 'attack', 'min_level': 20,
+         'classes': ['Alchemist'], 'description': 'A cloud of pure necrotic toxin.'},
+    24: {'name': 'Arcane Shield', 'mana_cost': 30, 'type': 'buff', 'min_level': 18,
+         'classes': ['Magician', 'Sage', 'Cleric'], 'description': 'An impenetrable barrier of arcane energy.'},
+    25: {'name': 'Power Word Kill', 'mana_cost': 60, 'type': 'attack', 'min_level': 25,
+         'classes': ['Magician'], 'description': 'A single word that can slay the weak.'},
+    26: {'name': 'Divine Resurrection', 'mana_cost': 80, 'type': 'heal', 'min_level': 25,
+         'classes': ['Cleric', 'Sage'], 'description': 'Fully restores life and vigor.'},
+    27: {'name': 'Philosopher\'s Fire', 'mana_cost': 45, 'type': 'attack', 'min_level': 25,
+         'classes': ['Alchemist'], 'description': 'Alchemical fire that burns the soul.'},
+    28: {'name': 'Time Stop', 'mana_cost': 70, 'type': 'buff', 'min_level': 30,
+         'classes': ['Magician', 'Sage'], 'description': 'Briefly halts the flow of time.'},
+    29: {'name': 'Judgement', 'mana_cost': 65, 'type': 'attack', 'min_level': 30,
+         'classes': ['Paladin', 'Cleric'], 'description': 'Passes divine judgement upon your foe.'},
+    30: {'name': 'Hellfire', 'mana_cost': 75, 'type': 'attack', 'min_level': 35,
+         'classes': ['Magician'], 'description': 'Summons flames from the abyss itself.'},
+    # Epic spells (levels 40-60)
+    31: {'name': 'Armageddon', 'mana_cost': 100, 'type': 'attack', 'min_level': 40,
+         'classes': ['Magician', 'Sage'], 'description': 'Unleashes catastrophic destruction.'},
+    32: {'name': 'Miracle', 'mana_cost': 100, 'type': 'heal', 'min_level': 40,
+         'classes': ['Cleric', 'Sage'], 'description': 'A true miracle of healing.'},
+    33: {'name': 'Elixir of Annihilation', 'mana_cost': 80, 'type': 'attack', 'min_level': 40,
+         'classes': ['Alchemist'], 'description': 'The ultimate alchemical weapon.'},
+    34: {'name': 'Celestial Wrath', 'mana_cost': 90, 'type': 'attack', 'min_level': 45,
+         'classes': ['Paladin', 'Cleric'], 'description': 'Channels the fury of the heavens.'},
+    35: {'name': 'Void Bolt', 'mana_cost': 85, 'type': 'attack', 'min_level': 50,
+         'classes': ['Magician', 'Sage'], 'description': 'A bolt of pure nothingness.'},
+    36: {'name': 'Avatar', 'mana_cost': 120, 'type': 'buff', 'min_level': 50,
+         'classes': ['Cleric', 'Paladin'], 'description': 'Temporarily becomes an avatar of divine power.'},
+    37: {'name': 'Transmutation', 'mana_cost': 90, 'type': 'attack', 'min_level': 50,
+         'classes': ['Alchemist'], 'description': 'Transmutes your enemy\'s flesh to lead.'},
+    # Legendary spells (levels 60-80)
+    38: {'name': 'Apocalypse', 'mana_cost': 150, 'type': 'attack', 'min_level': 60,
+         'classes': ['Magician'], 'description': 'The ultimate destructive force.'},
+    39: {'name': 'Divine Intervention', 'mana_cost': 150, 'type': 'heal', 'min_level': 60,
+         'classes': ['Cleric', 'Sage'], 'description': 'Direct intervention from the gods.'},
+    40: {'name': 'Holy Avenger', 'mana_cost': 130, 'type': 'attack', 'min_level': 65,
+         'classes': ['Paladin'], 'description': 'Becomes the instrument of divine vengeance.'},
+    41: {'name': 'Wish', 'mana_cost': 200, 'type': 'buff', 'min_level': 70,
+         'classes': ['Magician', 'Sage'], 'description': 'Bends reality to your will.'},
+    42: {'name': 'Omega Toxin', 'mana_cost': 140, 'type': 'attack', 'min_level': 70,
+         'classes': ['Alchemist'], 'description': 'A poison that unravels life itself.'},
+    # Mythic spells (levels 80-100)
+    43: {'name': 'Cataclysm', 'mana_cost': 250, 'type': 'attack', 'min_level': 80,
+         'classes': ['Magician', 'Sage'], 'description': 'Reshapes the world with raw power.'},
+    44: {'name': 'Genesis', 'mana_cost': 250, 'type': 'heal', 'min_level': 80,
+         'classes': ['Cleric', 'Sage'], 'description': 'Creates life from nothing.'},
+    45: {'name': 'God Slayer', 'mana_cost': 300, 'type': 'attack', 'min_level': 90,
+         'classes': ['Magician'], 'description': 'A spell capable of slaying gods.'},
+    46: {'name': 'Eternal Light', 'mana_cost': 300, 'type': 'attack', 'min_level': 90,
+         'classes': ['Paladin', 'Cleric'], 'description': 'Banishes all darkness forever.'},
+    47: {'name': 'Panacea', 'mana_cost': 200, 'type': 'heal', 'min_level': 85,
+         'classes': ['Alchemist', 'Sage'], 'description': 'The universal cure for all ailments.'},
+    48: {'name': 'Ragnarok', 'mana_cost': 500, 'type': 'attack', 'min_level': 100,
+         'classes': ['Magician', 'Sage'], 'description': 'The end of all things.'},
 }
 
 
@@ -274,7 +365,7 @@ class Player(db.Model):
 
     def can_level_up(self):
         next_level = self.level + 1
-        if next_level > 30:
+        if next_level > 100:
             return False
         return self.experience >= LEVEL_XP.get(next_level, float('inf'))
 
@@ -340,7 +431,7 @@ class Item(db.Model):
     is_cursed = db.Column(db.Boolean, default=False)
     is_unique = db.Column(db.Boolean, default=False)
     min_level = db.Column(db.Integer, default=1)
-    max_level = db.Column(db.Integer, default=30)
+    max_level = db.Column(db.Integer, default=100)
     in_shop = db.Column(db.Boolean, default=False)
     in_dungeon = db.Column(db.Boolean, default=False)
     strength_required = db.Column(db.Integer, default=0)
@@ -579,7 +670,7 @@ class RoyalQuest(db.Model):
     days_to_complete = db.Column(db.Integer, default=3)
     days_elapsed = db.Column(db.Integer, default=0)
     min_level = db.Column(db.Integer, default=1)
-    max_level = db.Column(db.Integer, default=30)
+    max_level = db.Column(db.Integer, default=100)
     reward_type = db.Column(db.String(15), default='experience')  # experience, gold, potions, chivalry, darkness
     reward_size = db.Column(db.Integer, default=2)  # 1=low, 2=medium, 3=high
     penalty_type = db.Column(db.String(15), default='')  # same options or empty

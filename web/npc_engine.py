@@ -123,7 +123,7 @@ def create_npc(level=None):
 
     # Fast-level if requested
     target_level = level or 1
-    while npc.level < target_level and npc.level < 30:
+    while npc.level < target_level and npc.level < 100:
         # Grant enough XP, then level
         npc.experience = LEVEL_XP.get(npc.level + 1, 0)
         game_logic.level_up(npc)
@@ -199,7 +199,7 @@ def npc_gain_experience(npc):
 
     # Auto level-up
     leveled = False
-    while npc.can_level_up() and npc.level < 30:
+    while npc.can_level_up() and npc.level < 100:
         game_logic.level_up(npc)
         leveled = True
 

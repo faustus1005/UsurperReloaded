@@ -308,7 +308,7 @@ def dungeon_explore():
         flash("You are too wounded to fight.", 'error')
         return redirect(url_for('main_menu'))
 
-    dungeon_level = min(player.level, 30)
+    dungeon_level = min(player.level, 100)
 
     # 30% chance of non-combat event
     if random.randint(1, 100) <= 30:
@@ -1596,7 +1596,7 @@ def create_quest():
         penalty_size = int(request.form.get('penalty_size', 0))
         days = int(request.form.get('days', 3))
         min_level = int(request.form.get('min_level', 1))
-        max_level = int(request.form.get('max_level', 30))
+        max_level = int(request.form.get('max_level', 100))
         comment = request.form.get('comment', '').strip()
         target_name = request.form.get('target_name', '').strip()
     except ValueError:
@@ -2014,7 +2014,7 @@ def admin_edit_item(item_id):
         item.in_shop = request.form.get('in_shop') == 'on'
         item.in_dungeon = request.form.get('in_dungeon') == 'on'
         item.min_level = int(request.form.get('min_level', 1))
-        item.max_level = int(request.form.get('max_level', 30))
+        item.max_level = int(request.form.get('max_level', 100))
         item.strength_required = int(request.form.get('strength_required', 0))
         item.good_only = request.form.get('good_only') == 'on'
         item.evil_only = request.form.get('evil_only') == 'on'
@@ -2054,7 +2054,7 @@ def admin_new_item():
             in_shop=request.form.get('in_shop') == 'on',
             in_dungeon=request.form.get('in_dungeon') == 'on',
             min_level=int(request.form.get('min_level', 1)),
-            max_level=int(request.form.get('max_level', 30)),
+            max_level=int(request.form.get('max_level', 100)),
             strength_required=int(request.form.get('strength_required', 0)),
             good_only=request.form.get('good_only') == 'on',
             evil_only=request.form.get('evil_only') == 'on',
@@ -2066,7 +2066,7 @@ def admin_new_item():
         flash(f'Item "{item.name}" created.', 'success')
         return redirect(url_for('admin_items'))
 
-    item = Item(name='', item_type='Weapon', min_level=1, max_level=30)
+    item = Item(name='', item_type='Weapon', min_level=1, max_level=100)
     return render_template('admin/edit_item.html', item=item, is_new=True,
                            item_types=ITEM_TYPES, classes=CLASSES)
 
