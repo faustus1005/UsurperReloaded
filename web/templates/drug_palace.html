@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Drug Palace{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Ordlof's Drug Palace</div>
+    <div class="panel-body">
+        <p class="text-dim mb-1">"Welcome to my establishment," whispers Ordlof from behind a beaded curtain. "I have substances to expand your mind... for a price."</p>
+        <p class="text-secondary mb-1">Gold: <span class="text-gold">{{ player.gold }}</span> | Addiction: <span class="text-red">{{ player.addiction }}%</span></p>
+        <p class="text-dim mb-2" style="font-size: 0.8em;">Warning: 10% chance of overdose death per use!</p>
+
+        {% for drug in drugs %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ loop.index }}. {{ drug.name }}</div>
+                <div class="item-stats">
+                    XP: {{ drug.xp_min }}-{{ drug.xp_max }} | Addiction: +{{ drug.addiction_min }}-{{ drug.addiction_max }}%
+                </div>
+                <div class="text-dim" style="font-size: 0.8em;">{{ drug.desc }}</div>
+            </div>
+            <div class="item-actions">
+                <span class="text-gold">{{ drug.cost }} gold</span>
+                <form method="POST" action="{{ url_for('buy_drug', index=loop.index0) }}" style="display:inline;">
+                    <button type="submit" class="btn btn-primary btn-sm"
+                            {% if player.gold < drug.cost %}disabled{% endif %}>Buy</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('shady_dealer') }}" class="btn">Back to Dark Alley</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Town Square</a>
+</div>
+{% endblock %}

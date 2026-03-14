@@ -1192,6 +1192,185 @@ def drinking_contest(player):
             return True, "The drinking contest ended in a draw.", log
 
 
+# ==================== DRUG PALACE ====================
+
+DRUGS = [
+    {'name': 'Incense', 'cost': 900, 'xp_min': 100, 'xp_max': 199,
+     'addiction_min': 2, 'addiction_max': 3,
+     'desc': 'Quite harmless... or so they say.'},
+    {'name': 'Psilocybin', 'cost': 3000, 'xp_min': 300, 'xp_max': 599,
+     'addiction_min': 4, 'addiction_max': 5,
+     'desc': 'Be happy, be happier!'},
+    {'name': 'Oxytozin', 'cost': 13000, 'xp_min': 700, 'xp_max': 1399,
+     'addiction_min': 8, 'addiction_max': 10,
+     'desc': 'Ever wanted to fly?'},
+    {'name': 'Psylxion', 'cost': 27000, 'xp_min': 1000, 'xp_max': 1999,
+     'addiction_min': 10, 'addiction_max': 12,
+     'desc': 'Orc stress reducer.'},
+    {'name': 'Shang Ri La', 'cost': 50000, 'xp_min': 2000, 'xp_max': 3999,
+     'addiction_min': 14, 'addiction_max': 17,
+     'desc': 'Enter dreamland...'},
+    {'name': 'Neopratin', 'cost': 70000, 'xp_min': 3000, 'xp_max': 5999,
+     'addiction_min': 15, 'addiction_max': 20,
+     'desc': 'Walk the rainbow.'},
+    {'name': 'Galacticum', 'cost': 120000, 'xp_min': 4000, 'xp_max': 7999,
+     'addiction_min': 18, 'addiction_max': 23,
+     'desc': 'Float in space - dangerous!'},
+    {'name': 'Inferno', 'cost': 175000, 'xp_min': 5000, 'xp_max': 9999,
+     'addiction_min': 19, 'addiction_max': 26,
+     'desc': 'Adrenalin skyrocket!'},
+    {'name': 'Sanguin Hope', 'cost': 200000, 'xp_min': 6000, 'xp_max': 11999,
+     'addiction_min': 20, 'addiction_max': 27,
+     'desc': 'Unknown effects.'},
+    {'name': 'Transactor', 'cost': 500000, 'xp_min': 9000, 'xp_max': 18999,
+     'addiction_min': 20, 'addiction_max': 29,
+     'desc': 'The heaviest stuff on the market.'},
+]
+
+
+def buy_drug(player, drug_index):
+    """Buy and use a drug from the Drug Palace."""
+    if drug_index < 0 or drug_index >= len(DRUGS):
+        return False, "Invalid drug.", []
+
+    drug = DRUGS[drug_index]
+    log = []
+
+    if player.gold < drug['cost']:
+        return False, f"You need {drug['cost']} gold for {drug['name']}.", []
+
+    player.gold -= drug['cost']
+    log.append(f"You purchase a dose of {drug['name']} for {drug['cost']} gold.")
+    log.append(f'"{drug["desc"]}"')
+
+    # 10% chance of overdose death
+    if random.randint(1, 10) == 1:
+        player.hp = 0
+        log.append("OVERDOSE! The drug was too much for your body!")
+        log.append("You collapse to the ground. Everything goes dark...")
+        news = NewsEntry(
+            player_id=player.id,
+            category='death',
+            message=f"{player.name} died from a {drug['name']} overdose!"
+        )
+        db.session.add(news)
+        return True, f"You overdosed on {drug['name']}!", log
+
+    # XP gain
+    xp_gain = random.randint(drug['xp_min'], drug['xp_max'])
+    player.experience += xp_gain
+    log.append(f"The experience expands your mind! (+{xp_gain} XP)")
+
+    # Addiction increase (Gnomes get -2 reduction)
+    addiction_gain = random.randint(drug['addiction_min'], drug['addiction_max'])
+    if player.race == 'Gnome':
+        addiction_gain = max(0, addiction_gain - 2)
+    player.addiction = min(100, player.addiction + addiction_gain)
+    log.append(f"You feel the pull of addiction... (+{addiction_gain}% addiction)")
+
+    # Mental health decrease
+    mental_loss = random.randint(1, 5)
+    player.mental_health = max(0, player.mental_health - mental_loss)
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='social',
+        message=f"{player.name} was seen at the Drug Palace buying {drug['name']}."
+    )
+    db.session.add(news)
+
+    return True, f"You used {drug['name']}.", log
+
+
+# ==================== STEROID SHOP ====================
+
+STEROIDS = [
+    {'name': 'Teddy Bears', 'cost': 1500, 'str_min': 4, 'str_max': 7,
+     'mental_min': 2, 'mental_max': 3,
+     'desc': 'Long term effective.'},
+    {'name': 'Ape Hormones', 'cost': 7000, 'str_min': 6, 'str_max': 11,
+     'mental_min': 4, 'mental_max': 7,
+     'desc': 'Cheap primitive strength.'},
+    {'name': 'Centurion-X', 'cost': 20000, 'str_min': 8, 'str_max': 13,
+     'mental_min': 6, 'mental_max': 11,
+     'desc': 'Troll warrior favorite.'},
+    {'name': 'Godzilla Red', 'cost': 50000, 'str_min': 10, 'str_max': 19,
+     'mental_min': 8, 'mental_max': 15,
+     'desc': 'Superb but nasty side effects.'},
+    {'name': 'Slave 9000', 'cost': 70000, 'str_min': 12, 'str_max': 21,
+     'mental_min': 10, 'mental_max': 19,
+     'desc': 'Slave stamina booster.'},
+    {'name': 'Pulsatormium', 'cost': 120000, 'str_min': 14, 'str_max': 25,
+     'mental_min': 12, 'mental_max': 23,
+     'desc': 'Druid-made. Premium quality.'},
+    {'name': 'Implementor', 'cost': 175000, 'str_min': 14, 'str_max': 29,
+     'mental_min': 14, 'mental_max': 29,
+     'desc': 'Miracle maker, ages you.'},
+    {'name': 'Dragon White', 'cost': 210000, 'str_min': 16, 'str_max': 35,
+     'mental_min': 16, 'mental_max': 35,
+     'desc': 'For experienced users only.'},
+    {'name': 'Neon Kicker', 'cost': 350000, 'str_min': 18, 'str_max': 42,
+     'mental_min': 26, 'mental_max': 50,
+     'desc': 'Path to madness or salvation.'},
+    {'name': 'D.E.M.O.N.', 'cost': 500000, 'str_min': 31, 'str_max': 90,
+     'mental_min': 31, 'mental_max': 60,
+     'desc': 'Unknown effects. Use at own risk.'},
+]
+
+
+def buy_steroid(player, steroid_index):
+    """Buy and use a steroid from the Steroid Shop."""
+    if steroid_index < 0 or steroid_index >= len(STEROIDS):
+        return False, "Invalid steroid.", []
+
+    steroid = STEROIDS[steroid_index]
+    log = []
+
+    if player.mental_health < 10:
+        return False, "Your mental health is too low. You need at least 10 mental stability.", []
+
+    if player.gold < steroid['cost']:
+        return False, f"You need {steroid['cost']} gold for {steroid['name']}.", []
+
+    player.gold -= steroid['cost']
+    log.append(f"You purchase a dose of {steroid['name']} for {steroid['cost']} gold.")
+    log.append(f'"{steroid["desc"]}"')
+
+    # 10% chance of death from bad batch
+    if random.randint(1, 10) == 1:
+        player.hp = 0
+        log.append("BAD BATCH! Your body rejects the steroid violently!")
+        log.append("You collapse in agony. Everything fades...")
+        news = NewsEntry(
+            player_id=player.id,
+            category='death',
+            message=f"{player.name} died from a bad batch of {steroid['name']}!"
+        )
+        db.session.add(news)
+        return True, f"Bad batch of {steroid['name']} killed you!", log
+
+    # Strength gain
+    str_gain = random.randint(steroid['str_min'], steroid['str_max'])
+    player.strength += str_gain
+    log.append(f"Your muscles bulge with power! (+{str_gain} Strength)")
+
+    # Mental health decrease (Gnomes get -2 reduction)
+    mental_loss = random.randint(steroid['mental_min'], steroid['mental_max'])
+    if player.race == 'Gnome':
+        mental_loss = max(0, mental_loss - 2)
+    player.mental_health = max(0, player.mental_health - mental_loss)
+    log.append(f"Your mind feels... fuzzy. (-{mental_loss} Mental Stability)")
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='social',
+        message=f"{player.name} was spotted leaving the Steroid Shop looking pumped."
+    )
+    db.session.add(news)
+
+    return True, f"You used {steroid['name']}.", log
+
+
 # ==================== BOUNTY SYSTEM ====================
 
 def post_bounty(poster, target_name, amount, reason='Wanted Dead or Alive'):
@@ -2418,50 +2597,1010 @@ DUNGEON_EVENTS = [
             },
         },
     },
+    # --- Original Usurper event: Harassed Woman ---
+    {
+        'id': 'harassed_woman',
+        'name': 'Woman in Distress',
+        'description': 'You hear screams ahead! A woman is being attacked by a group of orcs. They haven\'t noticed you yet.',
+        'choices': {
+            'rescue': {
+                'label': 'Fight the orcs',
+                'outcomes': [
+                    {'weight': 2, 'text': 'You charge into the fray! The orcs scatter before your fury. The woman thanks you profusely and offers a reward.',
+                     'hp': (-15, -5), 'gold': (200, 800), 'xp': (200, 500), 'chivalry': 10},
+                    {'weight': 1, 'text': 'The orcs are tougher than they look! You take heavy blows but save the woman. She gives you her family heirloom.',
+                     'hp': (-35, -15), 'gold': (400, 1200), 'xp': (300, 600), 'chivalry': 15},
+                ]
+            },
+            'demand_payment': {
+                'label': 'Offer help for a price',
+                'outcomes': [
+                    {'weight': 1, 'text': '"I\'ll pay anything!" she cries. You drive off the orcs and collect your fee.',
+                     'gold': (300, 1000), 'xp': (100, 300), 'darkness': 3},
+                ]
+            },
+            'walk_away': {
+                'label': 'Walk away',
+                'outcomes': [
+                    {'weight': 1, 'text': 'You turn your back on her screams. The sounds soon fade.',
+                     'darkness': 8},
+                ]
+            },
+        },
+    },
+    # --- Original Usurper event: Find Item ---
+    {
+        'id': 'find_item',
+        'name': 'Hidden Cache',
+        'description': 'Behind a loose stone in the wall, you discover a hidden compartment! Inside you see a leather pouch and what appears to be a wrapped bundle.',
+        'choices': {
+            'take_pouch': {
+                'label': 'Take the pouch',
+                'outcomes': [
+                    {'weight': 2, 'text': 'The pouch contains a stash of gold coins and a small gemstone!',
+                     'gold': (200, 800), 'xp': (50, 150)},
+                    {'weight': 1, 'text': 'The pouch is booby-trapped! A small needle pricks your finger.',
+                     'gold': (100, 400), 'poison': True},
+                ]
+            },
+            'take_bundle': {
+                'label': 'Unwrap the bundle',
+                'outcomes': [
+                    {'weight': 2, 'text': 'Inside the bundle you find several healing potions, carefully preserved!',
+                     'potions': 3, 'xp': (50, 100)},
+                    {'weight': 1, 'text': 'The bundle contains a strange scroll. Reading it fills your mind with knowledge!',
+                     'xp': (300, 700)},
+                ]
+            },
+            'take_both': {
+                'label': 'Grab everything',
+                'outcomes': [
+                    {'weight': 2, 'text': 'You stuff both the pouch and bundle into your pack. Greed pays off!',
+                     'gold': (150, 500), 'potions': 1, 'xp': (100, 200)},
+                    {'weight': 1, 'text': 'As you reach in, the compartment collapses! You grab what you can.',
+                     'hp': (-10, -5), 'gold': (100, 300)},
+                ]
+            },
+        },
+    },
+    # --- Dungeon Ambush event ---
+    {
+        'id': 'dungeon_ambush',
+        'name': 'Dungeon Ambush',
+        'description': 'You hear a twig snap behind you. Shadows move in the darkness. You are being followed.',
+        'choices': {
+            'confront': {
+                'label': 'Turn and confront them',
+                'outcomes': [
+                    {'weight': 1, 'text': 'You spin around to face a gang of dungeon bandits!',
+                     'hp': (-10, -5), 'xp': (50, 100)},
+                ]
+            },
+            'hide': {
+                'label': 'Duck into a side passage',
+                'outcomes': [
+                    {'weight': 2, 'text': 'You slip into a crevice and the footsteps pass by.',
+                     'xp': (30, 80)},
+                    {'weight': 1, 'text': 'The crevice leads to a hidden cache!',
+                     'gold': (100, 400), 'xp': (50, 150)},
+                ]
+            },
+            'run': {
+                'label': 'Sprint ahead',
+                'outcomes': [
+                    {'weight': 2, 'text': 'You outrun whatever was following you.',
+                     'xp': (20, 50)},
+                    {'weight': 1, 'text': 'You trip on a loose stone and tumble!',
+                     'hp': (-15, -5)},
+                ]
+            },
+        },
+    },
+    # --- Cursed Tomb event ---
+    {
+        'id': 'cursed_tomb',
+        'name': 'Cursed Tomb',
+        'description': 'An ancient sarcophagus sits in an alcove, covered in warning runes that glow faintly red.',
+        'choices': {
+            'open': {
+                'label': 'Open the sarcophagus',
+                'outcomes': [
+                    {'weight': 1, 'text': 'Inside lies a preserved warrior with a magnificent blade. You take it!',
+                     'xp': (300, 700), 'gold': (200, 600)},
+                    {'weight': 1, 'text': 'A mummy bursts forth and curses you!',
+                     'hp': (-35, -15), 'poison': True, 'darkness': 3},
+                ]
+            },
+            'read_runes': {
+                'label': 'Study the runes',
+                'outcomes': [
+                    {'weight': 2, 'text': 'The runes contain ancient knowledge. You decipher their meaning.',
+                     'xp': (200, 500)},
+                    {'weight': 1, 'text': 'The runes are a ward. Reading them aloud triggers a blast!',
+                     'hp': (-25, -10)},
+                ]
+            },
+            'leave': {
+                'label': 'Heed the warnings',
+                'outcomes': [
+                    {'weight': 1, 'text': 'You wisely leave the tomb undisturbed. Some things are best left alone.'},
+                ]
+            },
+        },
+    },
+    # --- Wandering Bard event ---
+    {
+        'id': 'wandering_bard',
+        'name': 'Wandering Bard',
+        'description': 'A bard sits cross-legged on a stone, playing a haunting melody on a lute. He looks up as you approach.',
+        'choices': {
+            'listen': {
+                'label': 'Listen to his song',
+                'outcomes': [
+                    {'weight': 2, 'text': 'The music soothes your soul and mends your wounds.',
+                     'hp_restore': 0.5, 'mana_restore': 0.25, 'chivalry': 2},
+                    {'weight': 1, 'text': 'The song tells of a hidden treasure nearby! He marks your map.',
+                     'gold': (150, 500), 'xp': (100, 300)},
+                ]
+            },
+            'request_tale': {
+                'label': 'Ask for a tale',
+                'outcomes': [
+                    {'weight': 1, 'text': 'He tells you the tale of a legendary hero. You feel inspired!',
+                     'xp': (200, 600), 'chivalry': 3},
+                    {'weight': 1, 'text': 'He tells a dark tale of betrayal. The knowledge weighs on you.',
+                     'xp': (250, 500), 'darkness': 2},
+                ]
+            },
+            'rob_bard': {
+                'label': 'Steal his lute',
+                'outcomes': [
+                    {'weight': 1, 'text': 'You snatch the lute. It is enchanted and worth a fortune!',
+                     'gold': (300, 800), 'darkness': 8},
+                    {'weight': 1, 'text': 'The bard curses you with a discordant note!',
+                     'hp': (-20, -10), 'darkness': 5},
+                ]
+            },
+        },
+    },
+]
+
+# =========================================================================
+# MULTI-STEP DUNGEON EVENTS (events with branching storylines)
+# =========================================================================
+
+MULTI_STEP_EVENTS = [
+    # --- Event 1: Captive Princess Rescue ---
+    {
+        'id': 'captive_princess',
+        'name': 'The Captive Princess',
+        'steps': {
+            'start': {
+                'description': 'You hear muffled cries echoing from a barred chamber ahead. Peering through the rusted grate, you see a young noblewoman chained to the wall. Two brutish orc guards play cards at a table nearby.',
+                'choices': {
+                    'sneak': {
+                        'label': 'Sneak past the guards',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You creep silently along the shadows and reach the cell door undetected.',
+                             'xp': (50, 100), 'next_step': 'at_cell'},
+                            {'weight': 1, 'text': 'A guard spots you! "Intruder!" he bellows.',
+                             'hp': (-15, -5), 'next_step': 'guard_fight'},
+                        ]
+                    },
+                    'fight_guards': {
+                        'label': 'Attack the guards head-on',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You charge in with weapons drawn!',
+                             'next_step': 'guard_fight'},
+                        ]
+                    },
+                    'distraction': {
+                        'label': 'Create a distraction',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You hurl a rock down the corridor. Both guards rush to investigate.',
+                             'xp': (80, 150), 'next_step': 'at_cell'},
+                            {'weight': 1, 'text': 'One guard investigates while the other stays. You must deal with him.',
+                             'next_step': 'guard_fight'},
+                        ]
+                    },
+                    'leave': {
+                        'label': 'Walk away',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You turn your back on the cries. Not your problem.',
+                             'darkness': 5},
+                        ]
+                    },
+                },
+            },
+            'guard_fight': {
+                'description': 'The orc guard swings a massive club at your head! You must fight or flee!',
+                'choices': {
+                    'fight': {
+                        'label': 'Fight the guard',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You dodge the club and deliver a killing blow! The guard crumples.',
+                             'xp': (200, 400), 'next_step': 'at_cell'},
+                            {'weight': 1, 'text': 'The guard lands a heavy hit, but you overpower him in the end.',
+                             'hp': (-30, -15), 'xp': (250, 500), 'next_step': 'at_cell'},
+                        ]
+                    },
+                    'flee': {
+                        'label': 'Flee for your life',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You escape the guard, abandoning the prisoner.',
+                             'hp': (-10, -5)},
+                            {'weight': 1, 'text': 'The guard catches you with a parting blow as you run!',
+                             'hp': (-25, -10)},
+                        ]
+                    },
+                },
+            },
+            'at_cell': {
+                'description': 'You stand before the cell. The noblewoman looks at you with desperate hope. The lock is old but sturdy. You notice a ring of keys hanging on a wall hook nearby.',
+                'choices': {
+                    'use_keys': {
+                        'label': 'Use the keys',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The third key works! The chains fall away and the princess is free.',
+                             'next_step': 'princess_freed'},
+                        ]
+                    },
+                    'break_lock': {
+                        'label': 'Smash the lock with your weapon',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'After several strikes, the lock shatters!',
+                             'xp': (50, 100), 'next_step': 'princess_freed'},
+                            {'weight': 1, 'text': 'The noise alerts more guards! You free her, but must hurry!',
+                             'hp': (-10, -5), 'next_step': 'princess_freed'},
+                        ]
+                    },
+                    'demand_ransom': {
+                        'label': 'Demand payment for rescue',
+                        'outcomes': [
+                            {'weight': 1, 'text': '"I am Lady Elenora of House Ashford. Free me and you shall be rewarded handsomely."',
+                             'darkness': 3, 'next_step': 'princess_freed'},
+                        ]
+                    },
+                },
+            },
+            'princess_freed': {
+                'description': 'Lady Elenora stands free, rubbing her wrists where the chains bit her skin. "You have saved me from a terrible fate," she says, tears in her eyes. "How can I repay you?"',
+                'choices': {
+                    'escort': {
+                        'label': 'Escort her to safety',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You guide Lady Elenora safely to the surface. She sends for her family\'s guards. "You are a true hero," she says, pressing a heavy purse into your hands. Her family will remember your valor.',
+                             'gold': (500, 2000), 'xp': (400, 800), 'chivalry': 15},
+                            {'weight': 1, 'text': 'On the way out you encounter more enemies, but together you fight through! Lady Elenora rewards you generously.',
+                             'hp': (-20, -10), 'gold': (800, 3000), 'xp': (500, 1000), 'chivalry': 20},
+                        ]
+                    },
+                    'ask_reward': {
+                        'label': 'Ask for a reward now',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'She hands you a jeweled necklace from her throat. "This is worth more than gold. Take it with my gratitude."',
+                             'gold': (300, 1500), 'xp': (200, 500), 'chivalry': 5},
+                        ]
+                    },
+                    'rob_princess': {
+                        'label': 'Take everything she has',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You strip her of all valuables. She weeps. "You are no better than they were..."',
+                             'gold': (1000, 4000), 'darkness': 25, 'xp': (100, 200)},
+                        ]
+                    },
+                },
+            },
+        },
+    },
+
+    # --- Event 2: The Necromancer's Laboratory ---
+    {
+        'id': 'necromancer_lab',
+        'name': 'The Necromancer\'s Laboratory',
+        'steps': {
+            'start': {
+                'description': 'A sickly green glow emanates from a chamber ahead. Inside, a robed necromancer hunches over a workbench covered in bones, vials of dark liquid, and a glowing grimoire. He has not noticed you yet.',
+                'choices': {
+                    'ambush': {
+                        'label': 'Strike while he\'s distracted',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'Your blade finds its mark! The necromancer staggers, dropping a vial of dark energy.',
+                             'xp': (200, 400), 'next_step': 'necro_wounded'},
+                            {'weight': 1, 'text': 'He senses your attack at the last moment and throws up a shield of bones!',
+                             'next_step': 'necro_combat'},
+                        ]
+                    },
+                    'parley': {
+                        'label': 'Announce yourself',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'The necromancer turns slowly. "Ah, a visitor. How... unexpected. Perhaps we can be of use to each other."',
+                             'next_step': 'necro_deal'},
+                            {'weight': 1, 'text': '"Fool!" he hisses, raising his hands. Skeletal arms burst from the floor!',
+                             'next_step': 'necro_combat'},
+                        ]
+                    },
+                    'steal_grimoire': {
+                        'label': 'Try to grab the grimoire',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You lunge for the book! Your fingers close around it!',
+                             'next_step': 'grimoire_grabbed'},
+                            {'weight': 1, 'text': 'The grimoire is warded! Dark energy blasts you backward!',
+                             'hp': (-30, -15), 'next_step': 'necro_combat'},
+                        ]
+                    },
+                    'leave': {
+                        'label': 'Back away quietly',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You wisely retreat from the chamber of horrors.'},
+                        ]
+                    },
+                },
+            },
+            'necro_combat': {
+                'description': 'The necromancer summons three skeletal warriors to fight for him! Their empty eye sockets glow with unholy fire. He begins chanting another spell.',
+                'choices': {
+                    'fight_skeletons': {
+                        'label': 'Destroy the skeletons',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You shatter the undead one by one! The necromancer is now defenseless.',
+                             'xp': (300, 600), 'next_step': 'necro_wounded'},
+                            {'weight': 1, 'text': 'The skeletons are relentless. You destroy them but take heavy wounds.',
+                             'hp': (-40, -20), 'xp': (400, 700), 'next_step': 'necro_wounded'},
+                        ]
+                    },
+                    'charge_necro': {
+                        'label': 'Ignore the skeletons, charge the necromancer',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You barrel past the undead and strike the necromancer! Without his magic, the skeletons collapse.',
+                             'hp': (-20, -10), 'xp': (500, 800), 'next_step': 'necro_wounded'},
+                            {'weight': 1, 'text': 'The skeletons tear at you as you charge. You reach the necromancer but are badly wounded.',
+                             'hp': (-50, -25), 'xp': (400, 600), 'next_step': 'necro_wounded'},
+                        ]
+                    },
+                    'flee': {
+                        'label': 'Flee the chamber',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You escape the laboratory, skeletal hands clawing at your back.',
+                             'hp': (-15, -5)},
+                            {'weight': 1, 'text': 'A skeleton blocks the exit! You take a hit forcing your way through.',
+                             'hp': (-30, -15)},
+                        ]
+                    },
+                },
+            },
+            'necro_wounded': {
+                'description': 'The necromancer lies bleeding on the floor, his power broken. "Mercy..." he gasps. His grimoire lies open on the table, dark knowledge within reach. Several potions line the shelves.',
+                'choices': {
+                    'spare': {
+                        'label': 'Spare him and take the loot',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You gather potions and gold from the laboratory. The necromancer crawls away into the shadows.',
+                             'gold': (400, 1200), 'potions': 3, 'xp': (200, 400), 'chivalry': 5},
+                        ]
+                    },
+                    'finish_him': {
+                        'label': 'End him permanently',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You deliver the killing blow. The laboratory\'s dark energy dissipates. Among his belongings you find a fortune.',
+                             'gold': (600, 2000), 'xp': (500, 800), 'darkness': 5},
+                        ]
+                    },
+                    'study_grimoire': {
+                        'label': 'Study the grimoire',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'Dark knowledge floods your mind! You learn terrible secrets of death magic.',
+                             'xp': (800, 1500), 'mana_restore': 1.0, 'darkness': 10},
+                            {'weight': 1, 'text': 'The grimoire\'s knowledge is too much for your mind! You reel in agony but retain some power.',
+                             'hp': (-20, -10), 'xp': (500, 1000), 'darkness': 8},
+                        ]
+                    },
+                },
+            },
+            'necro_deal': {
+                'description': '"I seek a rare ingredient," the necromancer says, his eyes glinting. "Bring me the venom sac of one of the spiders that lurk nearby, and I shall reward you with potions and knowledge. Or... we could simply trade gold for my services."',
+                'choices': {
+                    'accept_quest': {
+                        'label': 'Accept the task',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You find a giant spider nest nearby and retrieve a venom sac. The necromancer is pleased and brews you powerful potions.',
+                             'hp': (-15, -5), 'potions': 4, 'xp': (300, 600)},
+                            {'weight': 1, 'text': 'The spiders prove more dangerous than expected, but you succeed. The necromancer teaches you dark secrets.',
+                             'hp': (-30, -15), 'xp': (500, 900), 'mana_restore': 0.5},
+                        ]
+                    },
+                    'buy_potions': {
+                        'label': 'Buy potions (200g)',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The necromancer sells you potions of unusual potency.',
+                             'gold': -200, 'potions': 3, 'condition': 'gold >= 200'},
+                            {'weight': 1, 'text': 'You cannot afford his prices.', 'condition': 'gold < 200'},
+                        ]
+                    },
+                    'betray': {
+                        'label': 'Attack him while his guard is down',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You strike! He was prepared for treachery and summons undead!',
+                             'next_step': 'necro_combat'},
+                            {'weight': 1, 'text': 'Your surprise attack succeeds! The necromancer falls.',
+                             'gold': (300, 1000), 'xp': (300, 500), 'darkness': 12},
+                        ]
+                    },
+                },
+            },
+            'grimoire_grabbed': {
+                'description': 'You hold the grimoire! Dark energy crackles across its surface. The necromancer screams in fury. "GIVE THAT BACK!" He lunges at you, desperate and wild.',
+                'choices': {
+                    'keep_and_fight': {
+                        'label': 'Keep the book and fight',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'Without his grimoire, the necromancer is weak. You defeat him easily and claim both the book and his treasure.',
+                             'gold': (500, 1500), 'xp': (600, 1200), 'darkness': 5},
+                            {'weight': 1, 'text': 'He fights desperately and lands several hits, but you prevail.',
+                             'hp': (-25, -10), 'gold': (400, 1200), 'xp': (500, 1000), 'darkness': 3},
+                        ]
+                    },
+                    'return_book': {
+                        'label': 'Return the book for a reward',
+                        'outcomes': [
+                            {'weight': 1, 'text': '"Perhaps you are not a fool after all," he says, calming down. He rewards your mercy with potions and gold.',
+                             'gold': (200, 800), 'potions': 3, 'xp': (200, 500)},
+                        ]
+                    },
+                    'destroy_book': {
+                        'label': 'Destroy the grimoire',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You tear the pages and hurl them into the brazier! The necromancer screams as his power shatters. A burst of released energy fills you!',
+                             'xp': (800, 1500), 'chivalry': 10, 'hp_restore': 0.5},
+                        ]
+                    },
+                },
+            },
+        },
+    },
+
+    # --- Event 3: The Dwarven Forge ---
+    {
+        'id': 'dwarven_forge',
+        'name': 'The Abandoned Dwarven Forge',
+        'steps': {
+            'start': {
+                'description': 'You stumble upon an ancient dwarven forge, its fires long cold. Rusted tools and half-finished weapons litter the workbenches. A massive anvil sits at the center. On the far wall, a sealed vault door bears the clan crest of the Ironheart dwarves.',
+                'choices': {
+                    'examine_forge': {
+                        'label': 'Examine the forge',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The forge is ancient but the bellows still work. With effort, you could relight it.',
+                             'next_step': 'forge_lit'},
+                        ]
+                    },
+                    'try_vault': {
+                        'label': 'Try the vault door',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The vault door is locked with a complex dwarven mechanism. Three rune-carved dials must be aligned correctly.',
+                             'next_step': 'vault_puzzle'},
+                            {'weight': 1, 'text': 'As you touch the door, a dwarven guardian golem activates from the rubble!',
+                             'next_step': 'golem_fight'},
+                        ]
+                    },
+                    'search_workbenches': {
+                        'label': 'Search the workbenches',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You find some salvageable materials and a few coins among the debris.',
+                             'gold': (50, 200), 'xp': (50, 150)},
+                            {'weight': 1, 'text': 'You find a half-finished masterwork blade! It is still sharp and well-balanced.',
+                             'gold': (200, 600), 'xp': (100, 300)},
+                        ]
+                    },
+                    'leave': {
+                        'label': 'Move on',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You leave the forge to the dust and shadows.'},
+                        ]
+                    },
+                },
+            },
+            'forge_lit': {
+                'description': 'With great effort, you relight the ancient forge. Orange flames roar to life and the chamber fills with warmth. The dwarven runes on the walls begin to glow in response. You could try to smith something, or the heat might weaken the vault door.',
+                'choices': {
+                    'smith_weapon': {
+                        'label': 'Try to forge a weapon',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You hammer out a crude but sturdy blade on the anvil. The dwarven forge enhances your work beyond expectation!',
+                             'xp': (300, 600)},
+                            {'weight': 1, 'text': 'Your blacksmithing is poor, but the experience is valuable. You create a serviceable dagger.',
+                             'xp': (150, 300)},
+                        ]
+                    },
+                    'heat_vault': {
+                        'label': 'Use the heat on the vault hinges',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'The intense heat weakens the ancient metal. The vault door swings open!',
+                             'xp': (100, 200), 'next_step': 'vault_open'},
+                            {'weight': 1, 'text': 'The heat activates a hidden defense mechanism! Gears grind and a golem assembles!',
+                             'next_step': 'golem_fight'},
+                        ]
+                    },
+                    'warm_up': {
+                        'label': 'Rest by the fire',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The warmth of the ancient forge soothes your aching muscles and heals your wounds.',
+                             'hp_restore': 0.75, 'mana_restore': 0.5},
+                        ]
+                    },
+                },
+            },
+            'vault_puzzle': {
+                'description': 'Three rune dials stare back at you: one carved with a hammer, one with a mountain, and one with a flame. Scratched into the wall nearby are the words: "Iron is born of mountain and flame, shaped by the hammer\'s name."',
+                'choices': {
+                    'mountain_flame_hammer': {
+                        'label': 'Set: Mountain, Flame, Hammer',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The dials click into place! The vault door groans open, releasing ancient air!',
+                             'xp': (200, 400), 'next_step': 'vault_open'},
+                        ]
+                    },
+                    'hammer_mountain_flame': {
+                        'label': 'Set: Hammer, Mountain, Flame',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'Wrong combination! A burst of steam scalds your hands!',
+                             'hp': (-15, -5), 'next_step': 'vault_puzzle'},
+                        ]
+                    },
+                    'force_it': {
+                        'label': 'Try to force the mechanism',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The mechanism jams and triggers the guardian!',
+                             'next_step': 'golem_fight'},
+                        ]
+                    },
+                },
+            },
+            'golem_fight': {
+                'description': 'A massive stone golem assembles itself from the rubble, its eyes blazing with dwarven rune-magic! It swings a fist the size of a barrel at you!',
+                'choices': {
+                    'fight': {
+                        'label': 'Battle the golem',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You find the glowing rune on its chest and strike it! The golem shatters into rubble, revealing the vault behind it.',
+                             'xp': (400, 800), 'hp': (-20, -10), 'next_step': 'vault_open'},
+                            {'weight': 1, 'text': 'The golem is incredibly tough! You barely destroy it after a brutal fight.',
+                             'hp': (-50, -25), 'xp': (500, 1000), 'next_step': 'vault_open'},
+                        ]
+                    },
+                    'dodge_and_flee': {
+                        'label': 'Dodge and run',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You roll under its massive fist and sprint for the exit!',
+                             'hp': (-10, -5)},
+                            {'weight': 1, 'text': 'The golem clips you as you flee! You barely escape alive.',
+                             'hp': (-35, -15)},
+                        ]
+                    },
+                },
+            },
+            'vault_open': {
+                'description': 'The dwarven vault lies open before you! Inside, shelves of gold bars gleam in the torchlight. A magnificent warhammer rests on a stone pedestal. Ancient dwarven armor hangs on a rack. You cannot carry everything.',
+                'choices': {
+                    'take_gold': {
+                        'label': 'Fill your pockets with gold',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You stuff as much gold as you can carry! A king\'s ransom in dwarven gold bars!',
+                             'gold': (1000, 5000), 'xp': (300, 500)},
+                        ]
+                    },
+                    'take_warhammer': {
+                        'label': 'Take the warhammer',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The warhammer hums with ancient power as you lift it. "Ironheart\'s Fury" is engraved on its head. You also grab some loose coins.',
+                             'gold': (300, 800), 'xp': (500, 1000)},
+                        ]
+                    },
+                    'take_armor': {
+                        'label': 'Don the dwarven armor',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The masterwork armor fits surprisingly well. You feel nearly invincible! You grab a handful of gems on the way out.',
+                             'gold': (400, 1000), 'xp': (400, 800)},
+                        ]
+                    },
+                },
+            },
+        },
+    },
+
+    # --- Event 4: The Cursed Mirror ---
+    {
+        'id': 'cursed_mirror',
+        'name': 'The Cursed Mirror',
+        'steps': {
+            'start': {
+                'description': 'In a dusty chamber, a tall ornate mirror stands against the wall, its silver frame carved with tortured faces. As you approach, your reflection grins back at you -- but you are not smiling. Your reflection draws a weapon.',
+                'choices': {
+                    'shatter': {
+                        'label': 'Smash the mirror',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'Your weapon strikes the glass, but it does not break! The surface ripples like water.',
+                             'next_step': 'mirror_active'},
+                            {'weight': 1, 'text': 'The mirror cracks but does not shatter. Dark energy leaks from the fissures!',
+                             'hp': (-15, -5), 'next_step': 'mirror_active'},
+                        ]
+                    },
+                    'touch': {
+                        'label': 'Touch the mirror surface',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'Your hand passes through the glass! You feel a cold grip seize your wrist!',
+                             'next_step': 'pulled_in'},
+                        ]
+                    },
+                    'speak': {
+                        'label': 'Speak to your reflection',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'Your reflection speaks: "I am what you could become. Stronger. Darker. Step through and claim your power."',
+                             'next_step': 'mirror_temptation'},
+                            {'weight': 1, 'text': '"Help me!" your reflection suddenly changes to a trapped soul. "I\'ve been imprisoned here for centuries!"',
+                             'next_step': 'trapped_soul'},
+                        ]
+                    },
+                    'leave': {
+                        'label': 'Back away slowly',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You retreat from the mirror. As you leave, you hear your reflection whisper: "Coward..."'},
+                        ]
+                    },
+                },
+            },
+            'mirror_active': {
+                'description': 'The mirror pulses with dark energy! Your shadow clone steps OUT of the mirror, a perfect dark copy of yourself. It raises its weapon menacingly. "Only one of us leaves this room," it hisses.',
+                'choices': {
+                    'fight_clone': {
+                        'label': 'Fight your shadow self',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You battle your dark twin! It knows your every move, but you know its too! After a fierce duel, you prevail!',
+                             'hp': (-30, -15), 'xp': (500, 1000), 'next_step': 'clone_defeated'},
+                            {'weight': 1, 'text': 'Your shadow self is stronger than expected! The fight is brutal, but you ultimately triumph.',
+                             'hp': (-50, -25), 'xp': (600, 1200), 'next_step': 'clone_defeated'},
+                        ]
+                    },
+                    'outsmart': {
+                        'label': 'Try to trick it back into the mirror',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You feint left and shove the clone back toward the mirror! It screams as the glass swallows it whole!',
+                             'xp': (400, 800), 'next_step': 'clone_defeated'},
+                            {'weight': 1, 'text': 'Your trick fails! The clone strikes you hard.',
+                             'hp': (-25, -10), 'next_step': 'clone_defeated'},
+                        ]
+                    },
+                },
+            },
+            'pulled_in': {
+                'description': 'You are pulled through the mirror into a shadowy reflection of the dungeon! Everything is reversed and twisted. Your dark reflection stands before you, grinning. "Welcome to my world. Your strength is mine to take."',
+                'choices': {
+                    'fight_inside': {
+                        'label': 'Fight to escape the mirror world',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You battle through the mirror realm! With a mighty effort, you shatter the barrier from within and tumble back into reality!',
+                             'hp': (-35, -15), 'xp': (600, 1200), 'next_step': 'clone_defeated'},
+                            {'weight': 1, 'text': 'The mirror world saps your strength, but you claw your way back to reality!',
+                             'hp': (-50, -20), 'xp': (500, 1000), 'next_step': 'clone_defeated'},
+                        ]
+                    },
+                    'absorb_shadow': {
+                        'label': 'Embrace the darkness within',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You merge with your shadow self! Tremendous dark power floods through you as you step back through the mirror.',
+                             'xp': (800, 1500), 'darkness': 15, 'mana_restore': 1.0},
+                        ]
+                    },
+                },
+            },
+            'mirror_temptation': {
+                'description': 'Your dark reflection gestures invitingly. Through the glass, you see a version of yourself crowned and powerful, surrounded by wealth and dark servants. "All you must do is step through," it whispers. "Leave your weakness behind."',
+                'choices': {
+                    'step_through': {
+                        'label': 'Step through the mirror',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'Dark energy engulfs you! Pain and power in equal measure! When it fades, you feel changed... stronger, but something good within you has died.',
+                             'xp': (600, 1200), 'darkness': 20, 'mana_restore': 1.0},
+                            {'weight': 1, 'text': 'It was a trick! You are trapped momentarily in the mirror world before breaking free!',
+                             'hp': (-30, -15), 'xp': (300, 600), 'darkness': 5},
+                        ]
+                    },
+                    'refuse': {
+                        'label': 'Reject the temptation',
+                        'outcomes': [
+                            {'weight': 1, 'text': '"I am complete as I am." Your reflection screams in rage and the mirror cracks, releasing a burst of purifying light!',
+                             'xp': (400, 800), 'chivalry': 10, 'hp_restore': 0.5},
+                        ]
+                    },
+                    'shatter_now': {
+                        'label': 'Destroy the mirror while it\'s distracted',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You smash the mirror! Shards fly everywhere and dark energy dissipates. Among the fragments, you find crystallized magic.',
+                             'gold': (300, 1000), 'xp': (500, 800), 'chivalry': 5},
+                        ]
+                    },
+                },
+            },
+            'trapped_soul': {
+                'description': 'A spectral figure materializes in the mirror\'s surface -- not your reflection, but a ghostly woman in ancient garb. "I am Seraphina, court wizard of a kingdom long fallen. The mirror trapped me when I tried to destroy it. Please, help me break free!"',
+                'choices': {
+                    'help_free': {
+                        'label': 'Help break the enchantment',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You channel your will into the mirror! Seraphina\'s spirit bursts free in a flash of golden light! "Thank you, brave one!" She bestows ancient magical knowledge upon you before ascending.',
+                             'xp': (600, 1200), 'mana_restore': 1.0, 'chivalry': 12},
+                            {'weight': 1, 'text': 'The enchantment fights back! Pain sears through your hands, but Seraphina breaks free! She heals your wounds with her last act of magic.',
+                             'hp_restore': 1.0, 'xp': (400, 800), 'chivalry': 10},
+                        ]
+                    },
+                    'demand_payment': {
+                        'label': 'Demand her magical knowledge first',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'Seraphina teaches you a spell before you free her. The combined effort shatters the mirror completely.',
+                             'xp': (500, 1000), 'mana_restore': 0.75},
+                        ]
+                    },
+                    'use_her_power': {
+                        'label': 'Drain her spirit for power',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You absorb Seraphina\'s spirit! Her screams echo as dark power floods into you. The mirror shatters.',
+                             'xp': (1000, 2000), 'darkness': 25, 'mana_restore': 1.0},
+                        ]
+                    },
+                },
+            },
+            'clone_defeated': {
+                'description': 'Your shadow clone dissolves into black mist. The mirror cracks from top to bottom, its dark enchantment broken. In the wreckage, something glimmers among the silver shards.',
+                'choices': {
+                    'search_shards': {
+                        'label': 'Search through the shards',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You find a shard of enchanted mirror glass that pulses with captured energy. It\'s valuable to any wizard.',
+                             'gold': (400, 1200), 'xp': (200, 400)},
+                            {'weight': 1, 'text': 'Hidden behind the mirror was a secret compartment filled with treasure!',
+                             'gold': (600, 2000), 'xp': (300, 500)},
+                        ]
+                    },
+                    'absorb_energy': {
+                        'label': 'Absorb the residual dark energy',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The mirror\'s dark energy flows into you! Your power grows, but at a cost.',
+                             'xp': (500, 1000), 'mana_restore': 0.75, 'darkness': 8},
+                        ]
+                    },
+                },
+            },
+        },
+    },
+
+    # --- Event 5: The Underground Arena ---
+    {
+        'id': 'underground_arena',
+        'name': 'The Underground Arena',
+        'steps': {
+            'start': {
+                'description': 'The sound of cheering grows louder as you follow a torchlit passage. You emerge onto a balcony overlooking an underground arena! Creatures of all kinds fill the stands. A scarred half-orc ringmaster spots you. "Fresh meat! Care to test your mettle? Gold and glory await the victor!"',
+                'choices': {
+                    'enter_arena': {
+                        'label': 'Enter the arena',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The crowd roars as you step into the sand pit! The ringmaster grins. "Choose your challenge!"',
+                             'next_step': 'choose_challenge'},
+                        ]
+                    },
+                    'bet': {
+                        'label': 'Place a bet on the fights (200g)',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You find a seat and place your wager. The fights are brutal and exciting!',
+                             'next_step': 'betting', 'condition': 'gold >= 200'},
+                            {'weight': 1, 'text': 'You don\'t have enough gold for the minimum wager.', 'condition': 'gold < 200'},
+                        ]
+                    },
+                    'explore_tunnels': {
+                        'label': 'Sneak into the back tunnels',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You slip into the fighters\' preparation area behind the arena.',
+                             'next_step': 'backstage'},
+                            {'weight': 1, 'text': 'A guard catches you! "Where do you think you\'re going?"',
+                             'hp': (-10, -5)},
+                        ]
+                    },
+                    'leave': {
+                        'label': 'Leave the arena',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You turn away from the spectacle and continue your dungeon exploration.'},
+                        ]
+                    },
+                },
+            },
+            'choose_challenge': {
+                'description': 'The ringmaster presents three challengers: A hulking troll berserker covered in scars, a swift elven duelist twirling twin blades, and a robed figure crackling with magical energy. "Pick your poison!" the ringmaster cackles.',
+                'choices': {
+                    'fight_troll': {
+                        'label': 'Fight the Troll Berserker',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'The troll is powerful but slow! You dodge his wild swings and find openings!',
+                             'hp': (-25, -10), 'next_step': 'arena_victory'},
+                            {'weight': 1, 'text': 'The troll connects with a devastating blow! You barely survive but manage to bring him down!',
+                             'hp': (-50, -30), 'next_step': 'arena_victory'},
+                        ]
+                    },
+                    'fight_elf': {
+                        'label': 'Fight the Elven Duelist',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'The elf is fast, but you read her patterns and counter with precision!',
+                             'hp': (-20, -10), 'next_step': 'arena_victory'},
+                            {'weight': 1, 'text': 'Her twin blades are a blur! She scores several deep cuts before you disarm her.',
+                             'hp': (-40, -20), 'next_step': 'arena_victory'},
+                        ]
+                    },
+                    'fight_mage': {
+                        'label': 'Fight the Battle Mage',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You close the distance before the mage can cast! A swift strike ends the match!',
+                             'hp': (-15, -5), 'next_step': 'arena_victory'},
+                            {'weight': 1, 'text': 'A fireball catches you square in the chest! You stagger but press through and overwhelm the mage!',
+                             'hp': (-45, -25), 'next_step': 'arena_victory'},
+                        ]
+                    },
+                },
+            },
+            'arena_victory': {
+                'description': 'The crowd erupts! "VICTORY!" the ringmaster bellows. "We have a champion!" He approaches you with a sack of gold. "Impressive! The crowd wants more. Will you face the champion for double the prize? He\'s never been defeated..."',
+                'choices': {
+                    'face_champion': {
+                        'label': 'Face the undefeated champion',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The champion is a massive minotaur gladiator! An epic battle ensues!',
+                             'next_step': 'champion_fight'},
+                        ]
+                    },
+                    'take_winnings': {
+                        'label': 'Take your gold and leave',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'Smart choice. You collect your winnings and leave the arena victorious!',
+                             'gold': (500, 1500), 'xp': (400, 800)},
+                        ]
+                    },
+                },
+            },
+            'champion_fight': {
+                'description': 'The minotaur champion towers over you, muscles rippling beneath scarred hide. He carries a notched greatsword taller than most men. The arena falls silent. Then he charges!',
+                'choices': {
+                    'stand_ground': {
+                        'label': 'Meet his charge head-on',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The collision is thunderous! You brace yourself and redirect his momentum, sending him crashing into the arena wall! Before he recovers, you strike the winning blow! The arena EXPLODES with cheering!',
+                             'hp': (-40, -20), 'gold': (1000, 4000), 'xp': (800, 1500), 'chivalry': 8},
+                            {'weight': 1, 'text': 'His charge hits you like a battering ram! You fly backward but roll to your feet. The battle rages on -- blow after blow -- until finally you find your opening and strike him down!',
+                             'hp': (-60, -35), 'gold': (1500, 5000), 'xp': (1000, 2000), 'chivalry': 10},
+                        ]
+                    },
+                    'dodge_and_counter': {
+                        'label': 'Dodge sideways and counter',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You sidestep at the last moment! The minotaur crashes past you and you slash at his exposed flank! After a prolonged battle of attrition, you bring the champion down! The crowd goes wild!',
+                             'hp': (-30, -15), 'gold': (1200, 4000), 'xp': (900, 1800), 'chivalry': 8},
+                            {'weight': 1, 'text': 'Your dodge is too slow! His horn gores your side. But you fight on, driven by the roar of the crowd, and eventually triumph!',
+                             'hp': (-55, -30), 'gold': (1000, 3500), 'xp': (800, 1600), 'chivalry': 8},
+                        ]
+                    },
+                    'yield': {
+                        'label': 'Yield before the fight begins',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'The crowd boos, but you leave with your first-round winnings and your life.',
+                             'gold': (300, 1000), 'xp': (200, 400)},
+                        ]
+                    },
+                },
+            },
+            'betting': {
+                'description': 'Two fighters enter the arena: a grizzled human pit fighter and a young but fierce goblin champion who has won three bouts in a row. The odds are 2:1 on the human, 3:1 on the goblin.',
+                'choices': {
+                    'bet_human': {
+                        'label': 'Bet on the human (200g)',
+                        'outcomes': [
+                            {'weight': 3, 'text': 'The human wins after a tough fight! You collect your winnings!',
+                             'gold': (200, 400), 'xp': (50, 100)},
+                            {'weight': 2, 'text': 'The goblin pulls off an upset! Your gold is lost.',
+                             'gold': -200},
+                        ]
+                    },
+                    'bet_goblin': {
+                        'label': 'Bet on the goblin (200g)',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'The goblin wins! Your longshot bet pays off big!',
+                             'gold': (400, 600), 'xp': (100, 200)},
+                            {'weight': 3, 'text': 'The human overpowers the goblin. Your wager is forfeit.',
+                             'gold': -200},
+                        ]
+                    },
+                    'rig_fight': {
+                        'label': 'Try to rig the fight',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'You slip a paralysis potion into the human\'s water. The goblin wins easily and you collect a fortune from the bookmakers!',
+                             'gold': (600, 1500), 'darkness': 10, 'xp': (100, 200)},
+                            {'weight': 1, 'text': 'You\'re caught cheating! The arena guards rough you up and throw you out!',
+                             'hp': (-30, -15), 'gold': -200, 'darkness': 5},
+                        ]
+                    },
+                },
+            },
+            'backstage': {
+                'description': 'Behind the arena, you find the fighters\' quarters. Cages hold monsters awaiting their turn. A locked chest sits in the corner, likely holding the arena\'s prize fund. A wounded fighter sits against the wall, blood seeping from a deep cut.',
+                'choices': {
+                    'loot_chest': {
+                        'label': 'Break open the prize chest',
+                        'outcomes': [
+                            {'weight': 2, 'text': 'You crack open the chest and grab handfuls of gold before anyone notices!',
+                             'gold': (500, 2000), 'darkness': 8, 'xp': (100, 200)},
+                            {'weight': 1, 'text': 'An arena guard catches you red-handed! You fight your way out!',
+                             'hp': (-25, -10), 'gold': (200, 800), 'darkness': 5},
+                        ]
+                    },
+                    'help_fighter': {
+                        'label': 'Help the wounded fighter',
+                        'outcomes': [
+                            {'weight': 1, 'text': '"Thank you, friend," the fighter gasps. "Take this -- I won it in the ring but I won\'t live to spend it." He presses a purse into your hands.',
+                             'gold': (200, 600), 'chivalry': 8, 'xp': (100, 300)},
+                        ]
+                    },
+                    'free_monsters': {
+                        'label': 'Release the caged monsters',
+                        'outcomes': [
+                            {'weight': 1, 'text': 'Chaos erupts as monsters pour from their cages! In the confusion, you loot the arena and escape!',
+                             'gold': (400, 1500), 'xp': (200, 500), 'darkness': 12},
+                            {'weight': 1, 'text': 'You release the monsters but one turns on you before fleeing!',
+                             'hp': (-30, -15), 'gold': (200, 800), 'xp': (150, 300)},
+                        ]
+                    },
+                },
+            },
+        },
+    },
 ]
 
 
 def get_random_dungeon_event():
-    """Select a random dungeon event."""
-    return random.choice(DUNGEON_EVENTS)
+    """Select a random dungeon event (single-step or multi-step)."""
+    # 30% chance of multi-step event, 70% single-step
+    if MULTI_STEP_EVENTS and random.randint(1, 100) <= 30:
+        event = random.choice(MULTI_STEP_EVENTS)
+        step = event['steps']['start']
+        return {
+            'id': event['id'],
+            'name': event['name'],
+            'description': step['description'],
+            'choices': step['choices'],
+            'is_multi_step': True,
+            'current_step': 'start',
+        }
+    event = random.choice(DUNGEON_EVENTS)
+    return event
 
 
-def resolve_dungeon_event(player, event_id, choice_key):
-    """Resolve a dungeon event choice for a player."""
-    event = next((e for e in DUNGEON_EVENTS if e['id'] == event_id), None)
-    if not event:
-        return "Nothing happens."
+def _evaluate_condition(condition, player):
+    """Evaluate a gold condition string against a player."""
+    import re
+    match = re.match(r'gold\s*(>=|<|<=|>|==)\s*(\d+)', condition)
+    if not match:
+        return True
+    op, val = match.group(1), int(match.group(2))
+    if op == '>=':
+        return player.gold >= val
+    elif op == '<':
+        return player.gold < val
+    elif op == '<=':
+        return player.gold <= val
+    elif op == '>':
+        return player.gold > val
+    elif op == '==':
+        return player.gold == val
+    return True
 
-    choice = event['choices'].get(choice_key)
-    if not choice:
-        return "Nothing happens."
 
-    # Filter outcomes by condition
-    valid_outcomes = []
-    for outcome in choice['outcomes']:
-        condition = outcome.get('condition', '')
-        if condition:
-            if condition == 'gold >= 50' and player.gold < 50:
-                continue
-            elif condition == 'gold < 50' and player.gold >= 50:
-                continue
-            elif condition == 'gold >= 100' and player.gold < 100:
-                continue
-            elif condition == 'gold < 100' and player.gold >= 100:
-                continue
-            elif condition == 'gold >= 200' and player.gold < 200:
-                continue
-            elif condition == 'gold < 200' and player.gold >= 200:
-                continue
-        valid_outcomes.append(outcome)
-
-    if not valid_outcomes:
-        return "Nothing happens."
-
-    # Weighted random selection
-    weights = [o.get('weight', 1) for o in valid_outcomes]
-    outcome = random.choices(valid_outcomes, weights=weights, k=1)[0]
-
+def _apply_outcome_effects(player, outcome):
+    """Apply effects from an outcome dict to a player. Returns display text."""
     text = outcome['text']
 
     # Apply effects
@@ -2539,6 +3678,74 @@ def resolve_dungeon_event(player, event_id, choice_key):
         text += f" (Addiction +{addiction}%)"
 
     return text
+
+
+def resolve_dungeon_event(player, event_id, choice_key, current_step=None):
+    """Resolve a dungeon event choice for a player.
+
+    For multi-step events, current_step identifies which step we're on.
+    Returns (text, next_step_data) where next_step_data is None for final
+    outcomes or a dict with the next step info for multi-step events.
+    """
+    # Check if this is a multi-step event
+    multi_event = next((e for e in MULTI_STEP_EVENTS if e['id'] == event_id), None)
+    if multi_event and current_step:
+        step = multi_event['steps'].get(current_step)
+        if not step:
+            return "Nothing happens.", None
+
+        choice = step['choices'].get(choice_key)
+        if not choice:
+            return "Nothing happens.", None
+
+        # Filter outcomes by condition
+        valid_outcomes = [o for o in choice['outcomes']
+                         if not o.get('condition') or _evaluate_condition(o['condition'], player)]
+        if not valid_outcomes:
+            return "Nothing happens.", None
+
+        weights = [o.get('weight', 1) for o in valid_outcomes]
+        outcome = random.choices(valid_outcomes, weights=weights, k=1)[0]
+
+        text = _apply_outcome_effects(player, outcome)
+
+        # Check if outcome leads to next step
+        next_step_id = outcome.get('next_step')
+        if next_step_id and next_step_id in multi_event['steps']:
+            next_step = multi_event['steps'][next_step_id]
+            next_step_data = {
+                'id': event_id,
+                'name': multi_event['name'],
+                'description': next_step['description'],
+                'choices': next_step['choices'],
+                'is_multi_step': True,
+                'current_step': next_step_id,
+                'previous_result': text,
+            }
+            return text, next_step_data
+
+        return text, None
+
+    # Single-step event
+    event = next((e for e in DUNGEON_EVENTS if e['id'] == event_id), None)
+    if not event:
+        return "Nothing happens.", None
+
+    choice = event['choices'].get(choice_key)
+    if not choice:
+        return "Nothing happens.", None
+
+    # Filter outcomes by condition
+    valid_outcomes = [o for o in choice['outcomes']
+                     if not o.get('condition') or _evaluate_condition(o['condition'], player)]
+    if not valid_outcomes:
+        return "Nothing happens.", None
+
+    weights = [o.get('weight', 1) for o in valid_outcomes]
+    outcome = random.choices(valid_outcomes, weights=weights, k=1)[0]
+
+    text = _apply_outcome_effects(player, outcome)
+    return text, None
 
 
 # =========================================================================

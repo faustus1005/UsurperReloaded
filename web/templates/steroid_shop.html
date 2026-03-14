@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Steroid Shop{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Rand's Training Center</div>
+    <div class="panel-body">
+        <p class="text-dim mb-1">"Looking to bulk up?" growls Rand, flexing an arm thicker than your waist. "I've got what you need. But it ain't for the weak-minded."</p>
+        <p class="text-secondary mb-1">Gold: <span class="text-gold">{{ player.gold }}</span> | Mental Stability: <span class="text-blue">{{ player.mental_health }}</span> | Strength: <span class="text-red">{{ player.strength }}</span></p>
+        <p class="text-dim mb-2" style="font-size: 0.8em;">Requires Mental Stability >= 10. Warning: 10% chance of death from bad batch!</p>
+
+        {% for steroid in steroids %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ loop.index }}. {{ steroid.name }}</div>
+                <div class="item-stats">
+                    STR: +{{ steroid.str_min }}-{{ steroid.str_max }} | Mental: -{{ steroid.mental_min }}-{{ steroid.mental_max }}
+                </div>
+                <div class="text-dim" style="font-size: 0.8em;">{{ steroid.desc }}</div>
+            </div>
+            <div class="item-actions">
+                <span class="text-gold">{{ steroid.cost }} gold</span>
+                <form method="POST" action="{{ url_for('buy_steroid', index=loop.index0) }}" style="display:inline;">
+                    <button type="submit" class="btn btn-primary btn-sm"
+                            {% if player.gold < steroid.cost or player.mental_health < 10 %}disabled{% endif %}>Buy</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('shady_dealer') }}" class="btn">Back to Dark Alley</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Town Square</a>
+</div>
+{% endblock %}
