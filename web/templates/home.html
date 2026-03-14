@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Home{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Home Sweet Home</div>
+    <div class="panel-body">
+        {% if info.spouse %}
+        <p>You are married to <span class="text-gold">{{ info.spouse.name }}</span>.</p>
+        {% if info.marriage_msg %}
+        <p class="text-dim">{{ info.marriage_msg }}</p>
+        {% endif %}
+        {% endif %}
+
+        <p class="text-secondary">Your place is nothing to write home about. Most people would call it a dump...</p>
+        <p class="text-dim">** Welcome Home! **</p>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Home Menu</div>
+    <div class="panel-body">
+        <div class="menu-grid">
+            <a href="{{ url_for('home_chest') }}" class="menu-item">
+                <span class="icon text-gold">&#9878;</span>
+                <span class="label">Chest</span>
+                <span class="sublabel">{{ info.chest_count }}/{{ info.max_chest }} items</span>
+            </a>
+            <a href="{{ url_for('nursery') }}" class="menu-item">
+                <span class="icon text-blue">&#9786;</span>
+                <span class="label">Nursery</span>
+                <span class="sublabel">Play with kids</span>
+            </a>
+            <a href="{{ url_for('custody') }}" class="menu-item">
+                <span class="icon text-secondary">&#9997;</span>
+                <span class="label">Manage Custody</span>
+                <span class="sublabel">Share, abandon, orphanage</span>
+            </a>
+            <a href="{{ url_for('children') }}" class="menu-item">
+                <span class="icon text-green">&#9734;</span>
+                <span class="label">List Children</span>
+                <span class="sublabel">{{ info.children|length }} children</span>
+            </a>
+            <a href="{{ url_for('status') }}" class="menu-item">
+                <span class="icon text-gold">&#9733;</span>
+                <span class="label">Status</span>
+                <span class="sublabel">View your character</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if info.spouse %}
+<div class="panel">
+    <div class="panel-header">Bedroom</div>
+    <div class="panel-body">
+        <p class="text-dim mb-1">
+            Intimate sessions remaining: <span class="text-gold">{{ info.intimacy_acts }}</span>
+        </p>
+        {% if info.intimacy_acts > 0 %}
+        <form method="POST" action="{{ url_for('home_have_sex') }}">
+            <button type="submit" class="btn btn-primary btn-sm">Spend the Night with {{ info.spouse.name }}</button>
+        </form>
+        {% else %}
+        <p class="text-red">No intimate sessions left today.</p>
+        {% endif %}
+        {% if player.is_pregnant %}
+        <p class="text-gold mt-1">You are expecting a child! (Day {{ player.pregnancy_days }}/3)</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if info.kidnapped_children %}
+<div class="panel" style="border-color: var(--hp-red);">
+    <div class="panel-header">Kidnapped Children</div>
+    <div class="panel-body">
+        {% for child in info.kidnapped_children %}
+        <div class="item-card">
+            <div class="item-info">
+                <span class="text-gold">{{ child.name }}</span>
+                <span class="text-dim">({{ 'Boy' if child.sex == 1 else 'Girl' }}, Age {{ child.age }})</span>
+                {% if child.ransom_amount > 0 %}
+                <span class="text-red">Ransom: {{ child.ransom_amount|default(0) }} gold</span>
+                {% endif %}
+            </div>
+            <div class="item-actions">
+                {% if child.ransom_amount > 0 %}
+                <form method="POST" action="{{ url_for('pay_ransom', child_id=child.id) }}">
+                    <button type="submit" class="btn btn-primary btn-sm"
+                            onclick="return confirm('Pay {{ child.ransom_amount }} gold ransom?')">
+                        Pay Ransom
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="panel">
+    <div class="panel-header">Go to Sleep</div>
+    <div class="panel-body">
+        <p class="text-dim mb-1">Rest at home for the night. You'll wake up refreshed tomorrow.</p>
+        <form method="POST" action="{{ url_for('home_sleep') }}"
+              onsubmit="return confirm('Go to sleep? You will end your session for today.')">
+            <button type="submit" class="btn btn-primary btn-sm">Go to Sleep</button>
+        </form>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

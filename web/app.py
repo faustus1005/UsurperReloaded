@@ -20,7 +20,7 @@ from werkzeug.security import generate_password_hash
 from models import (
     db, User, Player, Item, InventoryItem, Monster, Mail, NewsEntry,
     GameConfig, Team, TeamMember, KingRecord, Bounty, Relationship,
-    Child, RoyalQuest, God, TeamRecord,
+    Child, RoyalQuest, God, TeamRecord, HomeChestItem,
     RACES, CLASSES, RACE_BONUSES, CLASS_BONUSES,
     SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, ITEM_TYPES
 )
@@ -1519,6 +1519,187 @@ def dungeon_change_level():
     db.session.commit()
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('dungeon'))
+
+
+# ==================== HOME (from original HOME.PAS) ====================
+
+@app.route('/home')
+@login_required
+def home():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    info = game_logic.get_home_info(player)
+    db.session.commit()
+    return render_template('home.html', info=info)
+
+
+@app.route('/home/sleep', methods=['POST'])
+@login_required
+def home_sleep():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.go_to_sleep(player)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('home'))
+
+
+@app.route('/home/have_sex', methods=['POST'])
+@login_required
+def home_have_sex():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.have_sex_at_home(player)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('home'))
+
+
+@app.route('/home/chest')
+@login_required
+def home_chest():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    chest_items = game_logic.get_chest_items(player)
+    inv_items = InventoryItem.query.filter_by(player_id=player.id).all()
+    # Resolve item details for inventory display
+    inv_display = []
+    for ii in inv_items:
+        item = db.session.get(Item, ii.item_id)
+        if item:
+            # Check if equipped
+            equipped = False
+            for slot in ['weapon', 'armor', 'shield', 'helmet', 'ring', 'amulet']:
+                if getattr(player, f'equipped_{slot}', None) == item.id:
+                    equipped = True
+                    break
+            inv_display.append({'inv_item': ii, 'item': item, 'equipped': equipped})
+
+    return render_template('chest.html', chest_items=chest_items,
+                           inv_display=inv_display,
+                           max_chest=game_logic.MAX_CHEST_ITEMS)
+
+
+@app.route('/home/chest/store/<int:inv_item_id>', methods=['POST'])
+@login_required
+def chest_store(inv_item_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.store_item_in_chest(player, inv_item_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('home_chest'))
+
+
+@app.route('/home/chest/retrieve/<int:chest_item_id>', methods=['POST'])
+@login_required
+def chest_retrieve(chest_item_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.retrieve_item_from_chest(player, chest_item_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('home_chest'))
+
+
+@app.route('/home/nursery')
+@login_required
+def nursery():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    children = game_logic.get_nursery_children(player)
+    return render_template('nursery.html', children=children)
+
+
+@app.route('/home/nursery/play/<int:child_id>', methods=['POST'])
+@login_required
+def nursery_play(child_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.nursery_play(player, child_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('nursery'))
+
+
+@app.route('/home/custody')
+@login_required
+def custody():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    children = game_logic.get_player_children(player)
+    accessible = [c for c in children if game_logic._has_access(player, c)]
+    return render_template('custody.html', children=accessible)
+
+
+@app.route('/home/custody/share/<int:child_id>', methods=['POST'])
+@login_required
+def custody_share(child_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.share_custody(player, child_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('custody'))
+
+
+@app.route('/home/custody/abandon/<int:child_id>', methods=['POST'])
+@login_required
+def custody_abandon(child_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.abandon_child(player, child_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('custody'))
+
+
+@app.route('/home/custody/orphanage/<int:child_id>', methods=['POST'])
+@login_required
+def custody_orphanage(child_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.send_to_orphanage(player, child_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('custody'))
+
+
+@app.route('/home/ransom/<int:child_id>', methods=['POST'])
+@login_required
+def pay_ransom(child_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.pay_ransom(player, child_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('home'))
 
 
 # ==================== TEAM MANAGEMENT ====================
