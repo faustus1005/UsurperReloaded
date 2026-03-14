@@ -11,12 +11,14 @@ db = SQLAlchemy()
 
 RACES = [
     'Human', 'Hobbit', 'Elf', 'Half-Elf', 'Dwarf',
-    'Troll', 'Orc', 'Gnome', 'Gnoll', 'Mutant'
+    'Troll', 'Orc', 'Gnome', 'Gnoll', 'Mutant',
+    'Tiefling', 'Dragonborn', 'Fae'
 ]
 
 CLASSES = [
     'Alchemist', 'Assassin', 'Barbarian', 'Bard', 'Cleric',
-    'Jester', 'Magician', 'Paladin', 'Ranger', 'Sage', 'Warrior'
+    'Jester', 'Magician', 'Monk', 'Necromancer', 'Paladin',
+    'Ranger', 'Sage', 'Warrior', 'Witch Hunter'
 ]
 
 ITEM_TYPES = [
@@ -41,6 +43,9 @@ RACE_BONUSES = {
     'Gnome':    [-1, 0, 0, 1, 1, 2, 2, -5, 10],
     'Gnoll':    [2, 1, 1, 0, -3, 0, -1, 5, -5],
     'Mutant':   [1, 1, 1, 1, -2, 1, -1, 5, 0],
+    'Tiefling':  [1, 0, 0, 1, -1, 1, 1, 0, 10],
+    'Dragonborn':[3, 2, 2, -2, 0, -1, 0, 15, -5],
+    'Fae':       [-2, -1, -1, 3, 3, 2, 1, -15, 20],
 }
 
 # Class stat bonuses: [str, def, sta, agi, cha, dex, wis, hp_bonus, mana_bonus]
@@ -56,10 +61,13 @@ CLASS_BONUSES = {
     'Ranger':    [1, 1, 1, 2, 0, 1, 0, 5, 0],
     'Sage':      [-2, -1, 0, 0, 1, 0, 4, -10, 20],
     'Warrior':   [3, 2, 2, 1, -1, 0, -2, 15, -10],
+    'Monk':         [1, 2, 2, 3, 0, 2, 1, 5, 5],
+    'Necromancer':  [-1, -1, 0, 0, -2, 1, 4, -10, 20],
+    'Witch Hunter': [2, 1, 1, 1, 0, 2, 1, 5, 0],
 }
 
 # Classes that can cast spells
-SPELLCASTER_CLASSES = ['Alchemist', 'Cleric', 'Magician', 'Paladin', 'Sage']
+SPELLCASTER_CLASSES = ['Alchemist', 'Cleric', 'Magician', 'Monk', 'Necromancer', 'Paladin', 'Sage', 'Witch Hunter']
 
 # Experience required per level (100 levels, exponential curve)
 LEVEL_XP = {
@@ -188,6 +196,61 @@ SPELLS = {
          'classes': ['Alchemist', 'Sage'], 'description': 'The universal cure for all ailments.'},
     48: {'name': 'Ragnarok', 'mana_cost': 500, 'type': 'attack', 'min_level': 100,
          'classes': ['Magician', 'Sage'], 'description': 'The end of all things.'},
+    # --- Necromancer spells ---
+    49: {'name': 'Drain Life', 'mana_cost': 8, 'type': 'attack', 'min_level': 1,
+         'classes': ['Necromancer'], 'description': 'Siphons the life force from your enemy.'},
+    50: {'name': 'Raise Dead', 'mana_cost': 15, 'type': 'buff', 'min_level': 3,
+         'classes': ['Necromancer'], 'description': 'Raises a corpse to fight alongside you.'},
+    51: {'name': 'Bone Spear', 'mana_cost': 12, 'type': 'attack', 'min_level': 4,
+         'classes': ['Necromancer'], 'description': 'Hurls a shard of sharpened bone.'},
+    52: {'name': 'Corpse Explosion', 'mana_cost': 22, 'type': 'attack', 'min_level': 8,
+         'classes': ['Necromancer'], 'description': 'Detonates the fallen dead with terrible force.'},
+    53: {'name': 'Soul Rend', 'mana_cost': 35, 'type': 'attack', 'min_level': 15,
+         'classes': ['Necromancer'], 'description': 'Tears at the very soul of your foe.'},
+    54: {'name': 'Army of the Dead', 'mana_cost': 60, 'type': 'buff', 'min_level': 25,
+         'classes': ['Necromancer'], 'description': 'Summons a legion of undead warriors.'},
+    55: {'name': 'Plague of Undeath', 'mana_cost': 90, 'type': 'attack', 'min_level': 40,
+         'classes': ['Necromancer'], 'description': 'Spreads a necrotic plague that devours the living.'},
+    56: {'name': 'Death Pact', 'mana_cost': 150, 'type': 'attack', 'min_level': 60,
+         'classes': ['Necromancer'], 'description': 'Forges a dark bargain with death itself.'},
+    57: {'name': 'Lichdom', 'mana_cost': 300, 'type': 'buff', 'min_level': 85,
+         'classes': ['Necromancer'], 'description': 'Transforms you into an undying lich.'},
+    # --- Monk spells ---
+    58: {'name': 'Inner Focus', 'mana_cost': 6, 'type': 'buff', 'min_level': 1,
+         'classes': ['Monk'], 'description': 'Centers your chi to sharpen reflexes.'},
+    59: {'name': 'Palm Strike', 'mana_cost': 10, 'type': 'attack', 'min_level': 2,
+         'classes': ['Monk'], 'description': 'Channels ki into a devastating open-palm blow.'},
+    60: {'name': 'Iron Skin', 'mana_cost': 14, 'type': 'buff', 'min_level': 5,
+         'classes': ['Monk'], 'description': 'Hardens your body against physical harm.'},
+    61: {'name': 'Flurry of Blows', 'mana_cost': 20, 'type': 'attack', 'min_level': 8,
+         'classes': ['Monk'], 'description': 'A rapid barrage of fists and kicks.'},
+    62: {'name': 'Quivering Palm', 'mana_cost': 35, 'type': 'attack', 'min_level': 15,
+         'classes': ['Monk'], 'description': 'Sets up lethal vibrations within the target.'},
+    63: {'name': 'Diamond Soul', 'mana_cost': 50, 'type': 'buff', 'min_level': 25,
+         'classes': ['Monk'], 'description': 'Your spirit becomes as unyielding as diamond.'},
+    64: {'name': 'Astral Projection', 'mana_cost': 80, 'type': 'buff', 'min_level': 40,
+         'classes': ['Monk'], 'description': 'Projects your consciousness beyond the mortal plane.'},
+    65: {'name': 'Void Fist', 'mana_cost': 120, 'type': 'attack', 'min_level': 60,
+         'classes': ['Monk'], 'description': 'A punch that disrupts the fabric of reality.'},
+    66: {'name': 'Transcendence', 'mana_cost': 250, 'type': 'buff', 'min_level': 85,
+         'classes': ['Monk'], 'description': 'Ascend beyond mortal limitations entirely.'},
+    # --- Witch Hunter spells (innate abilities, not true magic) ---
+    67: {'name': 'Silver Bolt', 'mana_cost': 5, 'type': 'attack', 'min_level': 1,
+         'classes': ['Witch Hunter'], 'description': 'Fires a bolt infused with pure silver.'},
+    68: {'name': 'Purging Flame', 'mana_cost': 12, 'type': 'attack', 'min_level': 3,
+         'classes': ['Witch Hunter'], 'description': 'Sacred fire that burns the unholy.'},
+    69: {'name': 'Hex Ward', 'mana_cost': 10, 'type': 'buff', 'min_level': 5,
+         'classes': ['Witch Hunter'], 'description': 'Wards against curses and dark magic.'},
+    70: {'name': 'Sigil of Binding', 'mana_cost': 18, 'type': 'buff', 'min_level': 10,
+         'classes': ['Witch Hunter'], 'description': 'Inscribes a sigil that weakens magical foes.'},
+    71: {'name': 'Inquisitor\'s Brand', 'mana_cost': 30, 'type': 'attack', 'min_level': 18,
+         'classes': ['Witch Hunter'], 'description': 'Brands the enemy with a mark of judgement.'},
+    72: {'name': 'Banishment', 'mana_cost': 50, 'type': 'attack', 'min_level': 30,
+         'classes': ['Witch Hunter'], 'description': 'Attempts to banish a creature to another plane.'},
+    73: {'name': 'Witch Pyre', 'mana_cost': 90, 'type': 'attack', 'min_level': 50,
+         'classes': ['Witch Hunter'], 'description': 'Engulfs the target in purifying flame.'},
+    74: {'name': 'Final Judgement', 'mana_cost': 200, 'type': 'attack', 'min_level': 80,
+         'classes': ['Witch Hunter'], 'description': 'Condemns the wicked with absolute authority.'},
 }
 
 
@@ -263,6 +326,7 @@ class Player(db.Model):
     thefts_remaining = db.Column(db.Integer, default=2)
     brawls_remaining = db.Column(db.Integer, default=2)
     intimacy_acts = db.Column(db.Integer, default=5)  # daily intimate interactions
+    beauty_nest_visits = db.Column(db.Integer, default=3)  # daily visits to The Beauty Nest
 
     # Dungeon
     dungeon_level = db.Column(db.Integer, default=1)  # current dungeon level

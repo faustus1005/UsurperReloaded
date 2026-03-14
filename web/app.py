@@ -1349,6 +1349,41 @@ def post_bounty():
     return redirect(url_for('bounty_board'))
 
 
+# ==================== THE BEAUTY NEST ====================
+
+@app.route('/beauty_nest')
+@login_required
+def beauty_nest():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    if player.is_imprisoned:
+        flash("You cannot visit The Beauty Nest while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+
+    companions = game_logic.BEAUTY_NEST_COMPANIONS
+    return render_template('beauty_nest.html', companions=companions)
+
+
+@app.route('/beauty_nest/visit/<int:index>', methods=['POST'])
+@login_required
+def beauty_nest_visit(index):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg, log = game_logic.beauty_nest_visit(player, index)
+    db.session.commit()
+
+    if log:
+        for entry in log:
+            flash(entry, 'info')
+    else:
+        flash(msg, 'error' if not success else 'info')
+    return redirect(url_for('beauty_nest'))
+
+
 # ==================== LOVE CORNER / RELATIONSHIPS ====================
 
 @app.route('/love_corner')

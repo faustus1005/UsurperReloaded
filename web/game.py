@@ -81,6 +81,7 @@ def create_character(player, name, race, player_class, sex):
     player.thefts_remaining = 2
     player.brawls_remaining = 2
     player.intimacy_acts = 5
+    player.beauty_nest_visits = 3
     player.dungeon_level = 1
 
     # Starting spells for spellcasters
@@ -94,6 +95,12 @@ def create_character(player, name, race, player_class, sex):
         player.spells_known = '1,2'  # Magic Missile + Heal
     elif player_class == 'Alchemist':
         player.spells_known = '11'  # Acid Splash
+    elif player_class == 'Necromancer':
+        player.spells_known = '49'  # Drain Life
+    elif player_class == 'Monk':
+        player.spells_known = '58'  # Inner Focus
+    elif player_class == 'Witch Hunter':
+        player.spells_known = '67'  # Silver Bolt
 
 
 def level_up(player):
@@ -589,6 +596,7 @@ def daily_maintenance(player):
     player.brawls_remaining = 2
     player.team_fights = 1
     player.intimacy_acts = 5
+    player.beauty_nest_visits = 3
     player.hp = player.max_hp
     player.mana = player.max_mana
     player.last_maintenance = now
@@ -4861,3 +4869,173 @@ def god_maintenance():
             news = NewsEntry(category='divine',
                              message=f"{god.name} has ascended to {god.title()}!")
             db.session.add(news)
+
+
+# ==================== THE BEAUTY NEST ====================
+
+BEAUTY_NEST_COMPANIONS = [
+    {
+        'name': 'Grukka',
+        'race': 'Troll',
+        'description': 'A hulking troll woman with surprisingly gentle eyes and tusks adorned with silver rings.',
+        'cost': 500,
+        'xp_base': 25,
+        'darkness': 15,
+        'flavor': 'Grukka leads you to a reinforced room upstairs. Despite her fearsome appearance, '
+                  'she proves surprisingly tender. You leave feeling oddly refreshed.',
+    },
+    {
+        'name': 'Skara',
+        'race': 'Orc',
+        'description': 'A muscular orc maiden with ritual scarification and a warrior\'s bearing.',
+        'cost': 2000,
+        'xp_base': 50,
+        'darkness': 25,
+        'flavor': 'Skara sizes you up approvingly before taking your hand. Her room smells of '
+                  'incense and battle trophies. An unforgettable evening follows.',
+    },
+    {
+        'name': 'Whisper',
+        'race': 'Gnoll',
+        'description': 'A lithe gnoll woman with spotted fur and a mischievous grin full of sharp teeth.',
+        'cost': 5000,
+        'xp_base': 100,
+        'darkness': 50,
+        'flavor': 'Whisper purrs and leads you through a beaded curtain into her den. Her '
+                  'gnoll-like enthusiasm leaves you exhausted but smiling.',
+    },
+    {
+        'name': 'Bronwyn',
+        'race': 'Dwarf',
+        'description': 'A stout dwarven woman with braided copper hair and a hearty laugh.',
+        'cost': 10000,
+        'xp_base': 150,
+        'darkness': 75,
+        'flavor': 'Bronwyn cracks open a barrel of dwarven stout and insists you drink first. '
+                  'What follows is an evening of surprising passion and excellent ale.',
+    },
+    {
+        'name': 'Silvanya',
+        'race': 'Elf',
+        'description': 'A beautiful elven woman with silver hair and ancient, knowing eyes.',
+        'cost': 20000,
+        'xp_base': 175,
+        'darkness': 100,
+        'flavor': 'Silvanya whispers enchantments that make the candlelight dance. Her elven '
+                  'magic turns the evening into something otherworldly. You feel renewed.',
+    },
+    {
+        'name': 'Zara',
+        'race': 'Tiefling',
+        'description': 'A striking tiefling with crimson skin, small horns, and a devilish smile.',
+        'cost': 30000,
+        'xp_base': 200,
+        'darkness': 150,
+        'flavor': 'Zara traces a clawed finger along your jaw. Her infernal heritage lends an '
+                  'intoxicating warmth to the encounter. You leave slightly singed but satisfied.',
+    },
+    {
+        'name': 'Ashkara',
+        'race': 'Dragonborn',
+        'description': 'A towering dragonborn woman with iridescent bronze scales and smoldering amber eyes.',
+        'cost': 40000,
+        'xp_base': 250,
+        'darkness': 200,
+        'flavor': 'Ashkara breathes a small puff of warm smoke and grins. Her scaled embrace '
+                  'is surprisingly warm. You leave with the faint scent of brimstone.',
+    },
+    {
+        'name': 'Lirael',
+        'race': 'Fae',
+        'description': 'A luminous fae creature with gossamer wings and eyes that shift color like opals.',
+        'cost': 70000,
+        'xp_base': 350,
+        'darkness': 300,
+        'flavor': 'Lirael floats ahead of you, trailing motes of light. The night passes like '
+                  'a fever dream of moonlight and whispered fae promises.',
+    },
+    {
+        'name': 'Empress Velvet',
+        'race': 'Human',
+        'description': 'The crown jewel of the Beauty Nest. A woman of legendary beauty and devastating charm.',
+        'cost': 100000,
+        'xp_base': 450,
+        'darkness': 500,
+        'flavor': 'Empress Velvet regards you with a regal gaze. She is worth every coin. '
+                  'You awake the next morning convinced you dreamt the entire encounter.',
+    },
+]
+
+
+def beauty_nest_visit(player, companion_index):
+    """Visit a companion at The Beauty Nest. Returns (success, message, log)."""
+    if companion_index < 0 or companion_index >= len(BEAUTY_NEST_COMPANIONS):
+        return False, "Invalid choice.", []
+
+    if not player.beauty_nest_visits or player.beauty_nest_visits < 1:
+        return False, "You are too tired for any more visits today. Return tomorrow.", []
+
+    companion = BEAUTY_NEST_COMPANIONS[companion_index]
+    log = []
+
+    if player.gold < companion['cost']:
+        return False, (f"Clarissa laughs. 'You can't afford {companion['name']}! "
+                       f"Come back with {companion['cost']:,} gold.'"), []
+
+    # Pay the gold
+    player.gold -= companion['cost']
+    player.beauty_nest_visits -= 1
+
+    # XP reward scales with level
+    xp = (random.randint(companion['xp_base'], companion['xp_base'] * 2)) * player.level
+    player.experience += xp
+
+    # Darkness points
+    dark = random.randint(companion['darkness'] // 2, companion['darkness'])
+    player.darkness += dark
+
+    log.append(f"**Visit to The Beauty Nest**")
+    log.append(companion['flavor'])
+    log.append(f"You gained {xp:,} experience points!")
+    log.append(f"You gained {dark} darkness points.")
+
+    # 33% chance of disease (like original)
+    if random.randint(1, 3) == 1:
+        player.has_plague = True
+        dmg = random.randint(5, 20)
+        player.hp = max(1, player.hp - dmg)
+        log.append("As you leave, you feel a burning pain! The encounter has left you diseased!")
+        log.append(f"You lost {dmg} HP and contracted the plague!")
+
+        news = NewsEntry(player_id=player.id, category='social',
+                         message=f"{player.name} visited {companion['name']} at the Beauty Nest "
+                                 f"and caught a disease!")
+        db.session.add(news)
+    else:
+        # News about the visit
+        quips = [
+            f"{player.name} had a night filled with pleasures.",
+            f"{player.name} proved to be a real charmer.",
+            f"{player.name} spent lavishly at the Beauty Nest.",
+            f"{player.name} enjoyed the company of {companion['name']}.",
+        ]
+        news = NewsEntry(player_id=player.id, category='social',
+                         message=f"{player.name} spent the night with {companion['name']} "
+                                 f"at the Beauty Nest. {random.choice(quips)}")
+        db.session.add(news)
+
+    # If married, notify spouse
+    if player.married and player.spouse_id:
+        spouse = db.session.get(Player, player.spouse_id)
+        if spouse:
+            mail = Mail(
+                sender_id=player.id,
+                receiver_id=spouse.id,
+                subject="Unfaithful!",
+                message=f"{player.name} has been unfaithful! They visited {companion['name']} "
+                        f"at the Beauty Nest!"
+            )
+            db.session.add(mail)
+            log.append("Your spouse has been notified of your infidelity...")
+
+    return True, "You visited The Beauty Nest.", log
