@@ -99,7 +99,7 @@ def level_up(player):
     if not player.can_level_up():
         return False, "Not enough experience to level up."
 
-    if player.level >= 30:
+    if player.level >= 100:
         return False, "You have reached the maximum level."
 
     player.level += 1
