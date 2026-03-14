@@ -12,21 +12,36 @@ Usurper was originally a multi-player BBS door game known for its deep fantasy R
 - **10 Races**: Human, Hobbit, Elf, Half-Elf, Dwarf, Troll, Orc, Gnome, Gnoll, Mutant -- each with unique stat bonuses
 - **11 Classes**: Alchemist, Assassin, Barbarian, Bard, Cleric, Jester, Magician, Paladin, Ranger, Sage, Warrior
 - **7 Core Stats**: Strength, Defence, Stamina, Agility, Charisma, Dexterity, Wisdom
-- **30 Levels** of character progression with scaling XP requirements
+- **100 Levels** of character progression with scaling XP requirements
 - **Alignment System**: Chivalry vs Darkness -- your actions shape your path (Good, Neutral, or Evil)
+- **Mental Health & Addiction**: Track mental stability and drug addiction with gameplay consequences
 
 ### Combat
-- **Dungeon Exploration**: Fight monsters across multiple dungeon levels with daily fight limits
-- **24 Monster Types**: From Giant Rats to Ancient Dragons and Demon Princes, each with unique abilities
+- **Dungeon Exploration**: Fight monsters across 100 dungeon levels with daily fight limits
+- **50+ Monster Types**: From Giant Rats and Goblins to Ancient Dragons, Demon Princes, and The Usurper -- each with unique abilities, organized across 10 tiers (Beginner through Cosmic)
 - **Player vs Player (PvP)**: Challenge other players in the Dormitory
 - **Tavern Brawls**: Bar fights for fun and gold
-- **Spell System**: 12 spells across attack, heal, buff, and cure types for spellcasting classes
+- **Drinking Contests**: Compete against opponents in a drinking competition at Bob's Tavern
+- **Spell System**: 48 spells across attack, heal, buff, and cure types for spellcasting classes (Alchemist, Cleric, Magician, Paladin, Sage)
 - **Poisonous and diseased enemies** that inflict status effects
+
+### Dungeon Events
+- **20+ Single-Step Events**: Random encounters including wounded strangers, dungeon merchants, magic fountains, trapped chests, ghostly warriors, dragon hoards, enchanted armories, gambling demons, harassed travelers, and more
+- **5 Multi-Step Branching Events**: Complex storylines with multiple choices at each step:
+  - **The Captive Princess**: Rescue a noblewoman from orc guards through stealth, combat, or distraction -- then choose how to handle the reward
+  - **The Necromancer's Laboratory**: Ambush, negotiate, or steal from a dark mage -- fight skeletal warriors, make deals, or claim forbidden knowledge
+  - **The Abandoned Dwarven Forge**: Solve rune puzzles, relight an ancient forge, battle a stone golem, and loot a dwarven vault
+  - **The Cursed Mirror**: Face your shadow clone, resist dark temptation, or free a trapped wizard's soul from an enchanted mirror
+  - **The Underground Arena**: Fight gladiatorial challengers, face an undefeated minotaur champion, bet on fights, or sneak backstage
 
 ### Equipment & Economy
 - **15 Equipment Slots**: Weapon, Shield, Head, Body, Arms, Hands, Fingers, Legs, Feet, Waist, Neck, Face, Around Body, plus consumables
-- **60+ Items**: Weapons, armor, accessories, potions, and unique dungeon-only treasures
-- **Multiple Shops**: Weapon Shop, Armor Shop, Magic Shop, Healing Hut, General Store, Dark Alley (shady dealer), Alchemist
+- **100+ Items**: Weapons, armor, accessories, potions, class-specific gear, and unique dungeon-only treasures
+- **Multiple Shops**: Weapon Shop, Armor Shop, Magic Shop, Healing Hut, General Store, and specialized shops
+- **The Dark Alley**: A hub of illicit commerce including the Shady Dealer, Drug Palace, Steroid Shop, and Alchemist's Heaven
+- **Drug Palace**: 10 mind-expanding substances (Incense to Transactor) with XP gains, addiction risk, and 10% overdose chance
+- **Steroid Shop**: 10 strength-boosting compounds (Teddy Bears to D.E.M.O.N.) trading mental stability for raw power
+- **Alchemist's Heaven**: 9 poisons of increasing potency for the Alchemist class (Snake Bite to Devil's Cure)
 - **Banking System**: Deposit gold for safekeeping with interest
 - **Cursed, unique, class-restricted, and alignment-locked items**
 
