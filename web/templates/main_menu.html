@@ -15,22 +15,34 @@
             {% endif %}
         </p>
 
+        {# === ADVENTURE === #}
+        <div class="menu-section-header">Adventure</div>
         <div class="menu-grid">
-            <a href="{{ url_for('status') }}" class="menu-item">
-                <span class="icon text-gold">&#9733;</span>
-                <span class="label">Status</span>
-                <span class="sublabel">View your character</span>
-            </a>
             <a href="{{ url_for('dungeon') }}" class="menu-item">
                 <span class="icon text-red">&#9876;</span>
                 <span class="label">Dungeons</span>
                 <span class="sublabel">{{ player.fights_remaining }} fights left</span>
             </a>
-            <a href="{{ url_for('inventory') }}" class="menu-item">
-                <span class="icon text-blue">&#9883;</span>
-                <span class="label">Inventory</span>
-                <span class="sublabel">Equipment & items</span>
+            <a href="{{ url_for('pvp') }}" class="menu-item">
+                <span class="icon text-red">&#9876;</span>
+                <span class="label">Dormitory</span>
+                <span class="sublabel">{{ player.player_fights }} fights left</span>
             </a>
+            <a href="{{ url_for('castle') }}" class="menu-item">
+                <span class="icon text-gold">&#9813;</span>
+                <span class="label">Castle</span>
+                <span class="sublabel">The Throne</span>
+            </a>
+            <a href="{{ url_for('bounty_board') }}" class="menu-item">
+                <span class="icon text-red">&#10006;</span>
+                <span class="label">Bounty Board</span>
+                <span class="sublabel">Most wanted</span>
+            </a>
+        </div>
+
+        {# === SHOPS & SERVICES === #}
+        <div class="menu-section-header">Shops & Services</div>
+        <div class="menu-grid">
             <a href="{{ url_for('weapon_shop') }}" class="menu-item">
                 <span class="icon text-secondary">&#9874;</span>
                 <span class="label">Weapon Shop</span>
@@ -45,61 +57,6 @@
                 <span class="icon text-blue">&#10023;</span>
                 <span class="label">Magic Shop</span>
                 <span class="sublabel">Spells & enchantments</span>
-            </a>
-            <a href="{{ url_for('bank') }}" class="menu-item">
-                <span class="icon text-gold">&#9878;</span>
-                <span class="label">Bank</span>
-                <span class="sublabel">{{ player.bank_gold }}g saved</span>
-            </a>
-            <a href="{{ url_for('inn') }}" class="menu-item">
-                <span class="icon text-green">&#9752;</span>
-                <span class="label">Inn</span>
-                <span class="sublabel">Rest & recover</span>
-            </a>
-            <a href="{{ url_for('tavern') }}" class="menu-item">
-                <span class="icon text-gold">&#127866;</span>
-                <span class="label">Tavern</span>
-                <span class="sublabel">Brawls & drinks</span>
-            </a>
-            <a href="{{ url_for('pvp') }}" class="menu-item">
-                <span class="icon text-red">&#9876;</span>
-                <span class="label">Dormitory</span>
-                <span class="sublabel">{{ player.player_fights }} fights left</span>
-            </a>
-            <a href="{{ url_for('castle') }}" class="menu-item">
-                <span class="icon text-gold">&#9813;</span>
-                <span class="label">Castle</span>
-                <span class="sublabel">The Throne</span>
-            </a>
-            <a href="{{ url_for('teams') }}" class="menu-item">
-                <span class="icon text-blue">&#9734;</span>
-                <span class="label">Teams</span>
-                <span class="sublabel">{% if player.team_name %}{{ player.team_name }}{% else %}Join a team{% endif %}</span>
-            </a>
-            <a href="{{ url_for('level_master') }}" class="menu-item">
-                <span class="icon text-gold">&#10026;</span>
-                <span class="label">Level Master</span>
-                <span class="sublabel">{% if player.can_level_up() %}Ready to train!{% else %}Train to level up{% endif %}</span>
-            </a>
-            <a href="{{ url_for('bounty_board') }}" class="menu-item">
-                <span class="icon text-red">&#10006;</span>
-                <span class="label">Bounty Board</span>
-                <span class="sublabel">Most wanted</span>
-            </a>
-            <a href="{{ url_for('love_corner') }}" class="menu-item">
-                <span class="icon text-red">&#9829;</span>
-                <span class="label">Love Corner</span>
-                <span class="sublabel">{% if player.married %}Married{% else %}Romance{% endif %}</span>
-            </a>
-            <a href="{{ url_for('home') }}" class="menu-item">
-                <span class="icon text-green">&#9962;</span>
-                <span class="label">Home</span>
-                <span class="sublabel">{% if player.married %}Family{% else %}Your place{% endif %}</span>
-            </a>
-            <a href="{{ url_for('temple') }}" class="menu-item">
-                <span class="icon text-blue">&#9764;</span>
-                <span class="label">Temple</span>
-                <span class="sublabel">{% if player.god_name %}{{ player.god_name }}{% else %}Worship a deity{% endif %}</span>
             </a>
             <a href="{{ url_for('healing_shop') }}" class="menu-item">
                 <span class="icon text-green">&#10010;</span>
@@ -116,6 +73,76 @@
                 <span class="label">Dark Alley</span>
                 <span class="sublabel">Shady deals</span>
             </a>
+            <a href="{{ url_for('bank') }}" class="menu-item">
+                <span class="icon text-gold">&#9878;</span>
+                <span class="label">Bank</span>
+                <span class="sublabel">{{ player.bank_gold }}g saved</span>
+            </a>
+        </div>
+
+        {# === SOCIAL === #}
+        <div class="menu-section-header">Social & Leisure</div>
+        <div class="menu-grid">
+            <a href="{{ url_for('tavern') }}" class="menu-item">
+                <span class="icon text-gold">&#127866;</span>
+                <span class="label">Tavern</span>
+                <span class="sublabel">Brawls & drinks</span>
+            </a>
+            <a href="{{ url_for('inn') }}" class="menu-item">
+                <span class="icon text-green">&#9752;</span>
+                <span class="label">Inn</span>
+                <span class="sublabel">Rest & recover</span>
+            </a>
+            <a href="{{ url_for('love_corner') }}" class="menu-item">
+                <span class="icon text-red">&#9829;</span>
+                <span class="label">Love Corner</span>
+                <span class="sublabel">{% if player.married %}Married{% else %}Romance{% endif %}</span>
+            </a>
+            <a href="{{ url_for('beauty_nest') }}" class="menu-item">
+                <span class="icon text-red">&#9826;</span>
+                <span class="label">Beauty Nest</span>
+                <span class="sublabel">{{ player.beauty_nest_visits }} visits left</span>
+            </a>
+            <a href="{{ url_for('teams') }}" class="menu-item">
+                <span class="icon text-blue">&#9734;</span>
+                <span class="label">Teams</span>
+                <span class="sublabel">{% if player.team_name %}{{ player.team_name }}{% else %}Join a team{% endif %}</span>
+            </a>
+        </div>
+
+        {# === CHARACTER === #}
+        <div class="menu-section-header">Character</div>
+        <div class="menu-grid">
+            <a href="{{ url_for('status') }}" class="menu-item">
+                <span class="icon text-gold">&#9733;</span>
+                <span class="label">Status</span>
+                <span class="sublabel">View your character</span>
+            </a>
+            <a href="{{ url_for('inventory') }}" class="menu-item">
+                <span class="icon text-blue">&#9883;</span>
+                <span class="label">Inventory</span>
+                <span class="sublabel">Equipment & items</span>
+            </a>
+            <a href="{{ url_for('level_master') }}" class="menu-item">
+                <span class="icon text-gold">&#10026;</span>
+                <span class="label">Level Master</span>
+                <span class="sublabel">{% if player.can_level_up() %}Ready to train!{% else %}Train to level up{% endif %}</span>
+            </a>
+            <a href="{{ url_for('home') }}" class="menu-item">
+                <span class="icon text-green">&#9962;</span>
+                <span class="label">Home</span>
+                <span class="sublabel">{% if player.married %}Family{% else %}Your place{% endif %}</span>
+            </a>
+            <a href="{{ url_for('temple') }}" class="menu-item">
+                <span class="icon text-blue">&#9764;</span>
+                <span class="label">Temple</span>
+                <span class="sublabel">{% if player.god_name %}{{ player.god_name }}{% else %}Worship a deity{% endif %}</span>
+            </a>
+        </div>
+
+        {# === INFORMATION === #}
+        <div class="menu-section-header">Information</div>
+        <div class="menu-grid">
             <a href="{{ url_for('rankings') }}" class="menu-item">
                 <span class="icon text-gold">&#9733;</span>
                 <span class="label">Rankings</span>

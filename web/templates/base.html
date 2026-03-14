@@ -27,6 +27,7 @@
                 <span class="stat gold-display">
                     {{ player.gold }}g
                 </span>
+                <a href="{{ url_for('main_menu') }}" class="return-to-town">Return to Town</a>
                 {% if is_admin %}<a href="{{ url_for('admin_dashboard') }}" class="nav-link admin-link">Admin</a>{% endif %}
                 <a href="{{ url_for('logout') }}" class="nav-link">Quit</a>
             </div>

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title_suffix %} - The Beauty Nest{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Beauty Nest</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            As you enter the worn-down old establishment at the end of the main street,
+            you notice all kinds of strange creatures coming and going. A stout half-elf woman
+            with a shrewd gaze appears from behind a beaded curtain. It is Clarissa, the proprietress.
+        </p>
+        <p class="text-dim mb-1">
+            "Looking for some company, handsome?" she asks with a knowing smile.
+        </p>
+        <p class="text-secondary mb-1">
+            Gold: <span class="text-gold">{{ player.gold | default(0) }}</span>
+            &mdash;
+            Visits remaining today: <span class="text-gold">{{ player.beauty_nest_visits | default(0) }}</span>
+        </p>
+
+        {% if player.beauty_nest_visits and player.beauty_nest_visits > 0 %}
+        <hr class="separator">
+        <p class="text-dim mb-1">Clarissa introduces you to the companions:</p>
+
+        {% for companion in companions %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ loop.index }}. {{ companion.name }}</div>
+                <div class="item-type">{{ companion.race }}</div>
+                <div class="text-dim" style="font-size: 0.85em;">{{ companion.description }}</div>
+            </div>
+            <div class="item-actions">
+                <span class="item-price">{{ "{:,}".format(companion.cost) }}g</span>
+                <form method="POST" action="{{ url_for('beauty_nest_visit', index=loop.index0) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-primary"
+                            {% if player.gold < companion.cost %}disabled{% endif %}>
+                        Visit
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-dim mt-2">You are too tired for any more visits today. Return tomorrow.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

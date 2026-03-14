@@ -276,11 +276,45 @@ tr:hover {
 }
 
 /* Game Menu */
+.menu-section-header {
+    color: var(--gold);
+    font-size: 0.85em;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 8px 0 4px 0;
+    margin-top: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.menu-section-header:first-of-type {
+    margin-top: 0;
+}
+
 .menu-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 10px;
-    margin: 15px 0;
+    margin: 10px 0 15px 0;
+}
+
+/* Return to Town persistent button */
+.return-to-town {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--bg-highlight);
+    border: 1px solid var(--gold-dark);
+    border-radius: 3px;
+    color: var(--gold);
+    font-family: inherit;
+    font-size: 0.8em;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+.return-to-town:hover {
+    background: rgba(255, 215, 0, 0.15);
+    color: var(--gold);
+    text-decoration: none;
 }
 
 .menu-item {
