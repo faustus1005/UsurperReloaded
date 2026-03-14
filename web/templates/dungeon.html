@@ -5,12 +5,12 @@
     <div class="panel-header">{{ dungeon_name }}</div>
     <div class="panel-body">
         <p class="text-secondary mb-2">
-            You stand at the entrance to the dark dungeon complex.
-            Danger and treasure await those brave enough to venture inside.
+            As you descend to Dungeon Level {{ player.dungeon_level or player.level }} you tighten your grip on your weapon.
+            You feel that evil lurks nearby... You wonder whether you shall ever see the sun again...
         </p>
 
         <div class="stats-grid mb-2">
-            <div class="stat-item"><span class="label">Dungeon Level</span><span class="value">{{ player.level }}</span></div>
+            <div class="stat-item"><span class="label">Dungeon Level</span><span class="value text-gold">{{ player.dungeon_level or player.level }}</span></div>
             <div class="stat-item"><span class="label">Fights Remaining</span><span class="value">{{ player.fights_remaining }}</span></div>
             <div class="stat-item"><span class="label">HP</span><span class="value hp">{{ player.hp }} / {{ player.max_hp }}</span></div>
             {% if player.max_mana > 0 %}
@@ -20,14 +20,33 @@
         </div>
 
         {% if player.fights_remaining > 0 and player.hp > 0 %}
-        <form method="POST" action="{{ url_for('dungeon_explore') }}">
-            <button type="submit" class="btn btn-primary btn-block">Explore the Dungeon</button>
+        <form method="POST" action="{{ url_for('dungeon_explore') }}" class="mb-2">
+            <button type="submit" class="btn btn-primary btn-block">Look for Creatures</button>
         </form>
         {% elif player.hp <= 0 %}
-        <p class="text-red text-center">You are too wounded to explore. Visit the inn to rest.</p>
+        <p class="text-red text-center mb-2">You are too wounded to explore. Visit the inn to rest.</p>
         {% else %}
-        <p class="text-dim text-center">You have no dungeon fights remaining today. Come back tomorrow.</p>
+        <p class="text-dim text-center mb-2">You have no dungeon fights remaining today. Come back tomorrow.</p>
         {% endif %}
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Change Dungeon Level</div>
+    <div class="panel-body">
+        <p class="text-dim mb-1">
+            There are a total of 100 dungeon levels. You can access levels
+            <span class="text-gold">{{ min_dungeon_level }}</span> to
+            <span class="text-gold">{{ max_dungeon_level }}</span>.
+        </p>
+        <form method="POST" action="{{ url_for('dungeon_change_level') }}" class="inline-form">
+            <label for="new_level">Pick a new level:</label>
+            <input type="number" name="new_level" id="new_level" class="form-control"
+                   style="width: 80px;"
+                   min="{{ min_dungeon_level }}" max="{{ max_dungeon_level }}"
+                   value="{{ player.dungeon_level or player.level }}">
+            <button type="submit" class="btn btn-primary btn-sm">Change Level</button>
+        </form>
     </div>
 </div>
 

@@ -20,7 +20,7 @@ from werkzeug.security import generate_password_hash
 from models import (
     db, User, Player, Item, InventoryItem, Monster, Mail, NewsEntry,
     GameConfig, Team, TeamMember, KingRecord, Bounty, Relationship,
-    Child, RoyalQuest, God, TeamRecord,
+    Child, RoyalQuest, God, TeamRecord, HomeChestItem,
     RACES, CLASSES, RACE_BONUSES, CLASS_BONUSES,
     SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, ITEM_TYPES
 )
@@ -268,6 +268,37 @@ def status():
                            LEVEL_XP=LEVEL_XP)
 
 
+# ==================== PLAYER SEARCH API ====================
+
+@app.route('/api/player_search')
+@login_required
+def player_search():
+    """Search for players/NPCs by name prefix. Min 3 chars required.
+
+    Returns JSON list of matching players for autocomplete fields.
+    """
+    q = request.args.get('q', '').strip()
+    if len(q) < 3:
+        return jsonify([])
+
+    matches = Player.query.filter(
+        Player.name.ilike(f'%{q}%')
+    ).order_by(Player.name).limit(15).all()
+
+    results = []
+    for p in matches:
+        results.append({
+            'id': p.id,
+            'name': p.name,
+            'level': p.level,
+            'race': p.race,
+            'player_class': p.player_class,
+            'is_npc': p.is_npc,
+            'sex': 'M' if p.sex == 1 else 'F',
+        })
+    return jsonify(results)
+
+
 # ==================== DUNGEON ====================
 
 @app.route('/dungeon')
@@ -286,7 +317,14 @@ def dungeon():
         return redirect(url_for('main_menu'))
 
     dungeon_name = GameConfig.get('dungeon_name', 'The Dungeon Complex')
-    return render_template('dungeon.html', dungeon_name=dungeon_name)
+    # Initialize dungeon level if not set
+    if not player.dungeon_level or player.dungeon_level < 1:
+        player.dungeon_level = player.level
+        db.session.commit()
+    min_level = max(1, player.level - 5)
+    max_level = min(100, player.level + 5)
+    return render_template('dungeon.html', dungeon_name=dungeon_name,
+                           min_dungeon_level=min_level, max_dungeon_level=max_level)
 
 
 @app.route('/dungeon/explore', methods=['POST'])
@@ -308,7 +346,7 @@ def dungeon_explore():
         flash("You are too wounded to fight.", 'error')
         return redirect(url_for('main_menu'))
 
-    dungeon_level = min(player.level, 100)
+    dungeon_level = player.dungeon_level if player.dungeon_level else min(player.level, 100)
 
     # 30% chance of non-combat event
     if random.randint(1, 100) <= 30:
@@ -1332,8 +1370,10 @@ def love_corner():
         Player.id != player.id
     ).order_by(Player.name).all()
 
+    married_couples = Relationship.query.filter_by(rel_type='married').all()
     return render_template('love_corner.html', relationships=relationships,
-                           spouse=spouse, proposals=proposals, players_list=players_list)
+                           spouse=spouse, proposals=proposals, players_list=players_list,
+                           married_couples=married_couples)
 
 
 @app.route('/love_corner/propose', methods=['POST'])
@@ -1427,6 +1467,270 @@ def children():
     kids = game_logic.get_player_children(player)
     spouse = db.session.get(Player, player.spouse_id) if player.spouse_id else None
     return render_template('children.html', children=kids, spouse=spouse)
+
+
+# ==================== SOCIAL INTERACTIONS / APPROACH ====================
+
+@app.route('/love_corner/approach')
+@login_required
+def approach():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    sex_filter = request.args.get('sex_filter', 'both')
+    players_list = game_logic.get_approachable_players(player, sex_filter)
+    return render_template('approach.html', players_list=players_list, sex_filter=sex_filter)
+
+
+@app.route('/love_corner/approach/<int:target_id>')
+@login_required
+def approach_player(target_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    info = game_logic.approach_player_info(player, target_id)
+    if not info:
+        flash("Player not found.", 'error')
+        return redirect(url_for('approach'))
+
+    db.session.commit()
+    return render_template('approach_player.html', info=info)
+
+
+@app.route('/love_corner/interact', methods=['POST'])
+@login_required
+def social_interact():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    target_id = int(request.form.get('target_id', 0))
+    action = request.form.get('action', '')
+
+    success, msg, xp = game_logic.social_interact(player, target_id, action)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('approach_player', target_id=target_id))
+
+
+@app.route('/love_corner/change_feeling', methods=['POST'])
+@login_required
+def change_feeling():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    target_id = int(request.form.get('target_id', 0))
+    direction = request.form.get('direction', '')
+
+    success, msg = game_logic.change_feeling(player, target_id, direction)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('approach_player', target_id=target_id))
+
+
+# ==================== DUNGEON LEVEL CHANGE ====================
+
+@app.route('/dungeon/change_level', methods=['POST'])
+@login_required
+def dungeon_change_level():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    try:
+        new_level = int(request.form.get('new_level', 0))
+    except ValueError:
+        flash("Invalid level.", 'error')
+        return redirect(url_for('dungeon'))
+
+    success, msg = game_logic.change_dungeon_level(player, new_level)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('dungeon'))
+
+
+# ==================== HOME (from original HOME.PAS) ====================
+
+@app.route('/home')
+@login_required
+def home():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    info = game_logic.get_home_info(player)
+    db.session.commit()
+    return render_template('home.html', info=info)
+
+
+@app.route('/home/sleep', methods=['POST'])
+@login_required
+def home_sleep():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.go_to_sleep(player)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('home'))
+
+
+@app.route('/home/have_sex', methods=['POST'])
+@login_required
+def home_have_sex():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.have_sex_at_home(player)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('home'))
+
+
+@app.route('/home/chest')
+@login_required
+def home_chest():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    chest_items = game_logic.get_chest_items(player)
+    inv_items = InventoryItem.query.filter_by(player_id=player.id).all()
+    # Resolve item details for inventory display
+    inv_display = []
+    for ii in inv_items:
+        item = db.session.get(Item, ii.item_id)
+        if item:
+            # Check if equipped
+            equipped = False
+            for slot in ['weapon', 'armor', 'shield', 'helmet', 'ring', 'amulet']:
+                if getattr(player, f'equipped_{slot}', None) == item.id:
+                    equipped = True
+                    break
+            inv_display.append({'inv_item': ii, 'item': item, 'equipped': equipped})
+
+    return render_template('chest.html', chest_items=chest_items,
+                           inv_display=inv_display,
+                           max_chest=game_logic.MAX_CHEST_ITEMS)
+
+
+@app.route('/home/chest/store/<int:inv_item_id>', methods=['POST'])
+@login_required
+def chest_store(inv_item_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.store_item_in_chest(player, inv_item_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('home_chest'))
+
+
+@app.route('/home/chest/retrieve/<int:chest_item_id>', methods=['POST'])
+@login_required
+def chest_retrieve(chest_item_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.retrieve_item_from_chest(player, chest_item_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('home_chest'))
+
+
+@app.route('/home/nursery')
+@login_required
+def nursery():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    children = game_logic.get_nursery_children(player)
+    return render_template('nursery.html', children=children)
+
+
+@app.route('/home/nursery/play/<int:child_id>', methods=['POST'])
+@login_required
+def nursery_play(child_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.nursery_play(player, child_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('nursery'))
+
+
+@app.route('/home/custody')
+@login_required
+def custody():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    children = game_logic.get_player_children(player)
+    accessible = [c for c in children if game_logic._has_access(player, c)]
+    return render_template('custody.html', children=accessible)
+
+
+@app.route('/home/custody/share/<int:child_id>', methods=['POST'])
+@login_required
+def custody_share(child_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.share_custody(player, child_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('custody'))
+
+
+@app.route('/home/custody/abandon/<int:child_id>', methods=['POST'])
+@login_required
+def custody_abandon(child_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.abandon_child(player, child_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('custody'))
+
+
+@app.route('/home/custody/orphanage/<int:child_id>', methods=['POST'])
+@login_required
+def custody_orphanage(child_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.send_to_orphanage(player, child_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('custody'))
+
+
+@app.route('/home/ransom/<int:child_id>', methods=['POST'])
+@login_required
+def pay_ransom(child_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.pay_ransom(player, child_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('home'))
 
 
 # ==================== TEAM MANAGEMENT ====================

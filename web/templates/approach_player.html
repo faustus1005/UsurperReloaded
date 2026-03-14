@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title_suffix %} - {{ info.target.name }}{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">{{ player.name }} and {{ info.target.name }}</div>
+    <div class="panel-body">
+        <div class="stats-grid mb-2">
+            <div class="stat-item">
+                <span class="label">{{ info.target.name }}</span>
+                <span class="value">Lv{{ info.target.level }} {{ info.target.race }} {{ info.target.player_class }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Sex</span>
+                <span class="value">{% if info.target.sex == 1 %}Male{% else %}Female{% endif %}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Charisma</span>
+                <span class="value">{{ info.target.charisma }}</span>
+            </div>
+        </div>
+
+        <div class="panel mb-2" style="border-color: var(--gold-dark);">
+            <div class="panel-header">Relationship Status</div>
+            <div class="panel-body">
+                <p>Your feeling toward {{ info.target.name }}:
+                    <span class="text-gold">{{ info.player_feeling_display }}</span>
+                </p>
+                <p>{{ info.target.name }}'s feeling toward you:
+                    <span class="text-gold">{{ info.target_feeling_display }}</span>
+                </p>
+                {% if info.married_to_each_other %}
+                <p class="text-red mt-1">You are married to each other!</p>
+                {% endif %}
+                {% if info.player_married_to_other %}
+                <p class="text-red mt-1">You are married to someone else!</p>
+                {% endif %}
+                {% if info.target_married_to_other %}
+                <p class="text-red mt-1">{{ info.target.name }} is married to someone else!</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <p class="text-dim mb-1">
+            How would you like to spend your time with {{ info.target.name }}?
+            You have <span class="text-gold">{{ info.intimacy_acts_left }}</span> intimate sessions left.
+        </p>
+
+        {% if info.intimacy_acts_left > 0 %}
+        <div class="panel mb-2">
+            <div class="panel-header">Intimate</div>
+            <div class="panel-body">
+                <form method="POST" action="{{ url_for('social_interact') }}" style="display:inline;">
+                    <input type="hidden" name="target_id" value="{{ info.target.id }}">
+                    <input type="hidden" name="action" value="hold_hands">
+                    <button type="submit" class="btn btn-primary btn-sm">Hold Hands</button>
+                </form>
+                <form method="POST" action="{{ url_for('social_interact') }}" style="display:inline;">
+                    <input type="hidden" name="target_id" value="{{ info.target.id }}">
+                    <input type="hidden" name="action" value="dinner">
+                    <button type="submit" class="btn btn-primary btn-sm">Dinner</button>
+                </form>
+                <form method="POST" action="{{ url_for('social_interact') }}" style="display:inline;">
+                    <input type="hidden" name="target_id" value="{{ info.target.id }}">
+                    <input type="hidden" name="action" value="kiss">
+                    <button type="submit" class="btn btn-primary btn-sm">Kiss</button>
+                </form>
+                <form method="POST" action="{{ url_for('social_interact') }}" style="display:inline;">
+                    <input type="hidden" name="target_id" value="{{ info.target.id }}">
+                    <input type="hidden" name="action" value="go_to_bed">
+                    <button type="submit" class="btn btn-primary btn-sm">Go to Bed</button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-red mb-2">You have no intimate sessions left today!</p>
+        {% endif %}
+
+        <div class="panel mb-2">
+            <div class="panel-header">Change Attitude</div>
+            <div class="panel-body">
+                <p class="text-dim mb-1">Change your feelings toward {{ info.target.name }}.</p>
+                <form method="POST" action="{{ url_for('change_feeling') }}" style="display:inline;">
+                    <input type="hidden" name="target_id" value="{{ info.target.id }}">
+                    <input type="hidden" name="direction" value="better">
+                    <button type="submit" class="btn btn-success btn-sm">Improve</button>
+                </form>
+                <form method="POST" action="{{ url_for('change_feeling') }}" style="display:inline;">
+                    <input type="hidden" name="target_id" value="{{ info.target.id }}">
+                    <input type="hidden" name="direction" value="worse">
+                    <button type="submit" class="btn btn-danger btn-sm">Worsen</button>
+                </form>
+            </div>
+        </div>
+
+        {% if not info.married_to_each_other and not player.married %}
+        <div class="panel mb-2">
+            <div class="panel-header">Marriage</div>
+            <div class="panel-body">
+                <form method="POST" action="{{ url_for('propose') }}">
+                    <input type="hidden" name="target" value="{{ info.target.name }}">
+                    <button type="submit" class="btn btn-primary btn-sm">Propose Marriage</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('approach') }}" class="btn">Back to Approach</a>
+    <a href="{{ url_for('love_corner') }}" class="btn">Back to Love Corner</a>
+</div>
+{% endblock %}
