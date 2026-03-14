@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title_suffix %} - The Dark Alley{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Dark Alley</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">The shadows deepen as you enter the narrow alley. Figures lurk in doorways and the air smells of smoke and desperation. Several establishments beckon...</p>
+
+        <div class="menu-grid mb-2">
+            <a href="{{ url_for('drug_palace') }}" class="menu-item">
+                <span class="icon text-green">&#9752;</span>
+                <span class="label">Drug Palace</span>
+                <span class="sublabel">Expand your mind</span>
+            </a>
+            <a href="{{ url_for('steroid_shop') }}" class="menu-item">
+                <span class="icon text-red">&#9879;</span>
+                <span class="label">Steroid Shop</span>
+                <span class="sublabel">Build strength</span>
+            </a>
+            <a href="{{ url_for('alchemist_shop') }}" class="menu-item">
+                <span class="icon text-purple">&#9878;</span>
+                <span class="label">Alchemist's Heaven</span>
+                <span class="sublabel">Poisons (Alchemist only)</span>
+            </a>
+        </div>
+
+        <div class="panel-header" style="margin-top: 12px;">Shady Dealer</div>
+        <p class="text-secondary mb-1">Gold: <span class="text-gold">{{ player.gold }}</span></p>
+
+        {% if items %}
+        {% for item in items %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ item.name }}</div>
+                <div class="item-type">{{ item.item_type }}</div>
+                <div class="item-stats">
+                    {% if item.attack_bonus > 0 %}ATK +{{ item.attack_bonus }} {% endif %}
+                    {% if item.armor_bonus > 0 %}DEF +{{ item.armor_bonus }} {% endif %}
+                    {% if item.strength_bonus != 0 %}STR {{ '%+d'|format(item.strength_bonus) }} {% endif %}
+                    {% if item.defence_bonus != 0 %}DEF {{ '%+d'|format(item.defence_bonus) }} {% endif %}
+                    {% if item.agility_bonus != 0 %}AGI {{ '%+d'|format(item.agility_bonus) }} {% endif %}
+                    {% if item.wisdom_bonus != 0 %}WIS {{ '%+d'|format(item.wisdom_bonus) }} {% endif %}
+                    {% if item.mana_bonus != 0 %}MANA {{ '%+d'|format(item.mana_bonus) }} {% endif %}
+                    {% if item.hp_bonus != 0 %}HP {{ '%+d'|format(item.hp_bonus) }} {% endif %}
+                    {% if item.strength_required > 0 %}(Req: {{ item.strength_required }} STR) {% endif %}
+                    {% if item.class_restrictions %}({{ item.class_restrictions }}) {% endif %}
+                </div>
+                {% if item.description %}
+                <div class="text-dim" style="font-size: 0.8em;">{{ item.description }}</div>
+                {% endif %}
+            </div>
+            <div class="item-actions">
+                <span class="item-price">{{ item.value }}g</span>
+                <form method="POST" action="{{ url_for('buy_item', item_id=item.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-success"
+                            {% if player.gold < item.value %}disabled{% endif %}>Buy</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-dim">The shady dealer has nothing for sale right now.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}
