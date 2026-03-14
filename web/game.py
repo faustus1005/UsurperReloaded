@@ -81,7 +81,7 @@ def create_character(player, name, race, player_class, sex):
     player.thefts_remaining = 2
     player.brawls_remaining = 2
     player.intimacy_acts = 5
-    player.beauty_nest_visits = 3
+    player.beauty_nest_visits = int(GameConfig.get('beauty_nest_visits_per_day', '3') or '3')
     player.dungeon_level = 1
 
     # Starting spells for spellcasters
@@ -596,7 +596,7 @@ def daily_maintenance(player):
     player.brawls_remaining = 2
     player.team_fights = 1
     player.intimacy_acts = 5
-    player.beauty_nest_visits = 3
+    player.beauty_nest_visits = int(GameConfig.get('beauty_nest_visits_per_day', '3') or '3')
     player.hp = player.max_hp
     player.mana = player.max_mana
     player.last_maintenance = now
@@ -4978,8 +4978,12 @@ def beauty_nest_visit(player, companion_index):
     companion = BEAUTY_NEST_COMPANIONS[companion_index]
     log = []
 
+    owner_name = GameConfig.get('beauty_nest_owner', 'Clarissa')
+    nest_name = GameConfig.get('beauty_nest_name', 'The Beauty Nest')
+    disease_chance = int(GameConfig.get('beauty_nest_disease_chance', '3') or '3')
+
     if player.gold < companion['cost']:
-        return False, (f"Clarissa laughs. 'You can't afford {companion['name']}! "
+        return False, (f"{owner_name} laughs. 'You can't afford {companion['name']}! "
                        f"Come back with {companion['cost']:,} gold.'"), []
 
     # Pay the gold
@@ -4994,13 +4998,13 @@ def beauty_nest_visit(player, companion_index):
     dark = random.randint(companion['darkness'] // 2, companion['darkness'])
     player.darkness += dark
 
-    log.append(f"**Visit to The Beauty Nest**")
+    log.append(f"**Visit to {nest_name}**")
     log.append(companion['flavor'])
     log.append(f"You gained {xp:,} experience points!")
     log.append(f"You gained {dark} darkness points.")
 
-    # 33% chance of disease (like original)
-    if random.randint(1, 3) == 1:
+    # Configurable disease chance (default 1 in 3)
+    if random.randint(1, max(1, disease_chance)) == 1:
         player.has_plague = True
         dmg = random.randint(5, 20)
         player.hp = max(1, player.hp - dmg)
@@ -5008,7 +5012,7 @@ def beauty_nest_visit(player, companion_index):
         log.append(f"You lost {dmg} HP and contracted the plague!")
 
         news = NewsEntry(player_id=player.id, category='social',
-                         message=f"{player.name} visited {companion['name']} at the Beauty Nest "
+                         message=f"{player.name} visited {companion['name']} at {nest_name} "
                                  f"and caught a disease!")
         db.session.add(news)
     else:
@@ -5016,12 +5020,12 @@ def beauty_nest_visit(player, companion_index):
         quips = [
             f"{player.name} had a night filled with pleasures.",
             f"{player.name} proved to be a real charmer.",
-            f"{player.name} spent lavishly at the Beauty Nest.",
+            f"{player.name} spent lavishly at {nest_name}.",
             f"{player.name} enjoyed the company of {companion['name']}.",
         ]
         news = NewsEntry(player_id=player.id, category='social',
                          message=f"{player.name} spent the night with {companion['name']} "
-                                 f"at the Beauty Nest. {random.choice(quips)}")
+                                 f"at {nest_name}. {random.choice(quips)}")
         db.session.add(news)
 
     # If married, notify spouse
@@ -5033,9 +5037,9 @@ def beauty_nest_visit(player, companion_index):
                 receiver_id=spouse.id,
                 subject="Unfaithful!",
                 message=f"{player.name} has been unfaithful! They visited {companion['name']} "
-                        f"at the Beauty Nest!"
+                        f"at {nest_name}!"
             )
             db.session.add(mail)
             log.append("Your spouse has been notified of your infidelity...")
 
-    return True, "You visited The Beauty Nest.", log
+    return True, f"You visited {nest_name}.", log

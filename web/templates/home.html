@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - Home{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">Home Sweet Home</div>
     <div class="panel-body">
+        {{ location_img('home') }}
         {% if info.spouse %}
         <p>You are married to <span class="text-gold">{{ info.spouse.name }}</span>.</p>
         {% if info.marriage_msg %}
