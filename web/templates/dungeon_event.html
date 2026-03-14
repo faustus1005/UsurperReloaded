@@ -4,6 +4,11 @@
 <div class="panel">
     <div class="panel-header">{{ event.name }}</div>
     <div class="panel-body">
+        {% if event.get('previous_result') %}
+        <p class="text-warning mb-2"><em>{{ event.previous_result }}</em></p>
+        <hr style="border-color: var(--border-color); margin: 8px 0;">
+        {% endif %}
+
         <p class="text-secondary mb-2">{{ event.description }}</p>
 
         <div class="mt-2">
@@ -11,6 +16,9 @@
             <form method="POST" action="{{ url_for('resolve_dungeon_event') }}" style="display:inline; margin-right: 8px;">
                 <input type="hidden" name="event_id" value="{{ event.id }}">
                 <input type="hidden" name="choice" value="{{ key }}">
+                {% if event.get('current_step') %}
+                <input type="hidden" name="current_step" value="{{ event.current_step }}">
+                {% endif %}
                 <button type="submit" class="btn btn-primary mb-1">{{ choice.label }}</button>
             </form>
             {% endfor %}

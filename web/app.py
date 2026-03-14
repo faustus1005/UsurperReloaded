@@ -1748,8 +1748,7 @@ def shady_dealer():
         return redirect(url_for('create_character'))
 
     items = Item.query.filter_by(in_shop=True, shop_category='shady').order_by(Item.value).all()
-    return render_template('shop.html', items=items, shop_name='The Dark Alley',
-                           shop_type='shady')
+    return render_template('dark_alley.html', items=items, player=player)
 
 
 @app.route('/shop/alchemist')
@@ -1766,6 +1765,70 @@ def alchemist_shop():
     items = Item.query.filter_by(in_shop=True, shop_category='alchemist').order_by(Item.value).all()
     return render_template('shop.html', items=items, shop_name="Alchemist's Heaven",
                            shop_type='alchemist')
+
+
+# ==================== DRUG PALACE & STEROID SHOP ====================
+
+@app.route('/shop/drugs')
+@login_required
+def drug_palace():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    return render_template('drug_palace.html', drugs=game_logic.DRUGS, player=player)
+
+
+@app.route('/shop/drugs/buy/<int:index>', methods=['POST'])
+@login_required
+def buy_drug(index):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.buy_drug(player, index)
+    if player.hp <= 0:
+        # Overdose death - revive with penalties like combat defeat
+        player.hp = max(1, player.max_hp // 4)
+        player.experience = max(0, player.experience - player.experience // 10)
+        player.gold = max(0, player.gold - player.gold // 5)
+        log.append("You wake up in the gutter, stripped of some gold and dignity.")
+    db.session.commit()
+    if log:
+        for entry in log:
+            flash(entry, 'info')
+    else:
+        flash(msg, 'error' if not success else 'info')
+    return redirect(url_for('drug_palace'))
+
+
+@app.route('/shop/steroids')
+@login_required
+def steroid_shop():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    return render_template('steroid_shop.html', steroids=game_logic.STEROIDS, player=player)
+
+
+@app.route('/shop/steroids/buy/<int:index>', methods=['POST'])
+@login_required
+def buy_steroid(index):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.buy_steroid(player, index)
+    if player.hp <= 0:
+        # Bad batch death - revive with penalties
+        player.hp = max(1, player.max_hp // 4)
+        player.experience = max(0, player.experience - player.experience // 10)
+        player.gold = max(0, player.gold - player.gold // 5)
+        log.append("You wake up on the floor of the shop, barely alive.")
+    db.session.commit()
+    if log:
+        for entry in log:
+            flash(entry, 'info')
+    else:
+        flash(msg, 'error' if not success else 'info')
+    return redirect(url_for('steroid_shop'))
 
 
 # ==================== DUNGEON EVENTS ====================
@@ -1793,11 +1856,20 @@ def resolve_dungeon_event():
 
     event_id = request.form.get('event_id', '')
     choice = request.form.get('choice', '')
+    current_step = request.form.get('current_step', '')
 
-    result_text = game_logic.resolve_dungeon_event(player, event_id, choice)
-    session.pop('dungeon_event', None)
+    result_text, next_step_data = game_logic.resolve_dungeon_event(
+        player, event_id, choice, current_step=current_step or None)
     db.session.commit()
 
+    if next_step_data:
+        # Multi-step event continues - show result and next step
+        session['dungeon_event'] = next_step_data
+        flash(result_text, 'info')
+        return redirect(url_for('dungeon_event'))
+
+    # Event is complete
+    session.pop('dungeon_event', None)
     flash(result_text, 'info')
     return redirect(url_for('dungeon'))
 
