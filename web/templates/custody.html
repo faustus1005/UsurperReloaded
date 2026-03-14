@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Child Custody{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Child Care</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            Manage custody of your children. Be careful - your decisions affect
+            their lives!
+        </p>
+
+        <div class="panel mb-2" style="border-color: var(--gold-dark);">
+            <div class="panel-header">Help</div>
+            <div class="panel-body">
+                <p><span class="text-gold">Share custody</span> - When you divorce, only one parent gets access.
+                    By sharing custody you can again share the responsibility and reap the rewards of parenthood.</p>
+                <p><span class="text-gold">Abandon child</span> - You no longer have responsibility for the child.
+                    You don't pay for upbringing, but lose experience from parenting. The other parent gets full custody.</p>
+                <p><span class="text-red">Orphanage</span> - Send the child to the Royal Orphanage.
+                    You lose all responsibility. Things can get ugly if the Royals can't afford to raise the child.</p>
+            </div>
+        </div>
+
+        {% if children %}
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Sex</th><th>Age</th><th>Location</th><th>Custody</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for child in children %}
+                <tr>
+                    <td class="text-gold">{{ child.name }}</td>
+                    <td>{{ 'Boy' if child.sex == 1 else 'Girl' }}</td>
+                    <td>{{ child.age }}</td>
+                    <td>
+                        {% if child.location == 'home' %}
+                        <span class="text-green">Home</span>
+                        {% elif child.location == 'orphanage' %}
+                        <span class="text-red">Orphanage</span>
+                        {% elif child.location == 'kidnapped' %}
+                        <span class="text-red">Kidnapped!</span>
+                        {% else %}
+                        {{ child.location }}
+                        {% endif %}
+                    </td>
+                    <td class="text-dim">
+                        {% if child.mother_access and child.father_access %}Shared
+                        {% elif child.mother_access %}Mother only
+                        {% elif child.father_access %}Father only
+                        {% else %}None{% endif %}
+                    </td>
+                    <td>
+                        {% if child.location == 'home' %}
+                        {% if not (child.mother_access and child.father_access) %}
+                        <form method="POST" action="{{ url_for('custody_share', child_id=child.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-success"
+                                    onclick="return confirm('Share custody of {{ child.name }}?')">
+                                Share
+                            </button>
+                        </form>
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('custody_abandon', child_id=child.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('Abandon {{ child.name }}? This is a bad deed!')">
+                                Abandon
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('custody_orphanage', child_id=child.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('Send {{ child.name }} to the Royal Orphanage? This is very bad!')">
+                                Orphanage
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-dim">Not at home</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-dim">You have no children.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('home') }}" class="btn">Back to Home</a>
+</div>
+{% endblock %}

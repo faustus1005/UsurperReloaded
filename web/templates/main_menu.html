@@ -91,6 +91,11 @@
                 <span class="label">Love Corner</span>
                 <span class="sublabel">{% if player.married %}Married{% else %}Romance{% endif %}</span>
             </a>
+            <a href="{{ url_for('home') }}" class="menu-item">
+                <span class="icon text-green">&#9962;</span>
+                <span class="label">Home</span>
+                <span class="sublabel">{% if player.married %}Family{% else %}Your place{% endif %}</span>
+            </a>
             <a href="{{ url_for('temple') }}" class="menu-item">
                 <span class="icon text-blue">&#9764;</span>
                 <span class="label">Temple</span>

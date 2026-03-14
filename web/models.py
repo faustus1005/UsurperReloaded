@@ -656,10 +656,31 @@ class Child(db.Model):
     born_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     is_orphan = db.Column(db.Boolean, default=False)
     kidnapped_by_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=True)
+    # Child location: 'home', 'orphanage', 'kidnapped'
+    location = db.Column(db.String(15), default='home')
+    # Custody tracking (which parent has access)
+    mother_access = db.Column(db.Boolean, default=True)
+    father_access = db.Column(db.Boolean, default=True)
+    ransom_amount = db.Column(db.Integer, default=0)
+    # Child health: 'normal', 'sick', 'dead'
+    health = db.Column(db.String(10), default='normal')
 
     mother = db.relationship('Player', foreign_keys=[mother_id], backref='children_as_mother')
     father = db.relationship('Player', foreign_keys=[father_id], backref='children_as_father')
     kidnapped_by = db.relationship('Player', foreign_keys=[kidnapped_by_id])
+
+
+class HomeChestItem(db.Model):
+    """Items stored in a player's home chest."""
+    __tablename__ = 'home_chest_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    stored_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    player = db.relationship('Player', backref='chest_items')
+    item = db.relationship('Item')
 
 
 class RoyalQuest(db.Model):
