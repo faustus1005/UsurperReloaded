@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% from "macros.html" import location_img %}
-{% block title_suffix %} - Tavern{% endblock %}
+{% block title_suffix %} - {{ tavern_name }}{% endblock %}
 {% block content %}
 <div class="panel">
-    <div class="panel-header">Bob's Tavern</div>
+    <div class="panel-header">{{ tavern_name }}</div>
     <div class="panel-body">
         {{ location_img('tavern') }}
         <p class="text-secondary mb-2">
