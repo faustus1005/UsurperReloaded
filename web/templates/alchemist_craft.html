@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Alchemist Crafting{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Alchemist's Poison Crafting</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">Your alchemist's knowledge allows you to craft deadly poisons. Choose a poison level to craft. Higher levels require more skill and gold.</p>
+
+        <p class="text-secondary mb-1">Gold: <span class="text-gold">{{ player.gold }}</span></p>
+
+        {% if poison_levels %}
+        <div class="menu-grid">
+            {% for level in poison_levels %}
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-green">&#9763;</span>
+                <span class="label">{{ level.name }}</span>
+                <span class="sublabel">Level {{ level.level }} &mdash; {{ level.cost }}g</span>
+                <form method="POST" action="{{ url_for('alchemist_craft') }}" class="mt-1">
+                    <input type="hidden" name="poison_level" value="{{ level.level }}">
+                    <button type="submit" class="btn btn-danger btn-sm btn-block"
+                            {% if player.gold < level.cost %}disabled{% endif %}>Craft ({{ level.cost }}g)</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-dim">No poison recipes available.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

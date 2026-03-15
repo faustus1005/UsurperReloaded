@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Combat Training{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Close Combat Training</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">A grizzled combat instructor stands before you. "Choose a move to train, and I'll teach you the ways of close combat."</p>
+
+        {% if moves %}
+        <div class="menu-grid">
+            {% for move_key, move_name in moves.items() %}
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-red">&#9876;</span>
+                <span class="label">{{ move_name }}</span>
+                <form method="POST" action="{{ url_for('combat_train') }}" class="mt-1">
+                    <input type="hidden" name="move" value="{{ move_key }}">
+                    <button type="submit" class="btn btn-primary btn-sm btn-block">Train</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if ranks %}
+        <div class="panel-header" style="margin-top: 12px;">Skill Ranks</div>
+        <div class="text-dim">
+            {% for rank_key, rank_name in ranks.items() %}
+            <span class="text-secondary">{{ rank_name }}</span>{% if not loop.last %} &rarr; {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

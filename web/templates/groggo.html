@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Groggo's Mad Mage{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Groggo's Mad Mage Services</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">The mad mage Groggo cackles as you enter his lair. Strange potions bubble on shelves, and arcane symbols cover the walls. "What do you seek, mortal?"</p>
+
+        <div class="menu-grid">
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-green">&#9763;</span>
+                <span class="label">Disease Cure</span>
+                <span class="sublabel">Cure your ailments</span>
+                <form method="POST" action="{{ url_for('groggo') }}" class="mt-1">
+                    <input type="hidden" name="action" value="disease">
+                    <button type="submit" class="btn btn-success btn-sm btn-block">Seek Cure</button>
+                </form>
+            </div>
+
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-red">&#9760;</span>
+                <span class="label">Summon Demon</span>
+                <span class="sublabel">Dangerous but powerful</span>
+                <form method="POST" action="{{ url_for('groggo') }}" class="mt-1">
+                    <input type="hidden" name="action" value="summon_demon">
+                    <button type="submit" class="btn btn-danger btn-sm btn-block">Summon</button>
+                </form>
+            </div>
+        </div>
+
+        {% if diseases %}
+        <div class="panel-header" style="margin-top: 12px;">Known Diseases</div>
+        <div class="text-dim">
+            {% for name, info in diseases.items() %}
+            <p><span class="text-red">{{ name }}</span> &mdash; {{ info }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

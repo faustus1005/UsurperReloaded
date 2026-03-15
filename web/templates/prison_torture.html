@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Prison Torture Chamber{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Torture Chamber</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">The air is thick with the smell of rust and despair. Iron chains hang from the walls, and strange devices of torment line the room. Water drips from the ceiling into dark puddles on the stone floor.</p>
+
+        <p class="text-red mb-1">You are imprisoned. The torturer eyes you with cruel amusement.</p>
+
+        <p class="text-secondary">HP: <span class="text-red">{{ player.hp }}/{{ player.max_hp }}</span></p>
+        <p class="text-secondary">Days remaining: <span class="text-gold">{{ player.prison_days if player.prison_days else '?' }}</span></p>
+
+        <p class="text-dim mt-2">The screams of other prisoners echo through the corridors. Iron maidens, racks, and thumbscrews adorn the walls like trophies. You can only wait for your sentence to end... or for someone to bail you out.</p>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back</a>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Good Deeds{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Good Deeds</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">Your conscience calls. Perhaps it is time to do something noble for once.</p>
+
+        <div class="menu-grid">
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-gold">&#9733;</span>
+                <span class="label">Give to the Poor</span>
+                <span class="sublabel">Donate gold to the less fortunate</span>
+                <form method="POST" action="{{ url_for('good_deeds') }}" class="mt-1">
+                    <input type="hidden" name="action" value="poor">
+                    <input type="number" name="amount" min="1" max="{{ player.gold }}" value="10"
+                           class="form-control" style="width: 80px; display: inline-block;">
+                    <button type="submit" class="btn btn-success btn-sm"
+                            {% if player.gold < 1 %}disabled{% endif %}>Donate</button>
+                </form>
+            </div>
+
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-purple">&#9769;</span>
+                <span class="label">Visit the Church</span>
+                <span class="sublabel">Pray for guidance</span>
+                <form method="POST" action="{{ url_for('good_deeds') }}" class="mt-1">
+                    <input type="hidden" name="action" value="church">
+                    <button type="submit" class="btn btn-primary btn-sm btn-block">Pray</button>
+                </form>
+            </div>
+
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-green">&#10031;</span>
+                <span class="label">Seek Blessing</span>
+                <span class="sublabel">Request a divine blessing</span>
+                <form method="POST" action="{{ url_for('good_deeds') }}" class="mt-1">
+                    <input type="hidden" name="action" value="blessing">
+                    <button type="submit" class="btn btn-success btn-sm btn-block">Seek Blessing</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

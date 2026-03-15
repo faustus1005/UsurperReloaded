@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Ice Caves{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Ice Caves</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">A blast of freezing air hits you as you enter the Ice Caves. Icicles hang from the ceiling like crystal daggers. The walls shimmer with an eerie blue light, and strange creatures lurk in the frozen shadows.</p>
+
+        <p class="text-secondary mb-1">HP: <span class="text-red">{{ player.hp }}/{{ player.max_hp }}</span></p>
+
+        <div class="panel-header" style="margin-top: 12px;">Choose a Direction</div>
+        <div class="menu-grid">
+            {% for direction in ['north', 'south', 'east', 'west'] %}
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon" style="color: #6cf;">&#10052;</span>
+                <span class="label">{{ direction|capitalize }}</span>
+                <form method="POST" action="{{ url_for('ice_caves') }}" class="mt-1">
+                    <input type="hidden" name="direction" value="{{ direction }}">
+                    <button type="submit" class="btn btn-primary btn-sm btn-block">Go {{ direction|capitalize }}</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Flee to Town</a>
+</div>
+{% endblock %}

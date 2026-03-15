@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Death Maze{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Death Maze</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">You stand at the entrance to the Death Maze. Bones of past adventurers litter the ground. Dark corridors stretch out in every direction, each promising danger and treasure in equal measure.</p>
+
+        <p class="text-secondary mb-1">HP: <span class="text-red">{{ player.hp }}/{{ player.max_hp }}</span></p>
+
+        <div class="panel-header" style="margin-top: 12px;">Choose a Direction</div>
+        <div class="menu-grid">
+            {% for direction in ['north', 'south', 'east', 'west'] %}
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-red">&#9760;</span>
+                <span class="label">{{ direction|capitalize }}</span>
+                <form method="POST" action="{{ url_for('death_maze') }}" class="mt-1">
+                    <input type="hidden" name="direction" value="{{ direction }}">
+                    <button type="submit" class="btn btn-danger btn-sm btn-block">Go {{ direction|capitalize }}</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Flee to Town</a>
+</div>
+{% endblock %}

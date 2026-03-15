@@ -27,18 +27,99 @@ ITEM_TYPES = [
 ]
 
 EQUIPMENT_SLOTS = [
-    'weapon', 'shield', 'head', 'body', 'arms', 'hands',
-    'legs', 'feet', 'waist', 'neck', 'face', 'around_body',
+    'weapon', 'weapon2', 'shield', 'head', 'body', 'arms', 'hands',
+    'legs', 'feet', 'waist', 'neck', 'neck2', 'face', 'around_body',
     'finger1', 'finger2'
 ]
 
 # Display names for equipment slots
 EQUIPMENT_SLOT_LABELS = {
-    'weapon': 'Weapon', 'shield': 'Shield', 'head': 'Head',
-    'body': 'Body', 'arms': 'Arms', 'hands': 'Hands',
+    'weapon': 'Weapon (Right)', 'weapon2': 'Weapon (Left)', 'shield': 'Shield',
+    'head': 'Head', 'body': 'Body', 'arms': 'Arms', 'hands': 'Hands',
     'legs': 'Legs', 'feet': 'Feet', 'waist': 'Waist',
-    'neck': 'Neck', 'face': 'Face', 'around_body': 'Around Body',
+    'neck': 'Neck 1', 'neck2': 'Neck 2', 'face': 'Face',
+    'around_body': 'Around Body',
     'finger1': 'Ring 1', 'finger2': 'Ring 2',
+}
+
+# Close combat moves and skill ranking names
+CLOSE_COMBAT_MOVES = [
+    'Tackle', 'Drop-Kick', 'Uppercut', 'Bite', 'Leg-Sweep', 'JointBreak',
+    'Knifehand', 'Nerve Punch', 'Chokehold', 'Headbash', 'Pull Hair',
+    'Kick', 'Straight Punch', 'Ram'
+]
+
+COMBAT_SKILL_RANKS = [
+    'Rotten', 'Awful', 'Lousy', 'Pathetic', 'Bad', 'Poor', 'Incompetent',
+    'Below Average', 'Average', 'Above Average', 'Pretty Good', 'Competent',
+    'Good', 'Very Good', 'Extraordinary', 'Excellent', 'Superb', '*COMPLETE*'
+]
+
+# Hit intensity levels for combat flavor text
+HIT_INTENSITY = ['Light', 'Medium', 'Hard', 'Heavy', 'Extreme', 'ULTRA', 'MAX']
+
+# Battle Master PvP rating titles
+BATTLE_MASTER_RANKS = [
+    (0, 'Wimp'), (1, 'Baby Soldier'), (8, 'Novice'), (16, 'Amateur'),
+    (51, 'Adept'), (91, 'Warrior'), (111, 'Soldier'), (151, 'Veteran'),
+    (251, 'Mercenary'), (351, 'Experienced Adventurer'), (471, 'Wardog'),
+    (601, 'Battle Tank'), (900, 'Battle-god')
+]
+
+# Disease types with per-battle HP damage
+DISEASES = {
+    'plague': {'name': 'Plague', 'damage': 8},
+    'smallpox': {'name': 'Smallpox', 'damage': 3},
+    'measles': {'name': 'Measles', 'damage': 1},
+    'leprosy': {'name': 'Leprosy', 'damage': 5},
+}
+
+# Gigolo companions (male counterpart to Beauty Nest)
+GIGOLOS = [
+    {'name': 'Signori', 'cost': 500, 'level': 1},
+    {'name': 'Tod', 'cost': 2000, 'level': 5},
+    {'name': 'Mbuto', 'cost': 5000, 'level': 10},
+    {'name': 'Merson', 'cost': 10000, 'level': 15},
+    {'name': 'Brian De Roy', 'cost': 20000, 'level': 20},
+    {'name': 'Rasputin', 'cost': 30000, 'level': 25},
+    {'name': 'Manhio', 'cost': 40000, 'level': 30},
+    {'name': 'Jake', 'cost': 70000, 'level': 40},
+    {'name': 'Banco', 'cost': 100000, 'level': 50},
+]
+
+# Alchemist poison strength levels
+POISON_LEVELS = ['Light', 'Medium', 'Strong', 'Deadly']
+
+# Fatal drink combinations (race/class + ingredient thresholds)
+FATAL_DRINK_COMBOS = [
+    {'race': 'Troll', 'ingredient': 'elf_water', 'threshold': 1, 'message': 'The Elf Water is lethal to Trolls!'},
+    {'ingredient': 'tabasco', 'threshold': 80, 'message': 'The Tabasco burns through your insides!'},
+    {'ingredient': 'chilipeppar', 'threshold': 80, 'message': 'The Chilipeppar is too intense!'},
+    {'ingredient': 'bat_brain', 'threshold': 70, 'message': 'Too much Bat Brain has driven you mad!'},
+    {'ingredient': 'horse_blood', 'threshold': 90, 'message': 'The Horse Blood has poisoned you!'},
+    {'ingredient': 'bobs_bomber', 'threshold': 90, 'message': "Bob's Bomber has blown your mind... literally!"},
+    {'ingredient': 'snake_spit', 'threshold': 80, 'message': 'The Snake Spit is pure venom!'},
+]
+
+# Drink ingredient stat effects (ingredient -> stat -> bonus_per_10_pct)
+DRINK_STAT_EFFECTS = {
+    'bat_brain': {'wisdom': 1, 'darkness': 2},
+    'honeydew': {'charisma': 1, 'chivalry': 1},
+    'orange_juice': {'stamina': 1},
+    'tabasco': {'strength': 2},
+    'ale': {'stamina': 1, 'charisma': -1},
+    'hedgehog_saliva': {'dexterity': 1},
+    'water': {},
+    'horse_blood': {'strength': 1, 'darkness': 1},
+    'bobs_bomber': {'strength': 1, 'stamina': -1},
+    'troll_rum': {'strength': 2, 'wisdom': -1},
+    'elf_water': {'wisdom': 1, 'agility': 1},
+    'kicking_squaw': {'agility': 2},
+    'milk': {'defence': 1},
+    'wine_vinegar': {'dexterity': 1, 'charisma': -1},
+    'snake_spit': {'agility': 1, 'darkness': 1},
+    'duck_dropping': {'defence': 1, 'charisma': -2},
+    'chilipeppar': {'strength': 1, 'stamina': 1},
 }
 
 # Race stat bonuses: [str, def, sta, agi, cha, dex, wis, hp_bonus, mana_bonus]
@@ -124,164 +205,349 @@ LEVEL_XP = {
     96: 24777000000, 97: 27272000000, 98: 30019000000, 99: 33042000000, 100: 36370000000,
 }
 
+# Monster spells (used by monsters in combat)
+MONSTER_SPELLS = {
+    1: {'name': 'Cause Damage', 'mana_cost': 10, 'multi_target': False,
+        'description': 'The creature channels destructive energy!'},
+    2: {'name': 'Snakes', 'mana_cost': 20, 'multi_target': False,
+        'description': 'Silver Snakes appear in a puff of smoke!'},
+    3: {'name': 'Cyclone', 'mana_cost': 25, 'multi_target': True,
+        'description': 'They have summoned a CYCLONE!'},
+    4: {'name': 'Summon Undead', 'mana_cost': 30, 'multi_target': False,
+        'description': 'An undead creature rises from the ground!'},
+    5: {'name': 'Vice of Death', 'mana_cost': 35, 'multi_target': False,
+        'description': 'You have been seized by cramps!'},
+    6: {'name': 'Drain Life', 'mana_cost': 40, 'multi_target': False,
+        'description': 'A bright spark of red energy hits you!'},
+}
+
 # Spells available in the game
+# Fields: name, mana_cost, type, min_level, classes, description,
+#         incantation (arcane word), duration ('turn'/'fight'), multi_target, freeze_turns
 SPELLS = {
     1: {'name': 'Magic Missile', 'mana_cost': 5, 'type': 'attack', 'min_level': 1,
-        'classes': ['Magician', 'Sage'], 'description': 'Fires a bolt of magical energy.'},
+        'classes': ['Magician', 'Sage'], 'description': 'Fires a bolt of magical energy.',
+        'incantation': 'Zazzaknah', 'duration': 'turn'},
     2: {'name': 'Heal', 'mana_cost': 8, 'type': 'heal', 'min_level': 1,
-        'classes': ['Cleric', 'Paladin', 'Sage'], 'description': 'Restores health.'},
+        'classes': ['Cleric', 'Paladin', 'Sage'], 'description': 'Restores health.',
+        'incantation': 'Abrazak', 'duration': 'turn'},
     3: {'name': 'Fireball', 'mana_cost': 15, 'type': 'attack', 'min_level': 3,
-        'classes': ['Magician'], 'description': 'Hurls an explosive ball of fire.'},
+        'classes': ['Magician'], 'description': 'Hurls an explosive ball of fire.',
+        'incantation': 'Zimmokoth', 'duration': 'turn'},
     4: {'name': 'Lightning Bolt', 'mana_cost': 12, 'type': 'attack', 'min_level': 2,
-        'classes': ['Magician', 'Sage'], 'description': 'Strikes with electrical energy.'},
+        'classes': ['Magician', 'Sage'], 'description': 'Strikes with electrical energy.',
+        'incantation': 'Egribegah', 'duration': 'turn', 'multi_target': True},
     5: {'name': 'Cure Disease', 'mana_cost': 10, 'type': 'cure', 'min_level': 2,
-        'classes': ['Cleric', 'Paladin'], 'description': 'Cures diseases and afflictions.'},
+        'classes': ['Cleric', 'Paladin'], 'description': 'Cures diseases and afflictions.',
+        'incantation': 'Razzxixx', 'duration': 'turn'},
     6: {'name': 'Shield', 'mana_cost': 8, 'type': 'buff', 'min_level': 2,
-        'classes': ['Magician', 'Cleric', 'Sage'], 'description': 'Increases defense temporarily.'},
+        'classes': ['Magician', 'Cleric', 'Sage'], 'description': 'Increases defense temporarily.',
+        'incantation': 'Mokkoshu', 'duration': 'fight'},
     7: {'name': 'Poison Cloud', 'mana_cost': 12, 'type': 'attack', 'min_level': 3,
-        'classes': ['Alchemist'], 'description': 'Creates a cloud of noxious poison.'},
+        'classes': ['Alchemist'], 'description': 'Creates a cloud of noxious poison.',
+        'incantation': 'Gonngexha', 'duration': 'fight'},
     8: {'name': 'Greater Heal', 'mana_cost': 20, 'type': 'heal', 'min_level': 5,
-        'classes': ['Cleric', 'Sage'], 'description': 'Restores a large amount of health.'},
+        'classes': ['Cleric', 'Sage'], 'description': 'Restores a large amount of health.',
+        'incantation': 'Garghamangan', 'duration': 'turn'},
     9: {'name': 'Ice Storm', 'mana_cost': 18, 'type': 'attack', 'min_level': 5,
-        'classes': ['Magician'], 'description': 'Summons a storm of ice shards.'},
+        'classes': ['Magician'], 'description': 'Summons a storm of ice shards.',
+        'incantation': 'Artizafisch', 'duration': 'turn'},
     10: {'name': 'Holy Smite', 'mana_cost': 15, 'type': 'attack', 'min_level': 4,
-         'classes': ['Paladin', 'Cleric'], 'description': 'Smites with divine power.'},
+         'classes': ['Paladin', 'Cleric'], 'description': 'Smites with divine power.',
+         'incantation': 'Kazarbah', 'duration': 'turn', 'multi_target': True},
     11: {'name': 'Acid Splash', 'mana_cost': 10, 'type': 'attack', 'min_level': 2,
-         'classes': ['Alchemist'], 'description': 'Throws corrosive acid.'},
+         'classes': ['Alchemist'], 'description': 'Throws corrosive acid.',
+         'incantation': 'Sheshnaxe', 'duration': 'turn'},
     12: {'name': 'Resurrection', 'mana_cost': 50, 'type': 'heal', 'min_level': 10,
-         'classes': ['Cleric', 'Sage'], 'description': 'Brings back from the brink of death.'},
+         'classes': ['Cleric', 'Sage'], 'description': 'Brings back from the brink of death.',
+         'incantation': 'Sondocesah', 'duration': 'turn'},
     # Mid-level spells (levels 8-20)
     13: {'name': 'Chain Lightning', 'mana_cost': 25, 'type': 'attack', 'min_level': 8,
-         'classes': ['Magician', 'Sage'], 'description': 'Lightning arcs between multiple foes.'},
+         'classes': ['Magician', 'Sage'], 'description': 'Lightning arcs between multiple foes.',
+         'incantation': 'Tenibma', 'duration': 'turn', 'multi_target': True},
     14: {'name': 'Flame Wall', 'mana_cost': 22, 'type': 'attack', 'min_level': 10,
-         'classes': ['Magician'], 'description': 'Conjures a wall of searing flames.'},
+         'classes': ['Magician'], 'description': 'Conjures a wall of searing flames.',
+         'incantation': 'Viloshmazza', 'duration': 'turn'},
     15: {'name': 'Divine Shield', 'mana_cost': 20, 'type': 'buff', 'min_level': 8,
-         'classes': ['Cleric', 'Paladin'], 'description': 'Surrounds you with divine protection.'},
+         'classes': ['Cleric', 'Paladin'], 'description': 'Surrounds you with divine protection.',
+         'incantation': 'Xamientivah', 'duration': 'fight'},
     16: {'name': 'Toxic Plague', 'mana_cost': 18, 'type': 'attack', 'min_level': 7,
-         'classes': ['Alchemist'], 'description': 'Unleashes a virulent disease upon your foe.'},
+         'classes': ['Alchemist'], 'description': 'Unleashes a virulent disease upon your foe.',
+         'incantation': 'Meshushattagut', 'duration': 'turn'},
     17: {'name': 'Blizzard', 'mana_cost': 30, 'type': 'attack', 'min_level': 12,
-         'classes': ['Magician', 'Sage'], 'description': 'Summons a devastating blizzard.'},
+         'classes': ['Magician', 'Sage'], 'description': 'Summons a devastating blizzard.',
+         'incantation': 'Ynoskattarb', 'duration': 'turn'},
     18: {'name': 'Smite Evil', 'mana_cost': 25, 'type': 'attack', 'min_level': 12,
-         'classes': ['Paladin', 'Cleric'], 'description': 'Channels righteous fury against evil.'},
+         'classes': ['Paladin', 'Cleric'], 'description': 'Channels righteous fury against evil.',
+         'incantation': 'Bokajinnah', 'duration': 'turn'},
     19: {'name': 'Mass Heal', 'mana_cost': 35, 'type': 'heal', 'min_level': 15,
-         'classes': ['Cleric', 'Sage'], 'description': 'Heals all wounds with a burst of light.'},
+         'classes': ['Cleric', 'Sage'], 'description': 'Heals all wounds with a burst of light.',
+         'incantation': 'Swiillixtavh', 'duration': 'turn'},
     20: {'name': 'Meteor Storm', 'mana_cost': 40, 'type': 'attack', 'min_level': 18,
-         'classes': ['Magician'], 'description': 'Calls down a rain of meteors.'},
-    # High-level spells (levels 20-40)
-    21: {'name': 'Disintegrate', 'mana_cost': 50, 'type': 'attack', 'min_level': 20,
-         'classes': ['Magician', 'Sage'], 'description': 'Reduces matter to dust.'},
-    22: {'name': 'Wrath of God', 'mana_cost': 45, 'type': 'attack', 'min_level': 22,
-         'classes': ['Cleric', 'Paladin'], 'description': 'Calls down divine wrath upon the wicked.'},
-    23: {'name': 'Death Cloud', 'mana_cost': 35, 'type': 'attack', 'min_level': 20,
-         'classes': ['Alchemist'], 'description': 'A cloud of pure necrotic toxin.'},
-    24: {'name': 'Arcane Shield', 'mana_cost': 30, 'type': 'buff', 'min_level': 18,
-         'classes': ['Magician', 'Sage', 'Cleric'], 'description': 'An impenetrable barrier of arcane energy.'},
-    25: {'name': 'Power Word Kill', 'mana_cost': 60, 'type': 'attack', 'min_level': 25,
-         'classes': ['Magician'], 'description': 'A single word that can slay the weak.'},
-    26: {'name': 'Divine Resurrection', 'mana_cost': 80, 'type': 'heal', 'min_level': 25,
-         'classes': ['Cleric', 'Sage'], 'description': 'Fully restores life and vigor.'},
-    27: {'name': 'Philosopher\'s Fire', 'mana_cost': 45, 'type': 'attack', 'min_level': 25,
-         'classes': ['Alchemist'], 'description': 'Alchemical fire that burns the soul.'},
-    28: {'name': 'Time Stop', 'mana_cost': 70, 'type': 'buff', 'min_level': 30,
-         'classes': ['Magician', 'Sage'], 'description': 'Briefly halts the flow of time.'},
-    29: {'name': 'Judgement', 'mana_cost': 65, 'type': 'attack', 'min_level': 30,
-         'classes': ['Paladin', 'Cleric'], 'description': 'Passes divine judgement upon your foe.'},
-    30: {'name': 'Hellfire', 'mana_cost': 75, 'type': 'attack', 'min_level': 35,
-         'classes': ['Magician'], 'description': 'Summons flames from the abyss itself.'},
+         'classes': ['Magician'], 'description': 'Calls down a rain of meteors.',
+         'incantation': 'Aivannaxievh', 'duration': 'turn'},
+    # --- Freeze/Stun spells (from original) ---
+    21: {'name': 'Sleep', 'mana_cost': 30, 'type': 'freeze', 'min_level': 10,
+         'classes': ['Magician'], 'description': 'Puts the enemy into a deep sleep.',
+         'incantation': 'Sabdrak', 'duration': 'fight', 'freeze_turns': 2},
+    22: {'name': 'Baptize Monster', 'mana_cost': 30, 'type': 'freeze', 'min_level': 10,
+         'classes': ['Cleric'], 'description': 'The enemy freezes under holy influence.',
+         'incantation': 'Ushmanikixz', 'duration': 'fight', 'freeze_turns': 2},
+    23: {'name': 'Web', 'mana_cost': 40, 'type': 'freeze', 'min_level': 15,
+         'classes': ['Magician'], 'description': 'Immobilizes the enemy in sticky webs.',
+         'incantation': 'Sekaramata', 'duration': 'turn', 'freeze_turns': 1},
+    24: {'name': 'Fear', 'mana_cost': 70, 'type': 'freeze', 'min_level': 30,
+         'classes': ['Magician'], 'description': 'The enemy is fear stricken and cannot move.',
+         'incantation': 'Urpashke', 'duration': 'fight', 'freeze_turns': 3},
+    25: {'name': 'Freeze', 'mana_cost': 30, 'type': 'freeze', 'min_level': 10,
+         'classes': ['Sage'], 'description': 'The enemy becomes an ice block!',
+         'incantation': 'Artizafisch', 'duration': 'turn', 'freeze_turns': 1},
+    # --- Sage utility spells (from original) ---
+    26: {'name': 'Duplicate', 'mana_cost': 40, 'type': 'buff', 'min_level': 15,
+         'classes': ['Sage'], 'description': 'Creates a hologram duplicate that attacks alongside you.',
+         'incantation': 'Ishusabbhes', 'duration': 'fight', 'hp_cost': 25},
+    27: {'name': 'Giant', 'mana_cost': 80, 'type': 'buff', 'min_level': 40,
+         'classes': ['Sage'], 'description': 'Metamorphosis into a giant! +25 damage for whole fight.',
+         'incantation': 'Setuminahx', 'duration': 'fight'},
+    28: {'name': 'Steal', 'mana_cost': 90, 'type': 'attack', 'min_level': 50,
+         'classes': ['Sage'], 'description': 'Steals a random amount of enemy gold.',
+         'incantation': 'Algesmoxhu', 'duration': 'turn'},
+    # --- Cleric special spells (from original) ---
+    29: {'name': 'Summon Angel', 'mana_cost': 80, 'type': 'buff', 'min_level': 40,
+         'classes': ['Cleric'], 'description': 'Summons an angel that deals 100 damage per round.',
+         'incantation': 'Bokajinnah', 'duration': 'fight'},
+    30: {'name': 'Divination', 'mana_cost': 110, 'type': 'buff', 'min_level': 70,
+         'classes': ['Cleric'], 'description': 'Massive protection boost and increases goodness.',
+         'incantation': 'Swiillixtavh', 'duration': 'fight'},
+    # --- High-level spells ---
+    31: {'name': 'Disintegrate', 'mana_cost': 50, 'type': 'attack', 'min_level': 20,
+         'classes': ['Magician', 'Sage'], 'description': 'Reduces matter to dust.',
+         'incantation': 'Xoxxammeuh', 'duration': 'turn'},
+    32: {'name': 'Wrath of God', 'mana_cost': 45, 'type': 'attack', 'min_level': 22,
+         'classes': ['Cleric', 'Paladin'], 'description': 'Calls down divine wrath upon the wicked.',
+         'incantation': 'Gnisuremvenodh', 'duration': 'turn'},
+    33: {'name': 'Death Cloud', 'mana_cost': 35, 'type': 'attack', 'min_level': 20,
+         'classes': ['Alchemist'], 'description': 'A cloud of pure necrotic toxin.',
+         'incantation': 'Reprusu', 'duration': 'turn'},
+    34: {'name': 'Arcane Shield', 'mana_cost': 30, 'type': 'buff', 'min_level': 18,
+         'classes': ['Magician', 'Sage', 'Cleric'], 'description': 'An impenetrable barrier of arcane energy.',
+         'incantation': 'Noitarudamin', 'duration': 'fight'},
+    35: {'name': 'Power Word Kill', 'mana_cost': 60, 'type': 'attack', 'min_level': 25,
+         'classes': ['Magician'], 'description': 'A single word that can slay the weak.',
+         'incantation': 'Gnisuremvenodh', 'duration': 'turn'},
+    36: {'name': 'Divine Resurrection', 'mana_cost': 80, 'type': 'heal', 'min_level': 25,
+         'classes': ['Cleric', 'Sage'], 'description': 'Fully restores life and vigor.',
+         'incantation': 'Umbarakahstahx', 'duration': 'turn'},
+    37: {'name': 'Philosopher\'s Fire', 'mana_cost': 45, 'type': 'attack', 'min_level': 25,
+         'classes': ['Alchemist'], 'description': 'Alchemical fire that burns the soul.',
+         'incantation': 'Attigribinnizsch', 'duration': 'turn'},
+    38: {'name': 'Time Stop', 'mana_cost': 70, 'type': 'freeze', 'min_level': 30,
+         'classes': ['Magician', 'Sage'], 'description': 'Briefly halts the flow of time.',
+         'incantation': 'Mattravidduzzievh', 'duration': 'turn', 'freeze_turns': 2},
+    39: {'name': 'Judgement', 'mana_cost': 65, 'type': 'attack', 'min_level': 30,
+         'classes': ['Paladin', 'Cleric'], 'description': 'Passes divine judgement upon your foe.',
+         'incantation': 'Edujnomed', 'duration': 'turn'},
+    40: {'name': 'Hellfire', 'mana_cost': 75, 'type': 'attack', 'min_level': 35,
+         'classes': ['Magician'], 'description': 'Summons flames from the abyss itself.',
+         'incantation': 'Zimmokoth', 'duration': 'turn'},
     # Epic spells (levels 40-60)
-    31: {'name': 'Armageddon', 'mana_cost': 100, 'type': 'attack', 'min_level': 40,
-         'classes': ['Magician', 'Sage'], 'description': 'Unleashes catastrophic destruction.'},
-    32: {'name': 'Miracle', 'mana_cost': 100, 'type': 'heal', 'min_level': 40,
-         'classes': ['Cleric', 'Sage'], 'description': 'A true miracle of healing.'},
-    33: {'name': 'Elixir of Annihilation', 'mana_cost': 80, 'type': 'attack', 'min_level': 40,
-         'classes': ['Alchemist'], 'description': 'The ultimate alchemical weapon.'},
-    34: {'name': 'Celestial Wrath', 'mana_cost': 90, 'type': 'attack', 'min_level': 45,
-         'classes': ['Paladin', 'Cleric'], 'description': 'Channels the fury of the heavens.'},
-    35: {'name': 'Void Bolt', 'mana_cost': 85, 'type': 'attack', 'min_level': 50,
-         'classes': ['Magician', 'Sage'], 'description': 'A bolt of pure nothingness.'},
-    36: {'name': 'Avatar', 'mana_cost': 120, 'type': 'buff', 'min_level': 50,
-         'classes': ['Cleric', 'Paladin'], 'description': 'Temporarily becomes an avatar of divine power.'},
-    37: {'name': 'Transmutation', 'mana_cost': 90, 'type': 'attack', 'min_level': 50,
-         'classes': ['Alchemist'], 'description': 'Transmutes your enemy\'s flesh to lead.'},
+    41: {'name': 'Armageddon', 'mana_cost': 100, 'type': 'attack', 'min_level': 40,
+         'classes': ['Magician', 'Sage'], 'description': 'Unleashes catastrophic destruction.',
+         'incantation': 'Aivannaxievh', 'duration': 'turn', 'multi_target': True},
+    42: {'name': 'Miracle', 'mana_cost': 100, 'type': 'heal', 'min_level': 40,
+         'classes': ['Cleric', 'Sage'], 'description': 'A true miracle of healing.',
+         'incantation': 'Sondocesah', 'duration': 'turn'},
+    43: {'name': 'Elixir of Annihilation', 'mana_cost': 80, 'type': 'attack', 'min_level': 40,
+         'classes': ['Alchemist'], 'description': 'The ultimate alchemical weapon.',
+         'incantation': 'Sheshnaxe', 'duration': 'turn'},
+    44: {'name': 'Celestial Wrath', 'mana_cost': 90, 'type': 'attack', 'min_level': 45,
+         'classes': ['Paladin', 'Cleric'], 'description': 'Channels the fury of the heavens.',
+         'incantation': 'Kazarbah', 'duration': 'turn', 'multi_target': True},
+    45: {'name': 'Void Bolt', 'mana_cost': 85, 'type': 'attack', 'min_level': 50,
+         'classes': ['Magician', 'Sage'], 'description': 'A bolt of pure nothingness.',
+         'incantation': 'Noitarudamin', 'duration': 'turn'},
+    46: {'name': 'Avatar', 'mana_cost': 120, 'type': 'buff', 'min_level': 50,
+         'classes': ['Cleric', 'Paladin'], 'description': 'Temporarily becomes an avatar of divine power.',
+         'incantation': 'Umbarakahstahx', 'duration': 'fight'},
+    47: {'name': 'Transmutation', 'mana_cost': 90, 'type': 'attack', 'min_level': 50,
+         'classes': ['Alchemist'], 'description': 'Transmutes your enemy\'s flesh to lead.',
+         'incantation': 'Algesmoxhu', 'duration': 'turn'},
     # Legendary spells (levels 60-80)
-    38: {'name': 'Apocalypse', 'mana_cost': 150, 'type': 'attack', 'min_level': 60,
-         'classes': ['Magician'], 'description': 'The ultimate destructive force.'},
-    39: {'name': 'Divine Intervention', 'mana_cost': 150, 'type': 'heal', 'min_level': 60,
-         'classes': ['Cleric', 'Sage'], 'description': 'Direct intervention from the gods.'},
-    40: {'name': 'Holy Avenger', 'mana_cost': 130, 'type': 'attack', 'min_level': 65,
-         'classes': ['Paladin'], 'description': 'Becomes the instrument of divine vengeance.'},
-    41: {'name': 'Wish', 'mana_cost': 200, 'type': 'buff', 'min_level': 70,
-         'classes': ['Magician', 'Sage'], 'description': 'Bends reality to your will.'},
-    42: {'name': 'Omega Toxin', 'mana_cost': 140, 'type': 'attack', 'min_level': 70,
-         'classes': ['Alchemist'], 'description': 'A poison that unravels life itself.'},
+    48: {'name': 'Apocalypse', 'mana_cost': 150, 'type': 'attack', 'min_level': 60,
+         'classes': ['Magician'], 'description': 'The ultimate destructive force.',
+         'incantation': 'Mattravidduzzievh', 'duration': 'turn', 'multi_target': True},
+    49: {'name': 'Divine Intervention', 'mana_cost': 150, 'type': 'heal', 'min_level': 60,
+         'classes': ['Cleric', 'Sage'], 'description': 'Direct intervention from the gods.',
+         'incantation': 'Swiillixtavh', 'duration': 'turn'},
+    50: {'name': 'Holy Avenger', 'mana_cost': 130, 'type': 'attack', 'min_level': 65,
+         'classes': ['Paladin'], 'description': 'Becomes the instrument of divine vengeance.',
+         'incantation': 'Bokajinnah', 'duration': 'turn'},
+    51: {'name': 'Wish', 'mana_cost': 200, 'type': 'buff', 'min_level': 70,
+         'classes': ['Magician', 'Sage'], 'description': 'Bends reality to your will.',
+         'incantation': 'Viloshmazza', 'duration': 'fight'},
+    52: {'name': 'Omega Toxin', 'mana_cost': 140, 'type': 'attack', 'min_level': 70,
+         'classes': ['Alchemist'], 'description': 'A poison that unravels life itself.',
+         'incantation': 'Gonngexha', 'duration': 'turn'},
     # Mythic spells (levels 80-100)
-    43: {'name': 'Cataclysm', 'mana_cost': 250, 'type': 'attack', 'min_level': 80,
-         'classes': ['Magician', 'Sage'], 'description': 'Reshapes the world with raw power.'},
-    44: {'name': 'Genesis', 'mana_cost': 250, 'type': 'heal', 'min_level': 80,
-         'classes': ['Cleric', 'Sage'], 'description': 'Creates life from nothing.'},
-    45: {'name': 'God Slayer', 'mana_cost': 300, 'type': 'attack', 'min_level': 90,
-         'classes': ['Magician'], 'description': 'A spell capable of slaying gods.'},
-    46: {'name': 'Eternal Light', 'mana_cost': 300, 'type': 'attack', 'min_level': 90,
-         'classes': ['Paladin', 'Cleric'], 'description': 'Banishes all darkness forever.'},
-    47: {'name': 'Panacea', 'mana_cost': 200, 'type': 'heal', 'min_level': 85,
-         'classes': ['Alchemist', 'Sage'], 'description': 'The universal cure for all ailments.'},
-    48: {'name': 'Ragnarok', 'mana_cost': 500, 'type': 'attack', 'min_level': 100,
-         'classes': ['Magician', 'Sage'], 'description': 'The end of all things.'},
+    53: {'name': 'Cataclysm', 'mana_cost': 250, 'type': 'attack', 'min_level': 80,
+         'classes': ['Magician', 'Sage'], 'description': 'Reshapes the world with raw power.',
+         'incantation': 'Gnisuremvenodh', 'duration': 'turn', 'multi_target': True},
+    54: {'name': 'Genesis', 'mana_cost': 250, 'type': 'heal', 'min_level': 80,
+         'classes': ['Cleric', 'Sage'], 'description': 'Creates life from nothing.',
+         'incantation': 'Abrazak', 'duration': 'turn'},
+    55: {'name': 'God Slayer', 'mana_cost': 300, 'type': 'attack', 'min_level': 90,
+         'classes': ['Magician'], 'description': 'A spell capable of slaying gods.',
+         'incantation': 'Edujnomed', 'duration': 'turn'},
+    56: {'name': 'Eternal Light', 'mana_cost': 300, 'type': 'attack', 'min_level': 90,
+         'classes': ['Paladin', 'Cleric'], 'description': 'Banishes all darkness forever.',
+         'incantation': 'Xamientivah', 'duration': 'turn'},
+    57: {'name': 'Panacea', 'mana_cost': 200, 'type': 'heal', 'min_level': 85,
+         'classes': ['Alchemist', 'Sage'], 'description': 'The universal cure for all ailments.',
+         'incantation': 'Razzxixx', 'duration': 'turn'},
+    58: {'name': 'Ragnarok', 'mana_cost': 500, 'type': 'attack', 'min_level': 100,
+         'classes': ['Magician', 'Sage'], 'description': 'The end of all things.',
+         'incantation': 'Mattravidduzzievh', 'duration': 'turn', 'multi_target': True},
+    # Sage Death Kiss (from original)
+    59: {'name': 'Death Kiss', 'mana_cost': 120, 'type': 'attack', 'min_level': 80,
+         'classes': ['Sage'], 'description': 'An undead spirit delivers a fatal kiss.',
+         'incantation': 'Edujnomed', 'duration': 'turn'},
+    # Sage Escape (freeze variant)
+    60: {'name': 'Escape', 'mana_cost': 70, 'type': 'freeze', 'min_level': 30,
+         'classes': ['Sage'], 'description': 'Enemy is frozen in place while you reposition.',
+         'incantation': 'Reprusu', 'duration': 'fight', 'freeze_turns': 3},
+    # Sage Energy Drain (from original)
+    61: {'name': 'Energy Drain', 'mana_cost': 100, 'type': 'attack', 'min_level': 60,
+         'classes': ['Sage'], 'description': 'Drains the life energy from your foe.',
+         'incantation': 'Noitarudamin', 'duration': 'turn'},
+    # Sage Summon Demon (from original)
+    62: {'name': 'Summon Demon', 'mana_cost': 110, 'type': 'buff', 'min_level': 70,
+         'classes': ['Sage', 'Magician'], 'description': 'A servant demon that fights alongside you.',
+         'incantation': 'Attigribinnizsch', 'duration': 'fight'},
+    # Cleric Invisibility (from original)
+    63: {'name': 'Invisibility', 'mana_cost': 70, 'type': 'buff', 'min_level': 30,
+         'classes': ['Cleric'], 'description': 'Become invisible, gaining massive protection.',
+         'incantation': 'Xamientivah', 'duration': 'fight'},
+    # Cleric Disease (from original)
+    64: {'name': 'Disease', 'mana_cost': 50, 'type': 'attack', 'min_level': 20,
+         'classes': ['Cleric'], 'description': 'Inflicts a random disease upon the enemy.',
+         'incantation': 'Meshushattagut', 'duration': 'turn'},
+    # Cleric Gods Finger (from original)
+    65: {'name': 'Gods Finger', 'mana_cost': 120, 'type': 'attack', 'min_level': 80,
+         'classes': ['Cleric'], 'description': 'An energy blast from the divine finger of God.',
+         'incantation': 'Umbarakahstahx', 'duration': 'turn'},
+    # Magician Prismatic Cage (from original)
+    66: {'name': 'Prismatic Cage', 'mana_cost': 90, 'type': 'buff', 'min_level': 50,
+         'classes': ['Magician'], 'description': 'A shimmering cage of light protects you.',
+         'incantation': 'Ynoskattarb', 'duration': 'fight'},
+    # Magician Pillar of Fire (from original)
+    67: {'name': 'Pillar of Fire', 'mana_cost': 100, 'type': 'attack', 'min_level': 60,
+         'classes': ['Magician'], 'description': 'A massive pillar of flame erupts beneath the enemy.',
+         'incantation': 'Aivannaxievh', 'duration': 'turn'},
+    # Sage Fog of War (from original)
+    68: {'name': 'Fog of War', 'mana_cost': 10, 'type': 'buff', 'min_level': 1,
+         'classes': ['Sage'], 'description': 'Only you are visible in the fog.',
+         'incantation': 'Umannaghra', 'duration': 'fight'},
+    # Sage Roast (from original)
+    69: {'name': 'Roast', 'mana_cost': 50, 'type': 'attack', 'min_level': 20,
+         'classes': ['Sage'], 'description': 'Fire damage that pierces armor.',
+         'incantation': 'Sheshnaxe', 'duration': 'turn'},
+    # Sage Hit Self (from original - mind control)
+    70: {'name': 'Hit Self', 'mana_cost': 60, 'type': 'attack', 'min_level': 25,
+         'classes': ['Sage'], 'description': 'Mind control causes the enemy to strike itself.',
+         'incantation': 'Xoxxammeuh', 'duration': 'turn'},
+    # Cleric Call Lightning (from original)
+    71: {'name': 'Call Lightning', 'mana_cost': 90, 'type': 'attack', 'min_level': 50,
+         'classes': ['Cleric'], 'description': 'Lightning called from the heavens.',
+         'incantation': 'Tenibma', 'duration': 'turn'},
+    # Cleric Armor (from original - protection buff)
+    72: {'name': 'Armor', 'mana_cost': 20, 'type': 'buff', 'min_level': 5,
+         'classes': ['Cleric'], 'description': 'Invisible armor grants +5 protection.',
+         'incantation': 'Razzxixx', 'duration': 'fight'},
+    # Magician Power Hat (from original)
+    73: {'name': 'Power Hat', 'mana_cost': 50, 'type': 'heal', 'min_level': 20,
+         'classes': ['Magician'], 'description': 'Restores HP and grants protection.',
+         'incantation': 'Viloshmazza', 'duration': 'fight'},
     # --- Necromancer spells ---
-    49: {'name': 'Drain Life', 'mana_cost': 8, 'type': 'attack', 'min_level': 1,
-         'classes': ['Necromancer'], 'description': 'Siphons the life force from your enemy.'},
-    50: {'name': 'Raise Dead', 'mana_cost': 15, 'type': 'buff', 'min_level': 3,
-         'classes': ['Necromancer'], 'description': 'Raises a corpse to fight alongside you.'},
-    51: {'name': 'Bone Spear', 'mana_cost': 12, 'type': 'attack', 'min_level': 4,
-         'classes': ['Necromancer'], 'description': 'Hurls a shard of sharpened bone.'},
-    52: {'name': 'Corpse Explosion', 'mana_cost': 22, 'type': 'attack', 'min_level': 8,
-         'classes': ['Necromancer'], 'description': 'Detonates the fallen dead with terrible force.'},
-    53: {'name': 'Soul Rend', 'mana_cost': 35, 'type': 'attack', 'min_level': 15,
-         'classes': ['Necromancer'], 'description': 'Tears at the very soul of your foe.'},
-    54: {'name': 'Army of the Dead', 'mana_cost': 60, 'type': 'buff', 'min_level': 25,
-         'classes': ['Necromancer'], 'description': 'Summons a legion of undead warriors.'},
-    55: {'name': 'Plague of Undeath', 'mana_cost': 90, 'type': 'attack', 'min_level': 40,
-         'classes': ['Necromancer'], 'description': 'Spreads a necrotic plague that devours the living.'},
-    56: {'name': 'Death Pact', 'mana_cost': 150, 'type': 'attack', 'min_level': 60,
-         'classes': ['Necromancer'], 'description': 'Forges a dark bargain with death itself.'},
-    57: {'name': 'Lichdom', 'mana_cost': 300, 'type': 'buff', 'min_level': 85,
-         'classes': ['Necromancer'], 'description': 'Transforms you into an undying lich.'},
+    74: {'name': 'Drain Life', 'mana_cost': 8, 'type': 'attack', 'min_level': 1,
+         'classes': ['Necromancer'], 'description': 'Siphons the life force from your enemy.',
+         'incantation': 'Zazzaknah', 'duration': 'turn'},
+    75: {'name': 'Raise Dead', 'mana_cost': 15, 'type': 'buff', 'min_level': 3,
+         'classes': ['Necromancer'], 'description': 'Raises a corpse to fight alongside you.',
+         'incantation': 'Ishusabbhes', 'duration': 'fight'},
+    76: {'name': 'Bone Spear', 'mana_cost': 12, 'type': 'attack', 'min_level': 4,
+         'classes': ['Necromancer'], 'description': 'Hurls a shard of sharpened bone.',
+         'incantation': 'Gonngexha', 'duration': 'turn'},
+    77: {'name': 'Corpse Explosion', 'mana_cost': 22, 'type': 'attack', 'min_level': 8,
+         'classes': ['Necromancer'], 'description': 'Detonates the fallen dead with terrible force.',
+         'incantation': 'Sheshnaxe', 'duration': 'turn'},
+    78: {'name': 'Soul Rend', 'mana_cost': 35, 'type': 'attack', 'min_level': 15,
+         'classes': ['Necromancer'], 'description': 'Tears at the very soul of your foe.',
+         'incantation': 'Xoxxammeuh', 'duration': 'turn'},
+    79: {'name': 'Army of the Dead', 'mana_cost': 60, 'type': 'buff', 'min_level': 25,
+         'classes': ['Necromancer'], 'description': 'Summons a legion of undead warriors.',
+         'incantation': 'Attigribinnizsch', 'duration': 'fight'},
+    80: {'name': 'Plague of Undeath', 'mana_cost': 90, 'type': 'attack', 'min_level': 40,
+         'classes': ['Necromancer'], 'description': 'Spreads a necrotic plague that devours the living.',
+         'incantation': 'Meshushattagut', 'duration': 'turn'},
+    81: {'name': 'Death Pact', 'mana_cost': 150, 'type': 'attack', 'min_level': 60,
+         'classes': ['Necromancer'], 'description': 'Forges a dark bargain with death itself.',
+         'incantation': 'Edujnomed', 'duration': 'turn'},
+    82: {'name': 'Lichdom', 'mana_cost': 300, 'type': 'buff', 'min_level': 85,
+         'classes': ['Necromancer'], 'description': 'Transforms you into an undying lich.',
+         'incantation': 'Mattravidduzzievh', 'duration': 'fight'},
     # --- Monk spells ---
-    58: {'name': 'Inner Focus', 'mana_cost': 6, 'type': 'buff', 'min_level': 1,
-         'classes': ['Monk'], 'description': 'Centers your chi to sharpen reflexes.'},
-    59: {'name': 'Palm Strike', 'mana_cost': 10, 'type': 'attack', 'min_level': 2,
-         'classes': ['Monk'], 'description': 'Channels ki into a devastating open-palm blow.'},
-    60: {'name': 'Iron Skin', 'mana_cost': 14, 'type': 'buff', 'min_level': 5,
-         'classes': ['Monk'], 'description': 'Hardens your body against physical harm.'},
-    61: {'name': 'Flurry of Blows', 'mana_cost': 20, 'type': 'attack', 'min_level': 8,
-         'classes': ['Monk'], 'description': 'A rapid barrage of fists and kicks.'},
-    62: {'name': 'Quivering Palm', 'mana_cost': 35, 'type': 'attack', 'min_level': 15,
-         'classes': ['Monk'], 'description': 'Sets up lethal vibrations within the target.'},
-    63: {'name': 'Diamond Soul', 'mana_cost': 50, 'type': 'buff', 'min_level': 25,
-         'classes': ['Monk'], 'description': 'Your spirit becomes as unyielding as diamond.'},
-    64: {'name': 'Astral Projection', 'mana_cost': 80, 'type': 'buff', 'min_level': 40,
-         'classes': ['Monk'], 'description': 'Projects your consciousness beyond the mortal plane.'},
-    65: {'name': 'Void Fist', 'mana_cost': 120, 'type': 'attack', 'min_level': 60,
-         'classes': ['Monk'], 'description': 'A punch that disrupts the fabric of reality.'},
-    66: {'name': 'Transcendence', 'mana_cost': 250, 'type': 'buff', 'min_level': 85,
-         'classes': ['Monk'], 'description': 'Ascend beyond mortal limitations entirely.'},
+    83: {'name': 'Inner Focus', 'mana_cost': 6, 'type': 'buff', 'min_level': 1,
+         'classes': ['Monk'], 'description': 'Centers your chi to sharpen reflexes.',
+         'incantation': 'Umannaghra', 'duration': 'fight'},
+    84: {'name': 'Palm Strike', 'mana_cost': 10, 'type': 'attack', 'min_level': 2,
+         'classes': ['Monk'], 'description': 'Channels ki into a devastating open-palm blow.',
+         'incantation': 'Zazzaknah', 'duration': 'turn'},
+    85: {'name': 'Iron Skin', 'mana_cost': 14, 'type': 'buff', 'min_level': 5,
+         'classes': ['Monk'], 'description': 'Hardens your body against physical harm.',
+         'incantation': 'Mokkoshu', 'duration': 'fight'},
+    86: {'name': 'Flurry of Blows', 'mana_cost': 20, 'type': 'attack', 'min_level': 8,
+         'classes': ['Monk'], 'description': 'A rapid barrage of fists and kicks.',
+         'incantation': 'Sabdrak', 'duration': 'turn'},
+    87: {'name': 'Quivering Palm', 'mana_cost': 35, 'type': 'attack', 'min_level': 15,
+         'classes': ['Monk'], 'description': 'Sets up lethal vibrations within the target.',
+         'incantation': 'Sekaramata', 'duration': 'turn'},
+    88: {'name': 'Diamond Soul', 'mana_cost': 50, 'type': 'buff', 'min_level': 25,
+         'classes': ['Monk'], 'description': 'Your spirit becomes as unyielding as diamond.',
+         'incantation': 'Artizafisch', 'duration': 'fight'},
+    89: {'name': 'Astral Projection', 'mana_cost': 80, 'type': 'buff', 'min_level': 40,
+         'classes': ['Monk'], 'description': 'Projects your consciousness beyond the mortal plane.',
+         'incantation': 'Ishusabbhes', 'duration': 'fight'},
+    90: {'name': 'Void Fist', 'mana_cost': 120, 'type': 'attack', 'min_level': 60,
+         'classes': ['Monk'], 'description': 'A punch that disrupts the fabric of reality.',
+         'incantation': 'Noitarudamin', 'duration': 'turn'},
+    91: {'name': 'Transcendence', 'mana_cost': 250, 'type': 'buff', 'min_level': 85,
+         'classes': ['Monk'], 'description': 'Ascend beyond mortal limitations entirely.',
+         'incantation': 'Mattravidduzzievh', 'duration': 'fight'},
     # --- Witch Hunter spells (innate abilities, not true magic) ---
-    67: {'name': 'Silver Bolt', 'mana_cost': 5, 'type': 'attack', 'min_level': 1,
-         'classes': ['Witch Hunter'], 'description': 'Fires a bolt infused with pure silver.'},
-    68: {'name': 'Purging Flame', 'mana_cost': 12, 'type': 'attack', 'min_level': 3,
-         'classes': ['Witch Hunter'], 'description': 'Sacred fire that burns the unholy.'},
-    69: {'name': 'Hex Ward', 'mana_cost': 10, 'type': 'buff', 'min_level': 5,
-         'classes': ['Witch Hunter'], 'description': 'Wards against curses and dark magic.'},
-    70: {'name': 'Sigil of Binding', 'mana_cost': 18, 'type': 'buff', 'min_level': 10,
-         'classes': ['Witch Hunter'], 'description': 'Inscribes a sigil that weakens magical foes.'},
-    71: {'name': 'Inquisitor\'s Brand', 'mana_cost': 30, 'type': 'attack', 'min_level': 18,
-         'classes': ['Witch Hunter'], 'description': 'Brands the enemy with a mark of judgement.'},
-    72: {'name': 'Banishment', 'mana_cost': 50, 'type': 'attack', 'min_level': 30,
-         'classes': ['Witch Hunter'], 'description': 'Attempts to banish a creature to another plane.'},
-    73: {'name': 'Witch Pyre', 'mana_cost': 90, 'type': 'attack', 'min_level': 50,
-         'classes': ['Witch Hunter'], 'description': 'Engulfs the target in purifying flame.'},
-    74: {'name': 'Final Judgement', 'mana_cost': 200, 'type': 'attack', 'min_level': 80,
-         'classes': ['Witch Hunter'], 'description': 'Condemns the wicked with absolute authority.'},
+    92: {'name': 'Silver Bolt', 'mana_cost': 5, 'type': 'attack', 'min_level': 1,
+         'classes': ['Witch Hunter'], 'description': 'Fires a bolt infused with pure silver.',
+         'incantation': 'Zazzaknah', 'duration': 'turn'},
+    93: {'name': 'Purging Flame', 'mana_cost': 12, 'type': 'attack', 'min_level': 3,
+         'classes': ['Witch Hunter'], 'description': 'Sacred fire that burns the unholy.',
+         'incantation': 'Zimmokoth', 'duration': 'turn'},
+    94: {'name': 'Hex Ward', 'mana_cost': 10, 'type': 'buff', 'min_level': 5,
+         'classes': ['Witch Hunter'], 'description': 'Wards against curses and dark magic.',
+         'incantation': 'Mokkoshu', 'duration': 'fight'},
+    95: {'name': 'Sigil of Binding', 'mana_cost': 18, 'type': 'buff', 'min_level': 10,
+         'classes': ['Witch Hunter'], 'description': 'Inscribes a sigil that weakens magical foes.',
+         'incantation': 'Sekaramata', 'duration': 'fight'},
+    96: {'name': 'Inquisitor\'s Brand', 'mana_cost': 30, 'type': 'attack', 'min_level': 18,
+         'classes': ['Witch Hunter'], 'description': 'Brands the enemy with a mark of judgement.',
+         'incantation': 'Kazarbah', 'duration': 'turn'},
+    97: {'name': 'Banishment', 'mana_cost': 50, 'type': 'attack', 'min_level': 30,
+         'classes': ['Witch Hunter'], 'description': 'Attempts to banish a creature to another plane.',
+         'incantation': 'Reprusu', 'duration': 'turn'},
+    98: {'name': 'Witch Pyre', 'mana_cost': 90, 'type': 'attack', 'min_level': 50,
+         'classes': ['Witch Hunter'], 'description': 'Engulfs the target in purifying flame.',
+         'incantation': 'Aivannaxievh', 'duration': 'turn'},
+    99: {'name': 'Final Judgement', 'mana_cost': 200, 'type': 'attack', 'min_level': 80,
+         'classes': ['Witch Hunter'], 'description': 'Condemns the wicked with absolute authority.',
+         'incantation': 'Umbarakahstahx', 'duration': 'turn'},
 }
 
 
@@ -374,6 +640,10 @@ class Player(db.Model):
     is_poisoned = db.Column(db.Boolean, default=False)
     is_blind = db.Column(db.Boolean, default=False)
     has_plague = db.Column(db.Boolean, default=False)
+    has_smallpox = db.Column(db.Boolean, default=False)
+    has_measles = db.Column(db.Boolean, default=False)
+    has_leprosy = db.Column(db.Boolean, default=False)
+    is_haunted = db.Column(db.Integer, default=0)  # haunt counter (demon haunting from Groggo's)
 
     # Health
     healing_potions = db.Column(db.Integer, default=2)
@@ -423,6 +693,21 @@ class Player(db.Model):
     # Bard performances
     performances_remaining = db.Column(db.Integer, default=3)  # daily bard performance limit
 
+    # Dark/Good deed quotas
+    dark_deeds_remaining = db.Column(db.Integer, default=3)  # daily dark deed limit
+    good_deeds_remaining = db.Column(db.Integer, default=3)  # daily good deed limit
+
+    # Gym / training
+    gym_sessions = db.Column(db.Integer, default=4)  # daily gym sessions
+    massage_visits = db.Column(db.Integer, default=3)  # daily massage visits
+    barrel_lift_record = db.Column(db.Integer, default=0)  # best barrel lift count
+
+    # Close combat skills (JSON string: {"Tackle": 5, "Kick": 3, ...})
+    close_combat_skills = db.Column(db.Text, default='{}')
+
+    # Alchemist poison (current poison level: 0=none, 1=Light, 2=Medium, 3=Strong, 4=Deadly)
+    poison_level = db.Column(db.Integer, default=0)
+
     # God/religion
     god_name = db.Column(db.String(30), default='')  # name of deity worshipped
     is_god = db.Column(db.Boolean, default=False)  # has ascended to godhood
@@ -436,6 +721,7 @@ class Player(db.Model):
 
     # Equipment slots (store item IDs, 0 = empty)
     equipped_weapon = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
+    equipped_weapon2 = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)  # left hand
     equipped_shield = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
     equipped_head = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
     equipped_body = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
@@ -445,6 +731,7 @@ class Player(db.Model):
     equipped_feet = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
     equipped_waist = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
     equipped_neck = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
+    equipped_neck2 = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)  # second necklace
     equipped_face = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
     equipped_around_body = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
     equipped_finger1 = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
@@ -483,18 +770,94 @@ class Player(db.Model):
 
     def alignment_string(self):
         if self.chivalry > self.darkness:
-            if self.chivalry > 100:
-                return 'Virtuous'
-            elif self.chivalry > 50:
-                return 'Noble'
-            return 'Good'
+            c = self.chivalry
+            if c >= 100000:
+                return "God's Device"
+            elif c >= 55001:
+                return 'Angel Heart'
+            elif c >= 27001:
+                return 'Extremely Virtuous'
+            elif c >= 15001:
+                return 'Extremely Kind'
+            elif c >= 9001:
+                return 'Good-doer'
+            elif c >= 5001:
+                return 'Good'
+            elif c >= 1001:
+                return 'Kind'
+            elif c >= 101:
+                return 'Warm-hearted'
+            return 'Happy'
         elif self.darkness > self.chivalry:
-            if self.darkness > 100:
-                return 'Diabolical'
-            elif self.darkness > 50:
-                return 'Wicked'
-            return 'Evil'
+            d = self.darkness
+            if d >= 100000:
+                return "Devil's Right Hand"
+            elif d >= 55001:
+                return "Satan's Child"
+            elif d >= 27001:
+                return 'Extremely Evil'
+            elif d >= 15001:
+                return 'Black Soul'
+            elif d >= 9001:
+                return 'Evil'
+            elif d >= 5001:
+                return 'Sadist'
+            elif d >= 1001:
+                return 'Brutal'
+            elif d >= 101:
+                return 'Vicious'
+            return 'Mean'
         return 'Neutral'
+
+    def battle_master_rank(self):
+        """PvP reputation rank based on total kills + defeats."""
+        total = self.player_kills + self.player_defeats
+        rank = 'Wimp'
+        for threshold, title in BATTLE_MASTER_RANKS:
+            if total >= threshold:
+                rank = title
+        return rank
+
+    def get_combat_skills(self):
+        """Return close combat skill dict."""
+        import json
+        try:
+            return json.loads(self.close_combat_skills or '{}')
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    def set_combat_skill(self, move, level):
+        """Set a close combat move skill level."""
+        import json
+        skills = self.get_combat_skills()
+        skills[move] = min(level, 17)
+        self.close_combat_skills = json.dumps(skills)
+
+    def get_disease_damage(self):
+        """Calculate per-battle disease damage from all active diseases."""
+        dmg = 0
+        if self.has_plague:
+            dmg += DISEASES['plague']['damage']
+        if self.has_smallpox:
+            dmg += DISEASES['smallpox']['damage']
+        if self.has_measles:
+            dmg += DISEASES['measles']['damage']
+        if self.has_leprosy:
+            dmg += DISEASES['leprosy']['damage']
+        return dmg
+
+    def active_diseases(self):
+        """Return list of active disease names."""
+        diseases = []
+        if self.has_plague:
+            diseases.append('Plague')
+        if self.has_smallpox:
+            diseases.append('Smallpox')
+        if self.has_measles:
+            diseases.append('Measles')
+        if self.has_leprosy:
+            diseases.append('Leprosy')
+        return diseases
 
     def can_level_up(self):
         next_level = self.level + 1
@@ -521,7 +884,7 @@ class Player(db.Model):
             self.spells_known = ','.join(str(x) for x in known)
 
     def recalculate_equipment_power(self):
-        """Recalculate weapon and armor power from equipped items."""
+        """Recalculate weapon and armor power from equipped items (includes dual-wield)."""
         weapon_pow = 0
         armor_pow = 0
         for slot in EQUIPMENT_SLOTS:
@@ -532,7 +895,6 @@ class Player(db.Model):
                     if item.item_type == 'Weapon':
                         weapon_pow += item.attack_bonus
                     armor_pow += item.armor_bonus
-                    # Don't add stat bonuses here - they're item properties
         self.weapon_power = weapon_pow
         self.armor_power = armor_pow
 
@@ -593,7 +955,7 @@ class Item(db.Model):
 
         For 'Fingers' items, returns 'finger1' as the default slot.
         The equip logic handles placing rings in finger2 when finger1
-        is occupied.
+        is occupied. Same for Neck -> neck/neck2 and Weapon -> weapon/weapon2.
         """
         slot_map = {
             'Weapon': 'weapon', 'Shield': 'shield', 'Head': 'head',
@@ -644,7 +1006,11 @@ class Monster(db.Model):
     has_disease = db.Column(db.Boolean, default=False)
     magic_resistance = db.Column(db.Integer, default=0)
     magic_level = db.Column(db.Integer, default=0)
+    mana = db.Column(db.Integer, default=0)
+    max_mana = db.Column(db.Integer, default=0)
+    spells_known = db.Column(db.String(30), default='')  # comma-separated monster spell IDs
     aggression = db.Column(db.Integer, default=1)  # 0-3
+    dungeon_area = db.Column(db.String(20), default='dungeon')  # dungeon, death_maze, ice_caves
 
     # Can drop items?
     can_drop_weapon = db.Column(db.Boolean, default=False)
@@ -1031,3 +1397,48 @@ class GameConfig(db.Model):
             config = GameConfig(key=key, value=str(value))
             db.session.add(config)
         db.session.commit()
+
+
+class InnChat(db.Model):
+    """Chat messages at the inn."""
+    __tablename__ = 'inn_chat'
+
+    id = db.Column(db.Integer, primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    player_name = db.Column(db.String(30), nullable=False)
+    message = db.Column(db.String(200), nullable=False)
+    is_anonymous = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    player = db.relationship('Player', backref='inn_chats')
+
+
+class BarrelLiftRecord(db.Model):
+    """Records for the gym barrel lifting competition."""
+    __tablename__ = 'barrel_lift_records'
+
+    id = db.Column(db.Integer, primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    player_name = db.Column(db.String(30), nullable=False)
+    barrels = db.Column(db.Integer, nullable=False)
+    recorded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    player = db.relationship('Player', backref='barrel_records')
+
+
+class EquipmentSwapOffer(db.Model):
+    """Equipment swap offers between players."""
+    __tablename__ = 'equipment_swaps'
+
+    id = db.Column(db.Integer, primary_key=True)
+    offerer_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    target_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    offered_item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    wanted_item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
+    status = db.Column(db.String(10), default='pending')  # pending, accepted, declined
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    offerer = db.relationship('Player', foreign_keys=[offerer_id], backref='swap_offers_sent')
+    target = db.relationship('Player', foreign_keys=[target_id], backref='swap_offers_received')
+    offered_item = db.relationship('Item', foreign_keys=[offered_item_id])
+    wanted_item = db.relationship('Item', foreign_keys=[wanted_item_id])
