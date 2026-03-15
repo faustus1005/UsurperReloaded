@@ -31,7 +31,29 @@ import npc_engine
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
+
+def _get_secret_key():
+    """Return a stable secret key for session signing.
+
+    Uses the SECRET_KEY environment variable if set.  Otherwise generates a
+    random key and persists it to a file next to the database so that every
+    Gunicorn worker (and future restarts) shares the same key.
+    """
+    env_key = os.environ.get('SECRET_KEY')
+    if env_key:
+        return env_key
+    key_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.secret_key')
+    try:
+        with open(key_path, 'r') as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        key = os.urandom(32).hex()
+        with open(key_path, 'w') as f:
+            f.write(key)
+        os.chmod(key_path, 0o600)
+        return key
+
+app.config['SECRET_KEY'] = _get_secret_key()
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'usurper.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
