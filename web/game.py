@@ -614,9 +614,18 @@ def daily_maintenance(player):
         interest = max(1, player.bank_gold // 100)
         player.bank_gold += interest
 
+    # Bank guard wage accrual
+    accumulate_bank_wages(player)
+
     # Run global maintenance tasks once (keyed off this player trigger)
     quest_maintenance()
     pregnancy_maintenance()
+    god_maintenance()
+
+    # Royal guard salary payments
+    king_record = KingRecord.query.filter_by(is_current=True).first()
+    if king_record:
+        pay_royal_guard_salaries(king_record)
 
     return True
 
@@ -961,6 +970,9 @@ def king_hire_moat_creatures(king_record, creature_id, count, funding='treasury'
     if not creature:
         return False, "Unknown creature type."
 
+    if count < 1:
+        return False, "Must purchase at least one creature."
+
     max_moat = 100
     if king_record.moat_guards + count > max_moat:
         return False, f"Maximum {max_moat} creatures in the moat. You have {king_record.moat_guards}."
@@ -998,6 +1010,8 @@ def king_remove_moat_creatures(king_record, count):
     """Remove creatures from the moat."""
     if king_record.moat_guards <= 0:
         return False, "There are no creatures in the moat."
+    if count < 1:
+        return False, "Must remove at least one creature."
     if count > king_record.moat_guards:
         count = king_record.moat_guards
 
