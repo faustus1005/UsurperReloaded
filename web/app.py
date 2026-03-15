@@ -1060,8 +1060,10 @@ def castle():
         KingRecord.dethroned_at.desc()).limit(10).all()
     prisoners = Player.query.filter_by(is_imprisoned=True).all() if (king and king.id == player.id) else []
 
+    castle_name = GameConfig.get('castle_name', 'The Royal Castle')
     return render_template('castle.html', king=king, king_record=king_record,
-                           history=history, prisoners=prisoners)
+                           history=history, prisoners=prisoners,
+                           castle_name=castle_name)
 
 
 @app.route('/castle/challenge', methods=['POST'])
@@ -1264,7 +1266,9 @@ def tavern():
         return redirect(url_for('main_menu'))
 
     drink_cost = 10 + player.level * 2
-    return render_template('tavern.html', drink_cost=drink_cost)
+    tavern_name = GameConfig.get('tavern_name', "Bob's Tavern")
+    return render_template('tavern.html', drink_cost=drink_cost,
+                           tavern_name=tavern_name)
 
 
 @app.route('/tavern/brawl', methods=['POST'])
@@ -1391,6 +1395,14 @@ def beauty_nest_visit(index):
     if not player:
         return redirect(url_for('create_character'))
 
+    if GameConfig.get('beauty_nest_enabled', 'true').lower() != 'true':
+        flash("This establishment is currently closed.", 'error')
+        return redirect(url_for('main_menu'))
+
+    if player.is_imprisoned:
+        flash("You cannot visit while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+
     success, msg, log = game_logic.beauty_nest_visit(player, index)
     db.session.commit()
 
@@ -1424,9 +1436,11 @@ def love_corner():
     ).order_by(Player.name).all()
 
     married_couples = Relationship.query.filter_by(rel_type='married').all()
+    love_corner_name = GameConfig.get('love_corner_name', 'The Love Corner')
     return render_template('love_corner.html', relationships=relationships,
                            spouse=spouse, proposals=proposals, players_list=players_list,
-                           married_couples=married_couples)
+                           married_couples=married_couples,
+                           love_corner_name=love_corner_name)
 
 
 @app.route('/love_corner/propose', methods=['POST'])
@@ -1995,7 +2009,9 @@ def temple():
     gods = God.query.filter_by(is_active=True).order_by(God.experience.desc()).all()
     current_god = God.query.filter_by(name=player.god_name).first() if player.god_name else None
 
-    return render_template('temple.html', gods=gods, current_god=current_god)
+    temple_name = GameConfig.get('temple_name', 'Temple of the Gods')
+    return render_template('temple.html', gods=gods, current_god=current_god,
+                           temple_name=temple_name)
 
 
 @app.route('/temple/worship', methods=['POST'])
@@ -2107,7 +2123,9 @@ def shady_dealer():
         return redirect(url_for('create_character'))
 
     items = Item.query.filter_by(in_shop=True, shop_category='shady').order_by(Item.value).all()
-    return render_template('dark_alley.html', items=items, player=player)
+    dark_alley_name = GameConfig.get('dark_alley_name', 'The Dark Alley')
+    return render_template('dark_alley.html', items=items, player=player,
+                           dark_alley_name=dark_alley_name)
 
 
 @app.route('/shop/alchemist')

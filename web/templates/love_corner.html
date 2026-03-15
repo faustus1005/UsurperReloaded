@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% from "macros.html" import location_img %}
-{% block title_suffix %} - Love Corner{% endblock %}
+{% block title_suffix %} - {{ love_corner_name }}{% endblock %}
 {% block content %}
 <div class="panel">
-    <div class="panel-header">The Love Corner</div>
+    <div class="panel-header">{{ love_corner_name }}</div>
     <div class="panel-body">
         {{ location_img('love_corner') }}
         <p class="text-secondary mb-2">
