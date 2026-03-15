@@ -1,6 +1,6 @@
 """Seed the database with monsters, items, default configuration, and NPCs."""
 
-from models import db, Monster, Item, GameConfig, Player, God, MoatCreature, DoorGuard
+from models import db, Monster, Item, GameConfig, Player, God, MoatCreature, DoorGuard, Drink
 
 
 def seed_config():
@@ -62,6 +62,13 @@ def seed_config():
         'love_corner_name': 'The Love Corner',
         # Scrolling text
         'scrolling_text': '',
+        # Orb's Bar
+        'drinks_per_day': '3',
+        'max_drinks': '50',
+        # Prison
+        'prison_escape_attempts': '2',
+        # Bank
+        'bank_robbery_attempts': '1',
     }
     for key, value in defaults.items():
         existing = GameConfig.query.filter_by(key=key).first()

@@ -69,6 +69,27 @@ CLASS_BONUSES = {
 # Classes that can cast spells
 SPELLCASTER_CLASSES = ['Alchemist', 'Cleric', 'Magician', 'Monk', 'Necromancer', 'Paladin', 'Sage', 'Witch Hunter']
 
+# Orb's Bar drink ingredients: (attribute_name, display_name)
+DRINK_INGREDIENTS = [
+    ('bat_brain', 'Bat Brain'),
+    ('honeydew', 'Honeydew'),
+    ('orange_juice', 'Orange Juice'),
+    ('tabasco', 'Tabasco'),
+    ('ale', 'Ale'),
+    ('hedgehog_saliva', 'Hedgehog Saliva'),
+    ('water', 'Water'),
+    ('horse_blood', 'Horse Blood'),
+    ('bobs_bomber', "Bob's Bomber"),
+    ('troll_rum', 'Troll Rum'),
+    ('elf_water', 'Elf Water'),
+    ('kicking_squaw', 'Kicking Squaw'),
+    ('milk', 'Milk'),
+    ('wine_vinegar', 'Wine Vinegar'),
+    ('snake_spit', 'Snake Spit'),
+    ('duck_dropping', 'Duck Dropping'),
+    ('chilipeppar', 'Chilipeppar'),
+]
+
 # Experience required per level (100 levels, exponential curve)
 LEVEL_XP = {
     1: 0, 2: 100, 3: 300, 4: 700, 5: 1500,
@@ -365,9 +386,16 @@ class Player(db.Model):
     is_bank_guard = db.Column(db.Boolean, default=False)  # employed as bank guard
     bank_wage = db.Column(db.Integer, default=0)  # accumulated salary from bank
 
+    # Orb's Bar
+    drinks_remaining = db.Column(db.Integer, default=3)  # drinks per day at Orb's
+
     # Door guards (protect player when offline at inn)
     door_guard_id = db.Column(db.Integer, db.ForeignKey('door_guards.id'), nullable=True)
     door_guard_count = db.Column(db.Integer, default=0)  # number of door guards hired
+
+    # Prison escape
+    prison_days = db.Column(db.Integer, default=0)  # days left in prison
+    escape_attempts = db.Column(db.Integer, default=0)  # escape attempts used today
 
     # God/religion
     god_name = db.Column(db.String(30), default='')  # name of deity worshipped
@@ -655,6 +683,49 @@ class TeamMember(db.Model):
     joined_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     player = db.relationship('Player', backref='team_membership')
+
+
+class Drink(db.Model):
+    """Custom drinks created at Orb's Bar."""
+    __tablename__ = 'drinks'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(30), nullable=False)
+    creator_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=True)
+    creator_name = db.Column(db.String(50), default='')
+    comment = db.Column(db.String(70), default='')
+    times_ordered = db.Column(db.Integer, default=0)
+    last_customer = db.Column(db.String(50), default='')
+    secret = db.Column(db.Boolean, default=False)  # recipe hidden?
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    # Ingredient amounts (0-100 each, total must equal 100)
+    bat_brain = db.Column(db.Integer, default=0)
+    honeydew = db.Column(db.Integer, default=0)
+    orange_juice = db.Column(db.Integer, default=0)
+    tabasco = db.Column(db.Integer, default=0)
+    ale = db.Column(db.Integer, default=0)
+    hedgehog_saliva = db.Column(db.Integer, default=0)
+    water = db.Column(db.Integer, default=0)
+    horse_blood = db.Column(db.Integer, default=0)
+    bobs_bomber = db.Column(db.Integer, default=0)
+    troll_rum = db.Column(db.Integer, default=0)
+    elf_water = db.Column(db.Integer, default=0)
+    kicking_squaw = db.Column(db.Integer, default=0)
+    milk = db.Column(db.Integer, default=0)
+    wine_vinegar = db.Column(db.Integer, default=0)
+    snake_spit = db.Column(db.Integer, default=0)
+    duck_dropping = db.Column(db.Integer, default=0)
+    chilipeppar = db.Column(db.Integer, default=0)
+
+    creator = db.relationship('Player', backref='created_drinks', foreign_keys=[creator_id])
+
+    def get_ingredients(self):
+        """Return dict of ingredient_name: amount for non-zero ingredients."""
+        return {name: getattr(self, attr) for attr, name in DRINK_INGREDIENTS
+                if getattr(self, attr) > 0}
+
+    def total_amount(self):
+        return sum(getattr(self, attr) for attr, _ in DRINK_INGREDIENTS)
 
 
 class DoorGuard(db.Model):

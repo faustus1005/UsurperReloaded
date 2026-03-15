@@ -21,9 +21,10 @@ from models import (
     db, User, Player, Item, InventoryItem, Monster, Mail, NewsEntry,
     GameConfig, Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem,
-    MoatCreature, RoyalGuard, DoorGuard,
+    MoatCreature, RoyalGuard, DoorGuard, Drink,
     RACES, CLASSES, RACE_BONUSES, CLASS_BONUSES,
-    SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, ITEM_TYPES
+    SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, ITEM_TYPES,
+    DRINK_INGREDIENTS
 )
 import game as game_logic
 from seed import seed_all
@@ -146,6 +147,7 @@ def inject_game_data():
         'scrolling_text': scrolling_text,
         'recent_scroll_news': recent_scroll_news,
         'get_location_image': lambda key: GameConfig.get(f'image_{key}', ''),
+        'config': GameConfig,
     }
 
 
@@ -1664,6 +1666,160 @@ def drink_result():
     return render_template('brawl_result.html', combat_log=log)
 
 
+# ==================== ORB'S BAR ====================
+
+@app.route('/orbs-bar')
+@login_required
+def orbs_bar():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot visit the bar while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    drinks = Drink.query.order_by(Drink.times_ordered.desc()).all()
+    players = Player.query.filter(Player.id != player.id).order_by(Player.name).all()
+    bartender = GameConfig.get('bartender_name', 'Sly')
+    return render_template('orbs_bar.html', drinks=drinks, player=player,
+                           bartender=bartender, players=players,
+                           ingredients=DRINK_INGREDIENTS)
+
+
+@app.route('/orbs-bar/create', methods=['POST'])
+@login_required
+def create_drink():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    name = request.form.get('name', '').strip()
+    comment = request.form.get('comment', '').strip()
+    secret = request.form.get('secret') == 'on'
+    ingredients = {}
+    for attr, _ in DRINK_INGREDIENTS:
+        val = int(request.form.get(attr, 0) or 0)
+        if val > 0:
+            ingredients[attr] = val
+    success, msg = game_logic.create_drink(player, name, comment, secret, ingredients)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('orbs_bar'))
+
+
+@app.route('/orbs-bar/order/<int:drink_id>', methods=['POST'])
+@login_required
+def order_drink(drink_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.order_drink(player, drink_id)
+    if success and log:
+        session['drink_effect_log'] = log
+        return redirect(url_for('drink_effect_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('orbs_bar'))
+
+
+@app.route('/orbs-bar/drink_result')
+@login_required
+def drink_effect_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('drink_effect_log', [])
+    return render_template('brawl_result.html', combat_log=log)
+
+
+@app.route('/orbs-bar/send', methods=['POST'])
+@login_required
+def send_drink():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    drink_id = int(request.form.get('drink_id', 0))
+    receiver_id = int(request.form.get('receiver_id', 0))
+    success, msg = game_logic.send_drink(player, receiver_id, drink_id)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('orbs_bar'))
+
+
+# ==================== PICK-POCKETING ====================
+
+@app.route('/pickpocket', methods=['POST'])
+@login_required
+def pickpocket():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    target_id = int(request.form.get('target_id', 0))
+    success, msg, log = game_logic.pickpocket(player, target_id)
+    if success and log:
+        session['pickpocket_log'] = log
+        return redirect(url_for('pickpocket_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('shady_dealer'))
+
+
+@app.route('/pickpocket/result')
+@login_required
+def pickpocket_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('pickpocket_log', [])
+    return render_template('brawl_result.html', combat_log=log)
+
+
+# ==================== BANK ROBBERY ====================
+
+@app.route('/bank/rob', methods=['POST'])
+@login_required
+def rob_bank():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.rob_bank(player)
+    if success and log:
+        session['robbery_log'] = log
+        return redirect(url_for('robbery_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('bank'))
+
+
+@app.route('/bank/rob/result')
+@login_required
+def robbery_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('robbery_log', [])
+    return render_template('brawl_result.html', combat_log=log)
+
+
+# ==================== PRISON ESCAPE ====================
+
+@app.route('/prison/escape', methods=['POST'])
+@login_required
+def prison_escape():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.escape_prison(player)
+    if success and log:
+        session['escape_log'] = log
+        return redirect(url_for('escape_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('main_menu'))
+
+
+@app.route('/prison/escape/result')
+@login_required
+def escape_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('escape_log', [])
+    return render_template('brawl_result.html', combat_log=log)
+
+
 # ==================== BOUNTY BOARD ====================
 
 @app.route('/bounty')
@@ -2471,8 +2627,9 @@ def shady_dealer():
 
     items = Item.query.filter_by(in_shop=True, shop_category='shady').order_by(Item.value).all()
     dark_alley_name = GameConfig.get('dark_alley_name', 'The Dark Alley')
+    targets = Player.query.filter(Player.id != player.id, Player.hp > 0).order_by(Player.name).all()
     return render_template('dark_alley.html', items=items, player=player,
-                           dark_alley_name=dark_alley_name)
+                           dark_alley_name=dark_alley_name, targets=targets)
 
 
 @app.route('/shop/alchemist')
@@ -2673,6 +2830,7 @@ def admin_dashboard():
         'total_gods': God.query.count(),
         'total_door_guards': DoorGuard.query.count(),
         'total_moat_creatures': MoatCreature.query.count(),
+        'total_drinks': Drink.query.count(),
     }
     king = Player.query.filter_by(is_king=True).first()
     return render_template('admin/dashboard.html', stats=stats, king=king)
@@ -2724,6 +2882,15 @@ def admin_config():
         'Economy': [
             ('bank_interest_rate', 'Bank Interest Rate (%)', 'number'),
             ('max_players', 'Max Players', 'number'),
+            ('bank_robbery_attempts', 'Bank Robbery Attempts Per Day', 'number'),
+        ],
+        "Orb's Bar": [
+            ('bartender_name', 'Bartender Name', 'text'),
+            ('drinks_per_day', 'Drinks Per Day', 'number'),
+            ('max_drinks', 'Max Custom Drinks', 'number'),
+        ],
+        'Prison': [
+            ('prison_escape_attempts', 'Escape Attempts Per Day', 'number'),
         ],
         'Beauty Nest': [
             ('beauty_nest_name', 'Establishment Name', 'text'),
@@ -3391,6 +3558,78 @@ def admin_delete_moat_creature(creature_id):
         db.session.commit()
         flash(f'Moat creature "{creature.name}" deleted.', 'success')
     return redirect(url_for('admin_moat_creatures'))
+
+
+# ==================== ADMIN: DRINKS ====================
+
+@app.route('/admin/drinks')
+@admin_required
+def admin_drinks():
+    """List all custom drinks for editing."""
+    drinks = Drink.query.order_by(Drink.times_ordered.desc()).all()
+    return render_template('admin/drinks.html', drinks=drinks)
+
+
+@app.route('/admin/drinks/<int:drink_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_drink(drink_id):
+    """Edit a drink."""
+    drink = db.session.get(Drink, drink_id)
+    if not drink:
+        flash('Drink not found.', 'error')
+        return redirect(url_for('admin_drinks'))
+
+    if request.method == 'POST':
+        drink.name = request.form.get('name', drink.name).strip()
+        drink.creator_name = request.form.get('creator_name', drink.creator_name).strip()
+        drink.comment = request.form.get('comment', drink.comment).strip()
+        drink.secret = request.form.get('secret') == 'on'
+        drink.times_ordered = int(request.form.get('times_ordered', drink.times_ordered))
+        for attr, _ in DRINK_INGREDIENTS:
+            setattr(drink, attr, int(request.form.get(attr, 0) or 0))
+        db.session.commit()
+        flash(f'Drink "{drink.name}" updated.', 'success')
+        return redirect(url_for('admin_drinks'))
+
+    iv = {attr: getattr(drink, attr, 0) for attr, _ in DRINK_INGREDIENTS}
+    return render_template('admin/edit_drink.html', drink=drink,
+                           ingredients=DRINK_INGREDIENTS, ingredient_values=iv)
+
+
+@app.route('/admin/drinks/new', methods=['GET', 'POST'])
+@admin_required
+def admin_new_drink():
+    """Create a new drink via admin."""
+    if request.method == 'POST':
+        drink = Drink(
+            name=request.form.get('name', 'New Drink').strip(),
+            creator_name=request.form.get('creator_name', 'Admin').strip(),
+            comment=request.form.get('comment', '').strip(),
+            secret=request.form.get('secret') == 'on',
+        )
+        for attr, _ in DRINK_INGREDIENTS:
+            setattr(drink, attr, int(request.form.get(attr, 0) or 0))
+        db.session.add(drink)
+        db.session.commit()
+        flash(f'Drink "{drink.name}" created.', 'success')
+        return redirect(url_for('admin_drinks'))
+
+    drink = Drink(name='', creator_name='Admin', comment='', secret=False)
+    iv = {attr: 0 for attr, _ in DRINK_INGREDIENTS}
+    return render_template('admin/edit_drink.html', drink=drink,
+                           ingredients=DRINK_INGREDIENTS, ingredient_values=iv, is_new=True)
+
+
+@app.route('/admin/drinks/<int:drink_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_drink(drink_id):
+    """Delete a drink."""
+    drink = db.session.get(Drink, drink_id)
+    if drink:
+        db.session.delete(drink)
+        db.session.commit()
+        flash(f'Drink "{drink.name}" deleted.', 'success')
+    return redirect(url_for('admin_drinks'))
 
 
 # ==================== ADMIN: LEVELS ====================

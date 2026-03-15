@@ -6,8 +6,9 @@ from models import (
     db, Player, Monster, Item, InventoryItem, NewsEntry, Mail,
     Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem, GameConfig,
-    MoatCreature, RoyalGuard, DoorGuard,
-    RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES
+    MoatCreature, RoyalGuard, DoorGuard, Drink,
+    RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES,
+    DRINK_INGREDIENTS
 )
 
 
@@ -598,6 +599,8 @@ def daily_maintenance(player):
     player.team_fights = 1
     player.intimacy_acts = 5
     player.beauty_nest_visits = int(GameConfig.get('beauty_nest_visits_per_day', '3') or '3')
+    player.drinks_remaining = int(GameConfig.get('drinks_per_day', '3') or '3')
+    player.escape_attempts = 0
     player.hp = player.max_hp
     player.mana = player.max_mana
     player.last_maintenance = now
@@ -5591,3 +5594,321 @@ def beauty_nest_visit(player, companion_index):
             log.append("Your spouse has been notified of your infidelity...")
 
     return True, f"You visited {nest_name}.", log
+
+
+# ==================== ORB'S BAR ====================
+
+def create_drink(player, name, comment, secret, ingredients):
+    """Create a custom drink at Orb's Bar.
+    ingredients: dict of attr_name -> amount (0-100), must sum to 100.
+    """
+    cost = 2800
+    if player.gold < cost:
+        return False, f"You need {cost} gold to create a drink."
+
+    total = sum(ingredients.values())
+    if total != 100:
+        return False, f"Ingredients must total 100% (currently {total}%)."
+
+    if not name or len(name) > 30:
+        return False, "Drink name must be 1-30 characters."
+
+    # Check max drinks limit
+    max_drinks = int(GameConfig.get('max_drinks', '50') or '50')
+    if Drink.query.count() >= max_drinks:
+        return False, "The drink menu is full! No room for new recipes."
+
+    player.gold -= cost
+    drink = Drink(
+        name=name.strip(),
+        creator_id=player.id,
+        creator_name=player.name,
+        comment=comment.strip()[:70] if comment else '',
+        secret=secret,
+    )
+    for attr, _ in DRINK_INGREDIENTS:
+        setattr(drink, attr, ingredients.get(attr, 0))
+
+    db.session.add(drink)
+    add_news(f"{player.name} created a new cocktail at Orb's Bar: '{name}'!")
+    db.session.commit()
+    return True, f"Your drink '{name}' has been added to the menu!"
+
+
+def order_drink(player, drink_id):
+    """Order and consume a drink from Orb's Bar. Returns (success, msg, log)."""
+    if player.drinks_remaining <= 0:
+        return False, "You've had enough drinks for today.", []
+
+    drink = db.session.get(Drink, drink_id)
+    if not drink:
+        return False, "That drink doesn't exist.", []
+
+    log = []
+    log.append(f"The bartender mixes you a '{drink.name}'...")
+
+    # Check for lethal combinations (matching original)
+    lethal = False
+    death_msg = ""
+
+    if player.player_class == 'Assassin' and drink.troll_rum > 0:
+        lethal = True
+        death_msg = "The Troll Rum reacts fatally with your assassin's constitution!"
+    elif player.player_class in ('Cleric', 'Jester') and drink.elf_water > 0:
+        lethal = True
+        death_msg = "The Elf Water is pure poison to your kind!"
+    elif drink.tabasco > 80:
+        lethal = True
+        death_msg = "Too much Tabasco! Your insides are on fire!"
+    elif drink.chilipeppar > 80:
+        lethal = True
+        death_msg = "The Chilipeppar burns through your stomach!"
+    elif drink.bat_brain > 70:
+        lethal = True
+        death_msg = "The concentrated Bat Brain drives you mad!"
+    elif drink.horse_blood > 90:
+        lethal = True
+        death_msg = "You choke on the thick Horse Blood!"
+    elif drink.bobs_bomber > 90:
+        lethal = True
+        death_msg = "Bob's Bomber is too concentrated! It explodes in your stomach!"
+    elif drink.snake_spit > 80:
+        lethal = True
+        death_msg = "The Snake Spit is lethal at this concentration!"
+
+    player.drinks_remaining -= 1
+    drink.times_ordered += 1
+    drink.last_customer = player.name
+
+    if lethal:
+        log.append(f"*** {death_msg} ***")
+        log.append(f"{player.name} has died from drinking '{drink.name}'!")
+        player.hp = 0
+        add_news(f"{player.name} died after drinking '{drink.name}' at Orb's Bar!")
+        db.session.commit()
+        return True, death_msg, log
+
+    # Calculate stat bonuses based on ingredient amounts
+    log.append("You feel the drink's effects coursing through you...")
+    bonuses = {}
+
+    for attr, name in DRINK_INGREDIENTS:
+        amount = getattr(drink, attr)
+        if amount == 0:
+            continue
+        if amount <= 10:
+            bonuses['stamina'] = bonuses.get('stamina', 0) + random.randint(0, 1)
+            bonuses['charisma'] = bonuses.get('charisma', 0) + random.randint(0, 1)
+        elif amount <= 25:
+            bonuses['agility'] = bonuses.get('agility', 0) + random.randint(0, 1)
+            bonuses['dexterity'] = bonuses.get('dexterity', 0) + random.randint(0, 1)
+            bonuses['wisdom'] = bonuses.get('wisdom', 0) + random.randint(0, 1)
+        elif amount <= 50:
+            bonuses['stamina'] = bonuses.get('stamina', 0) + random.randint(0, 2)
+            bonuses['darkness'] = bonuses.get('darkness', 0) + random.randint(0, 50)
+        elif amount <= 75:
+            bonuses['strength'] = bonuses.get('strength', 0) + random.randint(0, 1)
+            bonuses['defence'] = bonuses.get('defence', 0) + random.randint(0, 1)
+            bonuses['wisdom'] = bonuses.get('wisdom', 0) + random.randint(0, 1)
+        elif amount <= 90:
+            bonuses['agility'] = bonuses.get('agility', 0) + random.randint(0, 2)
+            bonuses['charisma'] = bonuses.get('charisma', 0) + random.randint(0, 1)
+            bonuses['chivalry'] = bonuses.get('chivalry', 0) + random.randint(0, 30)
+        else:  # 91-100
+            bonuses['stamina'] = bonuses.get('stamina', 0) + random.randint(0, 3)
+            bonuses['charisma'] = bonuses.get('charisma', 0) + random.randint(0, 2)
+            bonuses['wisdom'] = bonuses.get('wisdom', 0) + random.randint(0, 2)
+
+    # Apply bonuses
+    stat_attrs = ['strength', 'defence', 'stamina', 'agility', 'charisma', 'dexterity', 'wisdom']
+    for stat in stat_attrs:
+        val = bonuses.get(stat, 0)
+        if val > 0:
+            setattr(player, stat, getattr(player, stat) + val)
+            log.append(f"  +{val} {stat.capitalize()}")
+    if bonuses.get('darkness', 0) > 0:
+        player.darkness += bonuses['darkness']
+        log.append(f"  +{bonuses['darkness']} Darkness")
+    if bonuses.get('chivalry', 0) > 0:
+        player.chivalry += bonuses['chivalry']
+        log.append(f"  +{bonuses['chivalry']} Chivalry")
+
+    # 10% chance of combat training bonus
+    if random.random() < 0.10:
+        xp_bonus = player.level * 700
+        player.experience += xp_bonus
+        log.append(f"The drink inspires you! +{xp_bonus} XP from combat insight!")
+
+    log.append(f"AWESOME! You enjoyed '{drink.name}'!")
+    add_news(f"{player.name} enjoyed '{drink.name}' at Orb's Bar.")
+    db.session.commit()
+    return True, f"You enjoyed '{drink.name}'!", log
+
+
+def send_drink(sender, receiver_id, drink_id):
+    """Send a free drink to another player via mail."""
+    drink = db.session.get(Drink, drink_id)
+    receiver = db.session.get(Player, receiver_id)
+    if not drink or not receiver:
+        return False, "Invalid drink or player."
+    cost = 50 + drink.times_ordered  # small cost to send
+    if sender.gold < cost:
+        return False, f"You need {cost} gold to send a drink."
+    sender.gold -= cost
+    mail = Mail(
+        sender_id=sender.id,
+        receiver_id=receiver.id,
+        subject=f"A drink from {sender.name}!",
+        message=f"{sender.name} has sent you a '{drink.name}' from Orb's Bar!"
+    )
+    db.session.add(mail)
+    db.session.commit()
+    return True, f"You sent '{drink.name}' to {receiver.name}!"
+
+
+# ==================== PICK-POCKETING ====================
+
+def pickpocket(player, target_id):
+    """Attempt to pick-pocket another player. Returns (success, msg, log)."""
+    if player.thefts_remaining <= 0:
+        return False, "You've used all your theft attempts for today.", []
+
+    target = db.session.get(Player, target_id)
+    if not target:
+        return False, "Target not found.", []
+    if target.id == player.id:
+        return False, "You can't steal from yourself.", []
+
+    player.thefts_remaining -= 1
+    log = []
+    log.append(f"You creep up behind {target.name}...")
+
+    # Success based on dexterity and agility vs target's
+    skill = player.dexterity + player.agility + random.randint(0, 20)
+    defence = target.dexterity + target.agility + random.randint(0, 30)
+
+    if skill > defence:
+        # Successful theft
+        max_steal = max(1, target.gold // 4)
+        stolen = random.randint(1, max(1, max_steal))
+        if stolen > target.gold:
+            stolen = target.gold
+        if stolen <= 0:
+            log.append(f"{target.name} has no gold to steal!")
+            return True, f"{target.name} is broke!", log
+
+        player.gold += stolen
+        target.gold -= stolen
+        player.darkness += random.randint(5, 20)
+        log.append(f"SUCCESS! You stole {stolen} gold from {target.name}!")
+
+        # Notify victim
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=target.id,
+            subject="You've been robbed!",
+            message=f"Someone stole {stolen} gold from you while you weren't looking!"
+        )
+        db.session.add(mail)
+        add_news(f"A thief struck in the dark alley! {target.name} lost gold!")
+        db.session.commit()
+        return True, f"You stole {stolen} gold!", log
+    else:
+        # Failed - caught!
+        log.append(f"CAUGHT! {target.name}'s guards spot you!")
+        fine = random.randint(10, 50) * player.level
+        if fine > player.gold:
+            fine = player.gold
+        player.gold -= fine
+        player.darkness += random.randint(1, 5)
+        log.append(f"You were fined {fine} gold!")
+        add_news(f"{player.name} was caught trying to pickpocket {target.name}!")
+        db.session.commit()
+        return True, "You were caught!", log
+
+
+# ==================== BANK ROBBERY ====================
+
+def rob_bank(player):
+    """Attempt to rob the bank. Returns (success, msg, log)."""
+    log = []
+    log.append("You sneak into the bank vault...")
+
+    # Calculate robbery difficulty
+    success_chance = (player.dexterity + player.agility + player.level * 2) / 300
+    success_chance = min(0.35, max(0.05, success_chance))  # 5-35% chance
+
+    player.darkness += random.randint(10, 50)
+
+    if random.random() < success_chance:
+        # Successful robbery
+        loot = random.randint(500, 2000) * player.level
+        player.gold += loot
+        log.append(f"SUCCESS! You grabbed {loot} gold from the vault!")
+
+        # Bank guards may pursue
+        guards = Player.query.filter_by(is_bank_guard=True).all()
+        if guards:
+            guard = random.choice(guards)
+            log.append(f"Bank guard {guard.name} gives chase!")
+            # Simple escape check
+            escape = player.agility + random.randint(0, 50)
+            catch = guard.agility + guard.strength + random.randint(0, 30)
+            if escape > catch:
+                log.append("You outrun the guard and escape!")
+            else:
+                lost = loot // 2
+                player.gold -= lost
+                log.append(f"The guard catches you and recovers {lost} gold!")
+                loot -= lost
+
+        add_news(f"The bank was robbed! {loot} gold was stolen!")
+        db.session.commit()
+        return True, f"You robbed {loot} gold from the bank!", log
+    else:
+        # Failed robbery
+        log.append("CAUGHT! The bank guards seize you!")
+        fine = random.randint(100, 500) * player.level
+        if fine > player.gold:
+            fine = player.gold
+        player.gold -= fine
+        player.is_imprisoned = True
+        player.prison_days = random.randint(1, 3)
+        log.append(f"You were fined {fine} gold and thrown in prison for {player.prison_days} day(s)!")
+        add_news(f"{player.name} was caught trying to rob the bank and was imprisoned!")
+        db.session.commit()
+        return True, "You were caught and imprisoned!", log
+
+
+# ==================== PRISON ESCAPE ====================
+
+def escape_prison(player):
+    """Attempt to escape from prison. Returns (success, msg, log)."""
+    if not player.is_imprisoned:
+        return False, "You are not imprisoned.", []
+
+    max_attempts = int(GameConfig.get('prison_escape_attempts', '2') or '2')
+    if player.escape_attempts >= max_attempts:
+        return False, f"You've used all {max_attempts} escape attempts today.", []
+
+    player.escape_attempts += 1
+    log = []
+    log.append("You try to pick the lock on your cell...")
+
+    # Escape chance based on dexterity and agility
+    chance = (player.dexterity + player.agility) / 200
+    chance = min(0.40, max(0.05, chance))  # 5-40% chance
+
+    if random.random() < chance:
+        player.is_imprisoned = False
+        player.prison_days = 0
+        log.append("SUCCESS! You pick the lock and slip out into the night!")
+        add_news(f"{player.name} escaped from prison!")
+        db.session.commit()
+        return True, "You escaped!", log
+    else:
+        # Failed - extra day added
+        player.prison_days += 1
+        log.append(f"FAILED! The guards add another day to your sentence. ({player.prison_days} days left)")
+        db.session.commit()
+        return True, "Escape failed!", log
