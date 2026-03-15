@@ -6632,52 +6632,93 @@ def train_combat_move(player, move_name):
 
 
 def gym_barrel_lift(player):
-    """Barrel lifting competition at the gym."""
+    """Barrel lifting competition.
+
+    Strength+Stamina based, random number of barrels.
+    Updates barrel_lift_record. Requires gym_sessions > 0.
+    """
     if player.gym_sessions <= 0:
-        return {'success': False, 'message': 'No gym sessions remaining today.'}
+        return {'success': False, 'message': 'You have no gym sessions remaining today.', 'log': []}
 
     player.gym_sessions -= 1
-    barrels = (player.strength + player.stamina) // 5 + random.randint(1, 10)
-    xp = barrels * player.level * 5
+    log = []
+    log.append("You step up to the barrel lifting platform!")
 
-    is_record = barrels > player.barrel_lift_record
-    if is_record:
-        player.barrel_lift_record = barrels
-        record = BarrelLiftRecord(
-            player_id=player.id, player_name=player.name, barrels=barrels
-        )
-        db.session.add(record)
-        add_news(player, 'general', f'{player.name} set a new barrel lifting record: {barrels} barrels!')
+    barrels_lifted = 0
+    max_barrels = random.randint(5, 20)
+    base_ability = player.strength + player.stamina
 
-    player.experience += xp
-    # Strength training bonus
-    if random.randint(1, 5) == 1:
-        player.strength += 1
+    for i in range(max_barrels):
+        difficulty = (i + 1) * 10 + random.randint(0, 15)
+        lift_roll = base_ability + random.randint(1, 30) - (i * 3)  # gets harder each barrel
+
+        if lift_roll >= difficulty:
+            barrels_lifted += 1
+            log.append(f"Barrel #{i+1}: LIFTED! (strain increasing...)")
+        else:
+            log.append(f"Barrel #{i+1}: You can't lift it! Your arms give out.")
+            break
+
+    log.append(f"\nTotal barrels lifted: {barrels_lifted}")
+
+    # Update personal record
+    is_record = False
+    if barrels_lifted > player.barrel_lift_record:
+        player.barrel_lift_record = barrels_lifted
+        is_record = True
+        log.append("NEW PERSONAL RECORD!")
+
+    # Stat gains
+    str_gain = barrels_lifted // 5
+    sta_gain = barrels_lifted // 7
+    if str_gain > 0:
+        player.strength += str_gain
+        log.append(f"Strength increased by {str_gain}!")
+    if sta_gain > 0:
+        player.stamina += sta_gain
+        log.append(f"Stamina increased by {sta_gain}!")
+
+    # Save to leaderboard
+    record = BarrelLiftRecord(
+        player_id=player.id,
+        player_name=player.name,
+        barrels=barrels_lifted
+    )
+    db.session.add(record)
+
+    if is_record and barrels_lifted >= 10:
+        add_news(f"{player.name} set a personal barrel lift record of {barrels_lifted}!")
+
     db.session.commit()
-
     return {
-        'success': True, 'barrels': barrels, 'xp': xp, 'is_record': is_record,
-        'message': f'You lifted {barrels} barrels! +{xp} XP.' + (' NEW RECORD!' if is_record else '')
+        'success': True,
+        'message': f'You lifted {barrels_lifted} barrels!',
+        'log': log,
+        'barrels': barrels_lifted,
+        'is_record': is_record,
     }
 
 
 def gym_massage(player):
-    """Massage at the gym - restores HP and provides stat recovery."""
+    """Massage at the gym. Restores some HP and stamina. Requires massage_visits > 0."""
     if player.massage_visits <= 0:
-        return {'success': False, 'message': 'No massage visits remaining today.'}
+        return {'success': False, 'message': 'You have no massage visits remaining today.'}
 
     player.massage_visits -= 1
-    heal = min(player.max_hp - player.hp, player.max_hp // 4 + random.randint(10, 30))
-    player.hp = min(player.max_hp, player.hp + heal)
 
-    # Small chance of stat boost
-    stat_msg = ''
-    if random.randint(1, 4) == 1:
-        player.stamina += 1
-        stat_msg = ' Your stamina improved!'
+    hp_restore = random.randint(10, 30) + player.level * 2
+    sta_restore = random.randint(2, 8)
+
+    player.hp = min(player.max_hp, player.hp + hp_restore)
+    player.stamina += sta_restore
 
     db.session.commit()
-    return {'success': True, 'message': f'The massage restored {heal} HP.{stat_msg}', 'healed': heal}
+    return {
+        'success': True,
+        'message': f"The masseuse works out your aches. Restored {hp_restore} HP and {sta_restore} stamina.",
+        'hp_restored': hp_restore,
+        'stamina_restored': sta_restore,
+    }
 
 
 def groggo_disease(player, target_id):
