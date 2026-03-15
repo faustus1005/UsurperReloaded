@@ -9,6 +9,7 @@
         <a href="{{ url_for('admin_items') }}" class="admin-nav-link {% if request.endpoint in ('admin_items', 'admin_edit_item', 'admin_new_item') %}active{% endif %}">Items</a>
         <a href="{{ url_for('admin_monsters') }}" class="admin-nav-link {% if request.endpoint in ('admin_monsters', 'admin_edit_monster', 'admin_new_monster') %}active{% endif %}">Monsters</a>
         <a href="{{ url_for('admin_players') }}" class="admin-nav-link {% if request.endpoint in ('admin_players', 'admin_edit_player') %}active{% endif %}">Players</a>
+        <a href="{{ url_for('admin_teams') }}" class="admin-nav-link {% if request.endpoint in ('admin_teams', 'admin_edit_team', 'admin_new_team') %}active{% endif %}">Teams</a>
         <a href="{{ url_for('admin_gods') }}" class="admin-nav-link {% if request.endpoint in ('admin_gods', 'admin_edit_god', 'admin_new_god') %}active{% endif %}">Gods</a>
         <a href="{{ url_for('admin_door_guards') }}" class="admin-nav-link {% if request.endpoint in ('admin_door_guards', 'admin_edit_door_guard', 'admin_new_door_guard') %}active{% endif %}">Door Guards</a>
         <a href="{{ url_for('admin_moat_creatures') }}" class="admin-nav-link {% if request.endpoint in ('admin_moat_creatures', 'admin_edit_moat_creature', 'admin_new_moat_creature') %}active{% endif %}">Moat Creatures</a>
