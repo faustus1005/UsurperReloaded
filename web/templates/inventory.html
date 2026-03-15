@@ -8,7 +8,7 @@
             {% for slot in EQUIPMENT_SLOTS %}
             <div class="equipment-slot">
                 <div>
-                    <span class="slot-name">{{ slot|replace('_', ' ') }}</span><br>
+                    <span class="slot-name">{{ EQUIPMENT_SLOT_LABELS.get(slot, slot|replace('_', ' ')) }}</span><br>
                     {% if equipped[slot] %}
                     <span class="item-name">{{ equipped[slot].name }}</span>
                     {% else %}

@@ -10,6 +10,7 @@
     {% if current_user.is_authenticated and player %}
     <header class="game-header">
         <div class="container header-content">
+            {% set in_active_event = session.get('combat_monster') or session.get('dungeon_event') %}
             <a href="{{ url_for('main_menu') }}" class="game-title">USURPER</a>
             <div class="player-bar">
                 <span class="stat">
@@ -27,7 +28,11 @@
                 <span class="stat gold-display">
                     {{ player.gold }}g
                 </span>
+                {% if in_active_event %}
+                <span class="return-to-town disabled" title="Cannot return to town during combat or events">Return to Town</span>
+                {% else %}
                 <a href="{{ url_for('main_menu') }}" class="return-to-town">Return to Town</a>
+                {% endif %}
                 {% if is_admin %}<a href="{{ url_for('admin_dashboard') }}" class="nav-link admin-link">Admin</a>{% endif %}
                 <a href="{{ url_for('logout') }}" class="nav-link">Quit</a>
             </div>

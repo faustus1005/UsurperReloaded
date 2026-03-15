@@ -546,6 +546,16 @@ def equip_item(player, inventory_item_id):
     if not item.can_be_used_by(player):
         return False, "You cannot use this item."
 
+    # Rings can go in either finger slot - pick the best one
+    if item.item_type == 'Fingers':
+        if not player.equipped_finger1:
+            slot = 'finger1'
+        elif not player.equipped_finger2:
+            slot = 'finger2'
+        else:
+            # Both occupied - replace finger1
+            slot = 'finger1'
+
     # If something is already equipped in this slot, return it to inventory
     old_item_id = getattr(player, f'equipped_{slot}', None)
     if old_item_id:

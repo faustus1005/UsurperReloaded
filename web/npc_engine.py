@@ -159,22 +159,33 @@ def equip_npc_for_level(npc):
     """Give an NPC appropriate equipment for their level."""
     # Find best affordable items for each slot
     for slot in ['weapon', 'body', 'shield', 'head', 'hands', 'feet', 'arms',
-                 'legs', 'waist', 'neck', 'face', 'around_body']:
+                 'legs', 'waist', 'neck', 'face', 'around_body',
+                 'finger1', 'finger2']:
         item_type_map = {
             'weapon': 'Weapon', 'body': 'Body', 'shield': 'Shield',
             'head': 'Head', 'hands': 'Hands', 'feet': 'Feet',
             'arms': 'Arms', 'legs': 'Legs', 'waist': 'Waist',
             'neck': 'Neck', 'face': 'Face', 'around_body': 'Around Body',
+            'finger1': 'Fingers', 'finger2': 'Fingers',
         }
         item_type = item_type_map.get(slot)
         if not item_type:
             continue
 
+        # For finger2, exclude the item already equipped in finger1
+        exclude_id = None
+        if slot == 'finger2' and npc.equipped_finger1:
+            exclude_id = npc.equipped_finger1
+
         # Find best item for this level
-        items = Item.query.filter(
+        query = Item.query.filter(
             Item.item_type == item_type,
             Item.min_level <= npc.level,
-        ).order_by(
+        )
+        if exclude_id:
+            query = query.filter(Item.id != exclude_id)
+
+        items = query.order_by(
             (Item.attack_bonus + Item.armor_bonus).desc()
         ).all()
 
@@ -224,7 +235,8 @@ def npc_buy_equipment(npc):
 
     bought_something = False
     slot_order = ['weapon', 'body', 'shield', 'head', 'hands', 'feet',
-                  'arms', 'legs', 'waist', 'neck', 'face', 'around_body']
+                  'arms', 'legs', 'waist', 'neck', 'face', 'around_body',
+                  'finger1', 'finger2']
 
     for slot in slot_order:
         if random.randint(0, 2) != 0:  # 1/3 chance per slot
@@ -235,6 +247,7 @@ def npc_buy_equipment(npc):
             'head': 'Head', 'hands': 'Hands', 'feet': 'Feet',
             'arms': 'Arms', 'legs': 'Legs', 'waist': 'Waist',
             'neck': 'Neck', 'face': 'Face', 'around_body': 'Around Body',
+            'finger1': 'Fingers', 'finger2': 'Fingers',
         }
         item_type = item_type_map.get(slot)
         if not item_type:

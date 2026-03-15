@@ -28,8 +28,18 @@ ITEM_TYPES = [
 
 EQUIPMENT_SLOTS = [
     'weapon', 'shield', 'head', 'body', 'arms', 'hands',
-    'legs', 'feet', 'waist', 'neck', 'face', 'around_body'
+    'legs', 'feet', 'waist', 'neck', 'face', 'around_body',
+    'finger1', 'finger2'
 ]
+
+# Display names for equipment slots
+EQUIPMENT_SLOT_LABELS = {
+    'weapon': 'Weapon', 'shield': 'Shield', 'head': 'Head',
+    'body': 'Body', 'arms': 'Arms', 'hands': 'Hands',
+    'legs': 'Legs', 'feet': 'Feet', 'waist': 'Waist',
+    'neck': 'Neck', 'face': 'Face', 'around_body': 'Around Body',
+    'finger1': 'Ring 1', 'finger2': 'Ring 2',
+}
 
 # Race stat bonuses: [str, def, sta, agi, cha, dex, wis, hp_bonus, mana_bonus]
 RACE_BONUSES = {
@@ -437,6 +447,8 @@ class Player(db.Model):
     equipped_neck = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
     equipped_face = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
     equipped_around_body = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
+    equipped_finger1 = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
+    equipped_finger2 = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
 
     # Phrases
     phrase_attacked = db.Column(db.String(70), default='')
@@ -577,12 +589,18 @@ class Item(db.Model):
         return True
 
     def get_slot(self):
-        """Map item_type to equipment slot name."""
+        """Map item_type to equipment slot name.
+
+        For 'Fingers' items, returns 'finger1' as the default slot.
+        The equip logic handles placing rings in finger2 when finger1
+        is occupied.
+        """
         slot_map = {
             'Weapon': 'weapon', 'Shield': 'shield', 'Head': 'head',
             'Body': 'body', 'Arms': 'arms', 'Hands': 'hands',
             'Legs': 'legs', 'Feet': 'feet', 'Waist': 'waist',
             'Neck': 'neck', 'Face': 'face', 'Around Body': 'around_body',
+            'Fingers': 'finger1',
         }
         return slot_map.get(self.item_type)
 
