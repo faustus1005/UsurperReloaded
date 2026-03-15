@@ -1,0 +1,121 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">{{ 'Edit Team: ' ~ team.name if team else 'New Team' }}</div>
+    <div class="panel-body">
+        <form method="POST" action="{{ url_for('admin_edit_team', team_id=team.id) if team else url_for('admin_new_team') }}">
+            <fieldset class="admin-fieldset">
+                <legend>Team Details</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label>Name</label>
+                        <input type="text" name="name" value="{{ team.name if team else '' }}" class="admin-input" required maxlength="30">
+                    </div>
+                    <div class="admin-field">
+                        <label>Leader</label>
+                        <select name="leader_id" class="admin-input" required>
+                            <option value="">-- Select Leader --</option>
+                            {% for p in players %}
+                            <option value="{{ p.id }}" {% if team and team.leader_id == p.id %}selected{% endif %}>{{ p.name }} (Lvl {{ p.level }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                {% if team %}
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label>Wins</label>
+                        <input type="number" name="wins" value="{{ team.wins }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Losses</label>
+                        <input type="number" name="losses" value="{{ team.losses }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Treasury</label>
+                        <input type="number" name="treasury" value="{{ team.treasury }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="town_control" {% if team.town_control %}checked{% endif %}> Town Control</label>
+                    </div>
+                    <div class="admin-field">
+                        <label>Town Control Days</label>
+                        <input type="number" name="town_control_days" value="{{ team.town_control_days }}" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label>Power</label>
+                        <span class="text-gold">{{ team.get_power() }}</span>
+                    </div>
+                </div>
+                {% endif %}
+            </fieldset>
+
+            <div class="admin-form-actions">
+                <button type="submit" class="btn">{{ 'Save Changes' if team else 'Create Team' }}</button>
+                <a href="{{ url_for('admin_teams') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if team %}
+<div class="panel">
+    <div class="panel-header">Members ({{ team.member_count() }})</div>
+    <div class="panel-body">
+        {% if team.members %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Level</th>
+                    <th>Class</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for member in team.members %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('admin_edit_player', player_id=member.player.id) }}">{{ member.player.name }}</a>
+                    </td>
+                    <td>{{ member.player.level }}</td>
+                    <td>{{ member.player.player_class }}</td>
+                    <td>{% if member.player_id == team.leader_id %}<span class="badge badge-gold">Leader</span>{% else %}Member{% endif %}</td>
+                    <td class="text-dim">{{ member.joined_at.strftime('%Y-%m-%d') if member.joined_at else '-' }}</td>
+                    <td>
+                        {% if member.player_id != team.leader_id %}
+                        <form method="POST" class="inline-form" onsubmit="return confirm('Remove {{ member.player.name }} from team?')">
+                            <input type="hidden" name="action" value="remove_member">
+                            <input type="hidden" name="member_id" value="{{ member.id }}">
+                            <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-dim">No members.</p>
+        {% endif %}
+
+        <form method="POST" style="margin-top:10px;">
+            <input type="hidden" name="action" value="add_member">
+            <div class="admin-field-row">
+                <div class="admin-field">
+                    <label>Add Member</label>
+                    <input type="text" name="player_name" placeholder="Player name" class="admin-input" required>
+                </div>
+                <div class="admin-field" style="padding-top:20px;">
+                    <button type="submit" class="btn">Add</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
