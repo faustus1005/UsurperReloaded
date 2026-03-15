@@ -66,6 +66,25 @@
     </div>
 </div>
 
+<div class="panel">
+    <div class="panel-header">Pick-Pocketing</div>
+    <div class="panel-body">
+        <p class="text-dim mb-1">Theft attempts remaining: {{ player.thefts_remaining }}</p>
+        {% if player.thefts_remaining > 0 %}
+        <form method="POST" action="{{ url_for('pickpocket') }}" class="inline-form">
+            <select name="target_id" class="form-control" style="width:auto;">
+                {% for p in targets %}
+                <option value="{{ p.id }}">{{ p.name }} (Lv.{{ p.level }})</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-danger btn-sm">Pick Pocket</button>
+        </form>
+        {% else %}
+        <p class="text-dim">You've used all your theft attempts today.</p>
+        {% endif %}
+    </div>
+</div>
+
 <div class="text-center mt-1">
     <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
 </div>

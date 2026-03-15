@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from "macros.html" import location_img with context %}
+{% block title_suffix %} - Orb's Bar{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Orb's Bar</div>
+    <div class="panel-body">
+        {{ location_img('tavern') }}
+        <p class="text-secondary mb-2">
+            {{ bartender }} the bartender polishes a glass behind the counter.
+            "Welcome to Orb's Bar! Care for a drink, or perhaps you'd like to create your own cocktail?"
+        </p>
+
+        <div class="stats-grid mb-2">
+            <div class="stat-item"><span class="label">Gold</span><span class="value text-gold">{{ player.gold }}</span></div>
+            <div class="stat-item"><span class="label">Drinks Left</span><span class="value">{{ player.drinks_remaining }}</span></div>
+        </div>
+    </div>
+</div>
+
+{% if drinks %}
+<div class="panel">
+    <div class="panel-header">Drink Menu ({{ drinks|length }} cocktails)</div>
+    <div class="panel-body">
+        {% for drink in drinks %}
+        <div class="item-card mb-1">
+            <div class="item-info">
+                <span class="text-gold">{{ drink.name }}</span>
+                <span class="text-dim"> by {{ drink.creator_name }}</span>
+                {% if drink.comment %}
+                <br><span class="text-secondary" style="font-size:0.9em">"{{ drink.comment }}"</span>
+                {% endif %}
+                <br><span class="text-dim" style="font-size:0.85em">Ordered {{ drink.times_ordered }} time{{ 's' if drink.times_ordered != 1 else '' }}{% if drink.last_customer %} - Last: {{ drink.last_customer }}{% endif %}</span>
+                {% if not drink.secret %}
+                <br><span class="text-dim" style="font-size:0.8em">
+                    {% for ing_name, ing_val in drink.get_ingredients().items() %}
+                        {{ ing_name }}: {{ ing_val }}%
+                    {% endfor %}
+                </span>
+                {% else %}
+                <br><span class="text-dim" style="font-size:0.8em">Secret recipe</span>
+                {% endif %}
+            </div>
+            <div>
+                <form method="POST" action="{{ url_for('order_drink', drink_id=drink.id) }}" class="inline-form">
+                    <button type="submit" class="btn btn-primary btn-sm"
+                        {% if player.drinks_remaining <= 0 %}disabled{% endif %}>Drink</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="panel">
+    <div class="panel-header">Send a Drink</div>
+    <div class="panel-body">
+        <form method="POST" action="{{ url_for('send_drink') }}" class="inline-form">
+            <select name="drink_id" class="form-control" style="width:auto;">
+                {% for drink in drinks %}
+                <option value="{{ drink.id }}">{{ drink.name }}</option>
+                {% endfor %}
+            </select>
+            <span class="text-dim">to</span>
+            <select name="receiver_id" class="form-control" style="width:auto;">
+                {% for p in players %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-sm">Send</button>
+        </form>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Create Your Own Cocktail (2,800 gold)</div>
+    <div class="panel-body">
+        <p class="text-dim mb-1">Mix ingredients to total exactly 100%. Each ingredient affects the drinker differently. Beware: some combinations can be lethal!</p>
+        <form method="POST" action="{{ url_for('create_drink') }}">
+            <div class="admin-field-row mb-1">
+                <div class="admin-field">
+                    <label>Drink Name</label>
+                    <input type="text" name="name" class="form-control" maxlength="30" required placeholder="Name your creation">
+                </div>
+                <div class="admin-field">
+                    <label>Comment</label>
+                    <input type="text" name="comment" class="form-control" maxlength="70" placeholder="Optional description">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;" class="mb-2">
+                {% for attr, name in ingredients %}
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <label style="min-width:120px; font-size:0.9em;">{{ name }}</label>
+                    <input type="number" name="{{ attr }}" value="0" min="0" max="100" class="form-control" style="width:70px;">
+                    <span class="text-dim">%</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="admin-field">
+                <label><input type="checkbox" name="secret"> Keep recipe secret</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary"
+                {% if player.gold < 2800 %}disabled title="Need 2,800 gold"{% endif %}>Create Cocktail (2,800g)</button>
+        </form>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

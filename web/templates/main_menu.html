@@ -90,6 +90,11 @@
                 <span class="label">Tavern</span>
                 <span class="sublabel">Brawls & drinks</span>
             </a>
+            <a href="{{ url_for('orbs_bar') }}" class="menu-item">
+                <span class="icon text-purple">&#127864;</span>
+                <span class="label">Orb's Bar</span>
+                <span class="sublabel">Cocktails</span>
+            </a>
             <a href="{{ url_for('inn') }}" class="menu-item">
                 <span class="icon text-green">&#9752;</span>
                 <span class="label">Inn</span>
@@ -180,6 +185,27 @@
         </div>
     </div>
 </div>
+
+{% if player.is_imprisoned %}
+<div class="panel">
+    <div class="panel-header" style="background: #442222;">Prison</div>
+    <div class="panel-body">
+        <p class="text-danger mb-1">You are imprisoned! {{ player.prison_days }} day(s) remaining.</p>
+        <p class="text-dim mb-1">Most town locations are off-limits while imprisoned.</p>
+        {% set max_escapes = config.get('prison_escape_attempts', '2')|int %}
+        {% if player.escape_attempts < max_escapes %}
+        <form method="POST" action="{{ url_for('prison_escape') }}">
+            <button type="submit" class="btn btn-danger btn-sm"
+                    onclick="return confirm('Attempt escape? Failure adds time to your sentence!')">
+                Attempt Escape ({{ max_escapes - player.escape_attempts }} attempt{{ 's' if max_escapes - player.escape_attempts != 1 else '' }} left)
+            </button>
+        </form>
+        {% else %}
+        <p class="text-dim">No escape attempts remaining today.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
 {% if recent_news %}
 <div class="panel">
