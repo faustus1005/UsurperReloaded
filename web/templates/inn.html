@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - {{ inn_name }}{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">{{ inn_name }}</div>
     <div class="panel-body">
+        {{ location_img('inn') }}
         <p class="text-secondary mb-2">
             The warm glow of the fireplace fills the room. The innkeeper greets you with a nod.
             "Welcome, traveler. Need a room for the night?"

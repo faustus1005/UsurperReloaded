@@ -1,9 +1,11 @@
 {% extends "base.html" %}
-{% block title_suffix %} - Royal Castle{% endblock %}
+{% from "macros.html" import location_img %}
+{% block title_suffix %} - {{ castle_name }}{% endblock %}
 {% block content %}
 <div class="panel">
-    <div class="panel-header">The Royal Castle</div>
+    <div class="panel-header">{{ castle_name }}</div>
     <div class="panel-body">
+        {{ location_img('castle') }}
         {% if king %}
         <div class="stats-grid mb-2">
             <div class="stat-item">

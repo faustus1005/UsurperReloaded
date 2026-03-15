@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - Player Combat{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">Dormitory - Player Combat</div>
     <div class="panel-body">
+        {{ location_img('dormitory') }}
         <p class="text-secondary mb-1">
             Challenge another adventurer to combat!
             Player fights remaining today: <span class="text-gold">{{ player.player_fights }}</span>

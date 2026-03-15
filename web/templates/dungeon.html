@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - {{ dungeon_name }}{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">{{ dungeon_name }}</div>
     <div class="panel-body">
+        {{ location_img('dungeon') }}
         <p class="text-secondary mb-2">
             As you descend to Dungeon Level {{ player.dungeon_level or player.level }} you tighten your grip on your weapon.
             You feel that evil lurks nearby... You wonder whether you shall ever see the sun again...
