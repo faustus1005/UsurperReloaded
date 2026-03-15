@@ -298,6 +298,14 @@ def main_menu():
     if not player:
         return redirect(url_for('create_character'))
 
+    if session.get('combat_monster'):
+        flash("You cannot return to town while in combat!", 'error')
+        return redirect(url_for('combat'))
+
+    if session.get('dungeon_event'):
+        flash("You cannot return to town during an event!", 'error')
+        return redirect(url_for('dungeon_event'))
+
     player.last_played = datetime.now(timezone.utc)
     db.session.commit()
 
