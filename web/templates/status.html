@@ -88,9 +88,9 @@
         <hr class="separator">
         <h3 class="text-gold mb-1">Equipment</h3>
         <div class="equipment-grid">
-            {% for slot in ['weapon', 'shield', 'head', 'body', 'arms', 'hands', 'legs', 'feet', 'waist', 'neck', 'face', 'around_body'] %}
+            {% for slot in EQUIPMENT_SLOTS %}
             <div class="equipment-slot">
-                <span class="slot-name">{{ slot|replace('_', ' ') }}</span>
+                <span class="slot-name">{{ EQUIPMENT_SLOT_LABELS.get(slot, slot|replace('_', ' ')) }}</span>
                 {% if equipped[slot] %}
                 <span class="item-name">{{ equipped[slot].name }}</span>
                 {% else %}

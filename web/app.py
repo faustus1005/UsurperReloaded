@@ -23,8 +23,8 @@ from models import (
     Child, RoyalQuest, God, TeamRecord, HomeChestItem,
     MoatCreature, RoyalGuard, DoorGuard, Drink, MarketListing,
     RACES, CLASSES, RACE_BONUSES, CLASS_BONUSES,
-    SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, ITEM_TYPES,
-    DRINK_INGREDIENTS
+    SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, EQUIPMENT_SLOT_LABELS,
+    ITEM_TYPES, DRINK_INGREDIENTS
 )
 import game as game_logic
 from seed import seed_all
@@ -77,6 +77,15 @@ db.init_app(app)
 # or via a WSGI server like Gunicorn (gunicorn app:app).
 with app.app_context():
     db.create_all()
+    # Add finger equipment columns if missing (for existing databases)
+    from sqlalchemy import inspect as _sa_inspect, text as _sa_text
+    _insp = _sa_inspect(db.engine)
+    _existing_cols = {c['name'] for c in _insp.get_columns('players')}
+    if 'equipped_finger1' not in _existing_cols:
+        db.session.execute(_sa_text('ALTER TABLE players ADD COLUMN equipped_finger1 INTEGER REFERENCES items(id)'))
+    if 'equipped_finger2' not in _existing_cols:
+        db.session.execute(_sa_text('ALTER TABLE players ADD COLUMN equipped_finger2 INTEGER REFERENCES items(id)'))
+    db.session.commit()
     seed_all()
     # Load custom level XP table from admin config if set
     try:
@@ -333,7 +342,8 @@ def status():
 
     xp_next = player.xp_for_next_level()
     return render_template('status.html', equipped=equipped, xp_next=xp_next,
-                           LEVEL_XP=LEVEL_XP)
+                           LEVEL_XP=LEVEL_XP, EQUIPMENT_SLOTS=EQUIPMENT_SLOTS,
+                           EQUIPMENT_SLOT_LABELS=EQUIPMENT_SLOT_LABELS)
 
 
 # ==================== PLAYER SEARCH API ====================
@@ -826,7 +836,7 @@ def armor_shop():
         return redirect(url_for('create_character'))
 
     armor_types = ['Body', 'Shield', 'Head', 'Arms', 'Hands', 'Legs', 'Feet',
-                   'Waist', 'Neck', 'Face', 'Around Body']
+                   'Waist', 'Neck', 'Face', 'Around Body', 'Fingers']
     items = Item.query.filter(
         Item.in_shop == True,
         Item.item_type.in_(armor_types)
@@ -949,7 +959,8 @@ def inventory():
             equipped[slot] = None
 
     return render_template('inventory.html', inv_items=inv_items, equipped=equipped,
-                           EQUIPMENT_SLOTS=EQUIPMENT_SLOTS)
+                           EQUIPMENT_SLOTS=EQUIPMENT_SLOTS,
+                           EQUIPMENT_SLOT_LABELS=EQUIPMENT_SLOT_LABELS)
 
 
 @app.route('/inventory/equip/<int:inv_item_id>', methods=['POST'])
@@ -3515,6 +3526,7 @@ def admin_edit_player(player_id):
     return render_template('admin/edit_player.html', player=player,
                            races=RACES, classes=CLASSES,
                            equipped=equipped, EQUIPMENT_SLOTS=EQUIPMENT_SLOTS,
+                           EQUIPMENT_SLOT_LABELS=EQUIPMENT_SLOT_LABELS,
                            all_items=all_items)
 
 
