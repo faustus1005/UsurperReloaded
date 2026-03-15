@@ -316,6 +316,11 @@ tr:hover {
     color: var(--gold);
     text-decoration: none;
 }
+.return-to-town.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 
 .menu-item {
     display: block;
