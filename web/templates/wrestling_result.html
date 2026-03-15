@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Wrestling Result{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Wrestling Match</div>
+    <div class="panel-body">
+        <div class="combat-log">
+            {% for entry in log %}
+            <p{% if 'VICTORY' in entry %} class="text-gold"{% elif 'DEFEAT' in entry %} class="text-red"{% elif 'DRAW' in entry %} class="text-blue"{% elif 'Prize' in entry or 'XP' in entry %} class="text-green"{% elif '===' in entry %} class="text-secondary"{% elif 'Round' in entry %} style="font-weight:bold"{% endif %}>{{ entry }}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('wrestling_arena') }}" class="btn">Back to Arena</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

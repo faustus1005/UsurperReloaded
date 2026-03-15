@@ -506,7 +506,7 @@ def npc_challenge_throne(npc):
         npc.is_king = True
         record = KingRecord(
             player_id=npc.id,
-            moat_guards=5,
+            moat_guards=0,
             tax_rate=5,
             treasury=0
         )
@@ -533,36 +533,30 @@ def npc_challenge_throne(npc):
     if npc.level < king.level - 3:
         return False
 
-    # Fight through moat guards
+    # Fight through moat creatures
     npc_hp = npc.max_hp
     guards = king_record.moat_guards
 
-    for _ in range(guards):
-        guard_hp = 30 + king.level * 5
-        while guard_hp > 0 and npc_hp > 0:
-            # NPC attacks guard
-            from game import calculate_attack, calculate_defense
-            atk = calculate_attack(npc.strength, npc.weapon_power, npc.level)
-            guard_def = 5 + king.level * 2
-            dmg = max(1, atk - guard_def)
-            guard_hp -= dmg
+    # NPC uses a simplified/cheated moat swim (as per original: random chance)
+    if guards > 0:
+        moat_creature = king_record.moat_creature
+        creature_name = moat_creature.name if moat_creature else "Moat Guard"
 
-            if guard_hp <= 0:
-                break
-
-            # Guard attacks NPC
-            guard_atk = 8 + king.level * 3
-            pdef = calculate_defense(npc.defence, npc.armor_power)
-            gdmg = max(1, guard_atk - pdef)
-            npc_hp -= gdmg
+        if random.randint(0, 2) != 0:
+            # NPC killed by moat creatures (2/3 chance)
+            news = NewsEntry(
+                player_id=npc.id,
+                category='royal',
+                message=f"{npc.name} attempted to storm the castle but was killed by {creature_name}s in the moat!"
+            )
+            db.session.add(news)
+            npc.hp = max(1, npc.max_hp // 4)
+            return False
+        # NPC made it across - reduce moat creatures killed
+        killed = min(guards, random.randint(1, max(1, guards // 2)))
+        king_record.moat_guards -= killed
 
     if npc_hp <= 0:
-        news = NewsEntry(
-            player_id=npc.id,
-            category='royal',
-            message=f"{npc.name} attempted to storm the castle but was defeated by the moat guards!"
-        )
-        db.session.add(news)
         npc.hp = max(1, npc.max_hp // 4)
         return False
 
@@ -596,7 +590,7 @@ def npc_challenge_throne(npc):
         npc.is_king = True
         new_record = KingRecord(
             player_id=npc.id,
-            moat_guards=5,
+            moat_guards=0,
             tax_rate=5,
             treasury=0
         )

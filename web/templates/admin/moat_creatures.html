@@ -1,0 +1,44 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">
+        Moat Creature Editor
+        <a href="{{ url_for('admin_new_moat_creature') }}" class="btn btn-sm" style="float:right;">+ New Creature</a>
+    </div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">Moat creatures guard the castle moat. The king can purchase them to defend against challengers to the throne.</p>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Cost</th>
+                    <th>HP</th>
+                    <th>Attack</th>
+                    <th>Armor</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in creatures %}
+                <tr>
+                    <td class="text-dim">{{ c.id }}</td>
+                    <td>{{ c.name }}</td>
+                    <td class="text-gold">{{ c.cost }}</td>
+                    <td>{{ c.hps }}</td>
+                    <td>{{ c.attack }}</td>
+                    <td>{{ c.armor }}</td>
+                    <td>
+                        <a href="{{ url_for('admin_edit_moat_creature', creature_id=c.id) }}" class="btn btn-sm">Edit</a>
+                        <form method="POST" action="{{ url_for('admin_delete_moat_creature', creature_id=c.id) }}"
+                              class="inline-form" onsubmit="return confirm('Delete {{ c.name }}?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Del</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

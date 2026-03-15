@@ -1,0 +1,48 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">{{ 'Create New Moat Creature' if is_new is defined else 'Edit Moat Creature: ' + creature.name }}</div>
+    <div class="panel-body">
+        <form method="POST" action="{{ url_for('admin_new_moat_creature') if is_new is defined else url_for('admin_edit_moat_creature', creature_id=creature.id) }}">
+            <fieldset class="admin-fieldset">
+                <legend>Identity</legend>
+                <div class="admin-field">
+                    <label for="name">Name</label>
+                    <input type="text" name="name" value="{{ creature.name }}" class="admin-input" required>
+                </div>
+                <div class="admin-field">
+                    <label for="description">Description</label>
+                    <input type="text" name="description" value="{{ creature.description }}" class="admin-input" placeholder="Brief description of this creature">
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Stats</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="cost">Cost (gold per creature)</label>
+                        <input type="number" name="cost" value="{{ creature.cost }}" min="1" class="admin-input admin-input-sm" required>
+                    </div>
+                    <div class="admin-field">
+                        <label for="hps">Hit Points</label>
+                        <input type="number" name="hps" value="{{ creature.hps }}" min="1" class="admin-input admin-input-sm" required>
+                    </div>
+                    <div class="admin-field">
+                        <label for="attack">Attack</label>
+                        <input type="number" name="attack" value="{{ creature.attack }}" min="0" class="admin-input admin-input-sm" required>
+                    </div>
+                    <div class="admin-field">
+                        <label for="armor">Armor</label>
+                        <input type="number" name="armor" value="{{ creature.armor }}" min="0" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <div class="admin-form-actions">
+                <button type="submit" class="btn">{{ 'Create Creature' if is_new is defined else 'Save Changes' }}</button>
+                <a href="{{ url_for('admin_moat_creatures') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

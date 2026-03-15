@@ -1,0 +1,42 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">
+        Drink Editor (Orb's Bar)
+        <a href="{{ url_for('admin_new_drink') }}" class="btn btn-sm" style="float:right;">+ New Drink</a>
+    </div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">Custom cocktails created by players at Orb's Bar. Each drink has a unique recipe from 17 ingredients.</p>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Creator</th>
+                    <th>Ordered</th>
+                    <th>Secret</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in drinks %}
+                <tr>
+                    <td class="text-dim">{{ d.id }}</td>
+                    <td>{{ d.name }}</td>
+                    <td>{{ d.creator_name }}</td>
+                    <td>{{ d.times_ordered }}</td>
+                    <td>{{ 'Yes' if d.secret else 'No' }}</td>
+                    <td>
+                        <a href="{{ url_for('admin_edit_drink', drink_id=d.id) }}" class="btn btn-sm">Edit</a>
+                        <form method="POST" action="{{ url_for('admin_delete_drink', drink_id=d.id) }}"
+                              class="inline-form" onsubmit="return confirm('Delete {{ d.name }}?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Del</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

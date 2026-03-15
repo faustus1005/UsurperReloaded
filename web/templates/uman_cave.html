@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "macros.html" import location_img with context %}
+{% block title_suffix %} - Uman Cave{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Uman Cave - Bear Taming</div>
+    <div class="panel-body">
+        {{ location_img('uman_cave') }}
+        <p class="text-secondary mb-2">
+            Deep in the mountains lies Uman Cave, home to wild bears of all sizes. The
+            brave (or foolish) venture here to tame a companion. Rangers and Bards have
+            a natural gift for it.
+        </p>
+        {% if player.has_tamed_bear %}
+        <div class="item-card" style="border-color: #886622;">
+            <div class="item-info">
+                <div class="item-name text-gold">Your Companion: {{ player.bear_name }}</div>
+                <div class="item-stats">Attack bonus: +{{ player.bear_strength }}</div>
+            </div>
+            <div class="item-actions">
+                <form method="POST" action="{{ url_for('release_bear') }}" style="display:inline"
+                      onsubmit="return confirm('Release {{ player.bear_name }}? This cannot be undone!')">
+                    <button type="submit" class="btn btn-sm btn-danger">Release</button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-dim mb-1">You have no tamed bear companion.</p>
+        {% endif %}
+        <p class="text-secondary mb-1">Gold: <span class="text-gold">{{ player.gold }}</span></p>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Bears in the Cave</div>
+    <div class="panel-body">
+        {% for bear in bears %}
+        {% set cost = 100 + bear.difficulty * 10 %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ bear.name }}</div>
+                <div class="text-dim" style="font-size: 0.85em;">{{ bear.desc }}</div>
+                <div class="item-stats">
+                    Strength bonus: +{{ bear.str }}
+                    &mdash; Difficulty: {{ '&#9733;' * (loop.index) | safe }}
+                </div>
+            </div>
+            <div class="item-actions">
+                <span class="item-price">{{ cost }}g</span>
+                <form method="POST" action="{{ url_for('tame_bear', index=loop.index0) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-primary"
+                            {% if player.gold < cost or player.hp < player.max_hp // 3 %}disabled{% endif %}>
+                        Tame
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        <p class="text-dim mt-1">Taming a new bear will replace your current companion.</p>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

@@ -6,7 +6,9 @@ from models import (
     db, Player, Monster, Item, InventoryItem, NewsEntry, Mail,
     Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem, GameConfig,
-    RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES
+    MoatCreature, RoyalGuard, DoorGuard, Drink, MarketListing,
+    RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES,
+    DRINK_INGREDIENTS
 )
 
 
@@ -82,6 +84,8 @@ def create_character(player, name, race, player_class, sex):
     player.brawls_remaining = 2
     player.intimacy_acts = 5
     player.beauty_nest_visits = int(GameConfig.get('beauty_nest_visits_per_day', '3') or '3')
+    player.wrestling_matches = 2
+    player.performances_remaining = 3
     player.dungeon_level = 1
 
     # Starting spells for spellcasters
@@ -597,6 +601,10 @@ def daily_maintenance(player):
     player.team_fights = 1
     player.intimacy_acts = 5
     player.beauty_nest_visits = int(GameConfig.get('beauty_nest_visits_per_day', '3') or '3')
+    player.drinks_remaining = int(GameConfig.get('drinks_per_day', '3') or '3')
+    player.escape_attempts = 0
+    player.wrestling_matches = 2
+    player.performances_remaining = 3
     player.hp = player.max_hp
     player.mana = player.max_mana
     player.last_maintenance = now
@@ -606,9 +614,18 @@ def daily_maintenance(player):
         interest = max(1, player.bank_gold // 100)
         player.bank_gold += interest
 
+    # Bank guard wage accrual
+    accumulate_bank_wages(player)
+
     # Run global maintenance tasks once (keyed off this player trigger)
     quest_maintenance()
     pregnancy_maintenance()
+    god_maintenance()
+
+    # Royal guard salary payments
+    king_record = KingRecord.query.filter_by(is_current=True).first()
+    if king_record:
+        pay_royal_guard_salaries(king_record)
 
     return True
 
@@ -770,45 +787,68 @@ def challenge_king(challenger):
     if challenger.hp < challenger.max_hp // 2:
         return False, "You are too wounded to challenge the throne. Heal first.", []
 
-    # Fight through moat guards first
+    # Fight through moat creatures first
     combat_log = []
     guards_remaining = king_record.moat_guards
 
     if guards_remaining > 0:
-        combat_log.append(f"You must fight through {guards_remaining} moat guards!")
-        guard_hp = 30 + king.level * 5
+        # Determine moat creature stats
+        moat_creature = king_record.moat_creature
+        if moat_creature:
+            creature_name = moat_creature.name
+            guard_hp_base = moat_creature.hps
+            guard_atk_base = moat_creature.attack
+            guard_def_base = moat_creature.armor
+        else:
+            creature_name = "Moat Guard"
+            guard_hp_base = 30 + king.level * 5
+            guard_atk_base = 8 + king.level * 3
+            guard_def_base = 5 + king.level * 2
+
+        combat_log.append(f"You must swim across the moat! You encounter {guards_remaining} {creature_name}{'s' if guards_remaining > 1 else ''}!")
         for i in range(guards_remaining):
-            combat_log.append(f"--- Moat Guard {i + 1} ---")
-            ghp = guard_hp
+            combat_log.append(f"--- {creature_name} {i + 1} ---")
+            ghp = guard_hp_base
             while ghp > 0 and challenger.hp > 0:
-                # Challenger attacks guard
+                # Challenger attacks creature
                 atk = calculate_attack(challenger.strength, challenger.weapon_power, challenger.level)
-                guard_def = 5 + king.level * 2
-                dmg = max(1, atk - guard_def)
+                dmg = max(1, atk - guard_def_base)
                 ghp -= dmg
-                combat_log.append(f"You strike the guard for {dmg} damage.")
+                combat_log.append(f"You strike the {creature_name} for {dmg} damage.")
 
                 if ghp <= 0:
-                    combat_log.append("The guard falls!")
+                    combat_log.append(f"The {creature_name} is slain!")
+                    # Creature dies - reduce moat count
+                    king_record.moat_guards -= 1
                     break
 
-                # Guard attacks challenger
-                guard_atk = 8 + king.level * 3
+                # Creature attacks challenger
                 pdef = calculate_defense(challenger.defence, challenger.armor_power)
-                gdmg = max(1, guard_atk - pdef)
+                gdmg = max(1, guard_atk_base - pdef)
                 challenger.hp -= gdmg
-                combat_log.append(f"The guard strikes you for {gdmg} damage.")
+                combat_log.append(f"The {creature_name} strikes you for {gdmg} damage.")
 
                 if challenger.hp <= 0:
                     challenger.hp = max(1, challenger.max_hp // 4)
-                    combat_log.append("The moat guards have defeated you!")
+                    combat_log.append(f"The {creature_name}s have defeated you!")
                     news = NewsEntry(
                         player_id=challenger.id,
                         category='royal',
-                        message=f"{challenger.name} failed to get past the castle moat guards."
+                        message=f"{challenger.name} was killed by {creature_name}s in the castle moat."
                     )
                     db.session.add(news)
-                    return False, "You were defeated by the moat guards!", combat_log
+
+                    # Mail the king about the failed attempt
+                    mail = Mail(
+                        sender_id=challenger.id,
+                        receiver_id=king.id,
+                        subject="The Moat",
+                        message=f"{challenger.name} swam across the Moat but was killed by your {creature_name}s."
+                    )
+                    db.session.add(mail)
+                    return False, f"You were killed by the {creature_name}s!", combat_log
+
+        combat_log.append("You made it across the moat!")
 
     # Now fight the king
     combat_log.append(f"=== You face {king.name}, the {'King' if king.sex == 1 else 'Queen'}! ===")
@@ -864,7 +904,7 @@ def crown_new_king(player):
 
     record = KingRecord(
         player_id=player.id,
-        moat_guards=5,
+        moat_guards=0,
         tax_rate=5,
         treasury=0
     )
@@ -884,8 +924,18 @@ def dethrone_king(king, king_record):
     """Remove a king from power."""
     king.is_king = False
     king_record.is_current = False
-    from datetime import datetime, timezone
     king_record.dethroned_at = datetime.now(timezone.utc)
+
+    # Sack all royal guards
+    for guard in king_record.royal_guards:
+        mail = Mail(
+            sender_id=king.id,
+            receiver_id=guard.player_id,
+            subject="SACKED",
+            message=f"The throne has been usurped. You have been dismissed from Royal Guard duty."
+        )
+        db.session.add(mail)
+    RoyalGuard.query.filter_by(king_record_id=king_record.id).delete()
 
 
 def abdicate(player):
@@ -907,17 +957,501 @@ def abdicate(player):
     return True, "You have abdicated the throne."
 
 
-def king_hire_guards(king_record, count):
-    """Hire moat guards (costs gold from treasury)."""
-    cost_per_guard = 100
-    total_cost = count * cost_per_guard
-    if king_record.treasury < total_cost:
-        return False, f"Not enough gold in treasury. Need {total_cost}, have {king_record.treasury}."
-    if king_record.moat_guards + count > 100:
-        return False, "Maximum 100 moat guards."
-    king_record.treasury -= total_cost
+def king_hire_moat_creatures(king_record, creature_id, count, funding='treasury'):
+    """Buy moat creatures for castle defense.
+
+    Args:
+        king_record: The current KingRecord
+        creature_id: ID of the MoatCreature type to buy
+        count: How many to buy
+        funding: 'treasury' or 'personal' (player's own gold)
+    """
+    creature = db.session.get(MoatCreature, creature_id)
+    if not creature:
+        return False, "Unknown creature type."
+
+    if count < 1:
+        return False, "Must purchase at least one creature."
+
+    max_moat = 100
+    if king_record.moat_guards + count > max_moat:
+        return False, f"Maximum {max_moat} creatures in the moat. You have {king_record.moat_guards}."
+
+    # If changing creature type, must empty moat first
+    if king_record.moat_creature_id and king_record.moat_creature_id != creature_id and king_record.moat_guards > 0:
+        return False, f"The moat already has {king_record.moat_creature.name}s. Remove them first before adding a different creature."
+
+    total_cost = count * creature.cost
+    player = king_record.player
+
+    if funding == 'personal':
+        if player.gold < total_cost:
+            return False, f"Not enough gold. Need {total_cost}, you have {player.gold}."
+        player.gold -= total_cost
+    else:
+        if king_record.treasury < total_cost:
+            return False, f"Not enough in treasury. Need {total_cost}, treasury has {king_record.treasury}."
+        king_record.treasury -= total_cost
+
+    king_record.moat_creature_id = creature_id
     king_record.moat_guards += count
-    return True, f"Hired {count} moat guards. Total: {king_record.moat_guards}"
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='royal',
+        message=f"{'King' if player.sex == 1 else 'Queen'} {player.name} put {count} {creature.name}{'s' if count > 1 else ''} in the moat."
+    )
+    db.session.add(news)
+
+    return True, f"Added {count} {creature.name}{'s' if count > 1 else ''} to the moat. Total: {king_record.moat_guards}"
+
+
+def king_remove_moat_creatures(king_record, count):
+    """Remove creatures from the moat."""
+    if king_record.moat_guards <= 0:
+        return False, "There are no creatures in the moat."
+    if count < 1:
+        return False, "Must remove at least one creature."
+    if count > king_record.moat_guards:
+        count = king_record.moat_guards
+
+    king_record.moat_guards -= count
+    creature_name = king_record.moat_creature.name if king_record.moat_creature else "creature"
+
+    if king_record.moat_guards == 0:
+        king_record.moat_creature_id = None
+
+    return True, f"Removed {count} {creature_name}{'s' if count > 1 else ''} from the moat. Remaining: {king_record.moat_guards}"
+
+
+def king_hire_royal_guard(king_record, target_id, salary):
+    """Hire a player/NPC as a royal bodyguard."""
+    max_guards = 5
+    current_count = RoyalGuard.query.filter_by(king_record_id=king_record.id).count()
+    if current_count >= max_guards:
+        return False, f"You already have the maximum {max_guards} guards."
+
+    target = db.session.get(Player, target_id)
+    if not target:
+        return False, "Player not found."
+
+    if target.id == king_record.player_id:
+        return False, "You cannot hire yourself as a guard."
+
+    # Check if already a guard
+    existing = RoyalGuard.query.filter_by(king_record_id=king_record.id, player_id=target_id).first()
+    if existing:
+        return False, f"{target.name} is already in the Royal Guard."
+
+    if target.is_imprisoned:
+        return False, f"{target.name} is imprisoned and cannot serve."
+
+    # NPC auto-accepts; for human players this would normally be a mail request
+    # but for web we simplify to direct hire
+    if target.is_npc:
+        # NPC salary is based on level
+        salary = (target.level * 900) + random.randint(0, 450)
+
+    guard = RoyalGuard(
+        king_record_id=king_record.id,
+        player_id=target_id,
+        salary=salary
+    )
+    db.session.add(guard)
+
+    news = NewsEntry(
+        player_id=target_id,
+        category='royal',
+        message=f"{target.name} became a Royal Guard!"
+    )
+    db.session.add(news)
+
+    if not target.is_npc:
+        mail = Mail(
+            sender_id=king_record.player_id,
+            receiver_id=target_id,
+            subject="Royal Employment",
+            message=f"{'King' if king_record.player.sex == 1 else 'Queen'} {king_record.player.name} has appointed you as a Royal Guard with a salary of {salary} gold per day."
+        )
+        db.session.add(mail)
+
+    return True, f"{target.name} has joined the Royal Guard with salary {salary}g/day."
+
+
+def king_sack_guard(king_record, guard_id):
+    """Fire a royal guard."""
+    guard = RoyalGuard.query.filter_by(id=guard_id, king_record_id=king_record.id).first()
+    if not guard:
+        return False, "Guard not found."
+
+    player = guard.player
+    db.session.delete(guard)
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='royal',
+        message=f"{player.name} was sacked from the Royal Guard!"
+    )
+    db.session.add(news)
+
+    mail = Mail(
+        sender_id=king_record.player_id,
+        receiver_id=player.id,
+        subject="SACKED",
+        message=f"{'King' if king_record.player.sex == 1 else 'Queen'} {king_record.player.name} has dismissed you from the Royal Guard."
+    )
+    db.session.add(mail)
+
+    return True, f"{player.name} has been sacked from the Royal Guard!"
+
+
+def king_set_tax(king_record, rate, alignment=0):
+    """Set the royal tax rate and alignment."""
+    if rate < 0 or rate > 5:
+        return False, "Tax rate must be between 0% and 5%."
+    if alignment not in (0, 1, 2):
+        return False, "Tax alignment must be 0 (all), 1 (good only), or 2 (evil only)."
+
+    old_rate = king_record.tax_rate
+    king_record.tax_rate = rate
+    king_record.tax_alignment = alignment
+
+    align_desc = {0: 'all subjects', 1: 'good-aligned only', 2: 'evil-aligned only'}
+
+    player = king_record.player
+    title = 'King' if player.sex == 1 else 'Queen'
+
+    if rate != old_rate:
+        action = 'raised' if rate > old_rate else 'lowered'
+        news = NewsEntry(
+            player_id=player.id,
+            category='royal',
+            message=f"{title} {player.name} {action} the Royal Tax to {rate}% ({align_desc[alignment]})."
+        )
+        db.session.add(news)
+
+    return True, f"Tax set to {rate}% for {align_desc[alignment]}."
+
+
+def king_grant_tax_relief(king, target_name):
+    """Grant a player tax exemption."""
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
+    if not target:
+        return False, "Player not found."
+    if target.tax_relief:
+        return False, f"{target.name} already enjoys tax relief."
+    target.tax_relief = True
+
+    news = NewsEntry(
+        player_id=target.id,
+        category='royal',
+        message=f"{target.name} has been relieved from Royal Taxes!"
+    )
+    db.session.add(news)
+
+    mail = Mail(
+        sender_id=king.id,
+        receiver_id=target.id,
+        subject="Free from Royal Tax!",
+        message=f"{'King' if king.sex == 1 else 'Queen'} {king.name} has relieved you from Royal Taxes!"
+    )
+    db.session.add(mail)
+    return True, f"{target.name} has been granted tax relief."
+
+
+def king_revoke_tax_relief(king, target_name):
+    """Revoke a player's tax exemption."""
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
+    if not target:
+        return False, "Player not found."
+    if not target.tax_relief:
+        return False, f"{target.name} does not have tax relief."
+    target.tax_relief = False
+
+    news = NewsEntry(
+        player_id=target.id,
+        category='royal',
+        message=f"{target.name}'s tax privileges have been revoked!"
+    )
+    db.session.add(news)
+    return True, f"{target.name}'s tax privileges have been revoked."
+
+
+def king_treasury_withdraw(king_record, amount):
+    """Withdraw gold from the royal treasury (considered an act of greed)."""
+    if amount <= 0:
+        return False, "Invalid amount."
+    if king_record.treasury < amount:
+        return False, f"Not enough gold in treasury. Have {king_record.treasury}."
+
+    king_record.treasury -= amount
+    king_record.player.gold += amount
+
+    # 50% chance the press finds out
+    if random.randint(0, 1) == 0:
+        title = 'King' if king_record.player.sex == 1 else 'Queen'
+        news = NewsEntry(
+            player_id=king_record.player.id,
+            category='royal',
+            message=f"{title} {king_record.player.name} used the Royal Treasury for personal use!"
+        )
+        db.session.add(news)
+
+    return True, f"Withdrew {amount} gold from the treasury."
+
+
+def king_toggle_establishment(king_record, shop_key):
+    """Open or close an establishment by royal decree."""
+    valid_shops = {
+        'shop_magic': 'Magic Shop',
+        'shop_healing': 'Healing Center',
+        'shop_general': 'General Store',
+        'shop_inn': 'Inn',
+        'shop_tavern': 'Tavern',
+        'shop_beauty_nest': 'Beauty Nest',
+    }
+    # Weapon and armor shops cannot be closed (people must be able to arm themselves)
+    if shop_key in ('shop_weapon', 'shop_armor'):
+        return False, "People must be able to buy their weapons and armor!"
+
+    if shop_key not in valid_shops:
+        return False, "Unknown establishment."
+
+    current = getattr(king_record, shop_key, True)
+    new_val = not current
+    setattr(king_record, shop_key, new_val)
+
+    action = 'opened' if new_val else 'closed'
+    shop_name = valid_shops[shop_key]
+    player = king_record.player
+    title = 'King' if player.sex == 1 else 'Queen'
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='royal',
+        message=f"{title} {player.name} {action} the {shop_name}!"
+    )
+    db.session.add(news)
+
+    return True, f"The {shop_name} has been {action}!"
+
+
+def king_send_proclamation(king, message_text):
+    """Send a royal proclamation to all subjects."""
+    if not message_text or len(message_text.strip()) < 3:
+        return False, "Proclamation must have content."
+
+    title = 'King' if king.sex == 1 else 'Queen'
+    subject = "Royal Proclamation"
+
+    # Send mail to all non-deleted, non-king players
+    players = Player.query.filter(Player.id != king.id, Player.name != '').all()
+    count = 0
+    for p in players:
+        mail = Mail(
+            sender_id=king.id,
+            receiver_id=p.id,
+            subject=subject,
+            message=f"From {title} {king.name}:\n\n{message_text}"
+        )
+        db.session.add(mail)
+        count += 1
+
+    news = NewsEntry(
+        player_id=king.id,
+        category='royal',
+        message=f"{title} {king.name} issued a Royal Proclamation to all subjects."
+    )
+    db.session.add(news)
+
+    return True, f"Proclamation sent to {count} subjects."
+
+
+def pay_royal_guard_salaries(king_record):
+    """Pay daily salaries to royal guards from the treasury. Called during maintenance."""
+    guards = RoyalGuard.query.filter_by(king_record_id=king_record.id).all()
+    sacked = []
+    for guard in guards:
+        if king_record.treasury >= guard.salary:
+            king_record.treasury -= guard.salary
+        else:
+            # Can't afford - sack the guard
+            sacked.append(guard)
+
+    for guard in sacked:
+        mail = Mail(
+            sender_id=king_record.player_id,
+            receiver_id=guard.player_id,
+            subject="SACKED - Unpaid",
+            message="The Royal Treasury could not afford your salary. You have been dismissed from the Royal Guard."
+        )
+        db.session.add(mail)
+        db.session.delete(guard)
+
+    return sacked
+
+
+# ==================== BANK GUARD SYSTEM ====================
+
+def bank_guard_apply(player):
+    """Apply for bank guard duty. Requires 0 darkness."""
+    if player.is_bank_guard:
+        return False, "You are already a bank guard."
+    if player.darkness > 0:
+        return False, "The bank manager eyes you suspiciously. 'We don't hire characters with a dark past. Come back when your record is clean.'"
+    if player.hp <= 0:
+        return False, "You must be alive to apply for guard duty."
+
+    salary = (player.level * 1500) + (player.strength * 9)
+    player.is_bank_guard = True
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='town',
+        message=f"{player.name} has been hired as a bank guard!"
+    )
+    db.session.add(news)
+
+    return True, f"Welcome to the bank guard force! Your daily salary will be {salary} gold, deposited to your account."
+
+
+def bank_guard_resign(player):
+    """Resign from bank guard duty."""
+    if not player.is_bank_guard:
+        return False, "You are not a bank guard."
+
+    player.is_bank_guard = False
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='town',
+        message=f"{player.name} has resigned from bank guard duty."
+    )
+    db.session.add(news)
+
+    return True, "You are now free from your obligations at the bank. Good luck! (and don't try to rob us)."
+
+
+def accumulate_bank_wages(player):
+    """Accumulate daily bank guard salary. Called during maintenance."""
+    if not player.is_bank_guard or player.hp <= 0:
+        return 0
+    wage = (player.level * 1500) + (player.strength * 9)
+    player.bank_wage += wage
+    return wage
+
+
+def collect_bank_wages(player):
+    """Collect accumulated bank wages. Called on login/session start."""
+    if player.bank_wage <= 0:
+        return 0
+    amount = player.bank_wage
+    player.gold += amount
+    player.bank_wage = 0
+    return amount
+
+
+# ==================== DOOR GUARD SYSTEM ====================
+
+def get_available_door_guards():
+    """Get all available door guard types."""
+    return DoorGuard.query.all()
+
+
+def hire_door_guard(player, guard_id, count=1):
+    """Hire door guards when sleeping at the inn."""
+    guard = db.session.get(DoorGuard, guard_id)
+    if not guard:
+        return False, "Unknown guard type."
+
+    if count < 1:
+        return False, "Must hire at least 1 guard."
+
+    if not guard.allow_multiple and count > 1:
+        count = 1
+
+    max_guards = 10
+    if count > max_guards:
+        count = max_guards
+
+    total_cost = guard.cost * count
+    if player.gold < total_cost:
+        return False, f"Not enough gold. Need {total_cost}, you have {player.gold}."
+
+    player.gold -= total_cost
+    player.door_guard_id = guard_id
+    player.door_guard_count = count
+
+    return True, f"Hired {count} {guard.name}{'s' if count > 1 else ''} to guard your door."
+
+
+def dismiss_door_guards(player):
+    """Remove all door guards."""
+    if player.door_guard_count <= 0:
+        return False, "You have no door guards."
+    player.door_guard_id = None
+    player.door_guard_count = 0
+    return True, "Door guards dismissed."
+
+
+def fight_door_guards(attacker, defender):
+    """Attacker must fight through defender's door guards before PvP.
+
+    Returns (survived, combat_log, guards_killed).
+    - survived: True if attacker defeated all guards
+    - combat_log: list of combat messages
+    - guards_killed: how many guards were slain
+    """
+    combat_log = []
+
+    if defender.door_guard_count <= 0 or not defender.door_guard_id:
+        return True, combat_log, 0
+
+    guard = db.session.get(DoorGuard, defender.door_guard_id)
+    if not guard:
+        return True, combat_log, 0
+
+    guard_count = defender.door_guard_count
+    if guard_count == 1:
+        combat_log.append(f"An angry {guard.name} guards the door!")
+    else:
+        combat_log.append(f"{guard_count} {guard.name}s guard the door!")
+
+    guards_killed = 0
+
+    for i in range(guard_count):
+        combat_log.append(f"--- {guard.name} {i + 1} ---")
+        ghp = guard.hps
+        while ghp > 0 and attacker.hp > 0:
+            # Attacker strikes guard
+            atk = calculate_attack(attacker.strength, attacker.weapon_power, attacker.level)
+            dmg = max(1, atk - guard.armor)
+            ghp -= dmg
+            combat_log.append(f"You strike the {guard.name} for {dmg} damage.")
+
+            if ghp <= 0:
+                combat_log.append(f"The {guard.name} is slain!")
+                guards_killed += 1
+                break
+
+            # Guard strikes attacker
+            pdef = calculate_defense(attacker.defence, attacker.armor_power)
+            gdmg = max(1, guard.attack - pdef)
+            attacker.hp -= gdmg
+            combat_log.append(f"The {guard.name} strikes you for {gdmg} damage!")
+
+            if attacker.hp <= 0:
+                combat_log.append(f"You were killed by {defender.name}'s door guards!")
+                break
+
+    # Update defender's guard count
+    defender.door_guard_count -= guards_killed
+    if defender.door_guard_count <= 0:
+        defender.door_guard_count = 0
+        defender.door_guard_id = None
+
+    survived = attacker.hp > 0
+    return survived, combat_log, guards_killed
 
 
 def king_imprison(king, target_name):
@@ -986,6 +1520,41 @@ def pvp_combat(attacker, defender):
     combat_log.append(f"{attacker.name} challenges {defender.name} to combat!")
     if attacker.battlecry:
         combat_log.append(f'{attacker.name} shouts: "{attacker.battlecry}"')
+
+    # Fight through door guards first (if defender has any)
+    if defender.door_guard_count > 0 and defender.door_guard_id:
+        survived, guard_log, guards_killed = fight_door_guards(attacker, defender)
+        combat_log.extend(guard_log)
+        if not survived:
+            # Attacker died to door guards
+            attacker.hp = max(1, attacker.max_hp // 4)
+            news = NewsEntry(
+                player_id=attacker.id,
+                category='pvp',
+                message=f"{attacker.name} was killed by {defender.name}'s door guards!"
+            )
+            db.session.add(news)
+            # Mail the defender
+            guard = db.session.get(DoorGuard, defender.door_guard_id) if defender.door_guard_id else None
+            guard_name = guard.name if guard else "door guards"
+            mail = Mail(
+                sender_id=attacker.id,
+                receiver_id=defender.id,
+                subject="Intruder Stopped",
+                message=f"{attacker.name} tried to attack you but was killed by your {guard_name}{'s' if guards_killed > 0 else ''}!"
+            )
+            db.session.add(mail)
+            return defender, attacker, combat_log
+        elif guards_killed > 0:
+            combat_log.append(f"You defeated the door guards! Now to face {defender.name}...")
+            # Mail defender about destroyed guards
+            mail = Mail(
+                sender_id=attacker.id,
+                receiver_id=defender.id,
+                subject="Door Guards Defeated",
+                message=f"{attacker.name} killed {guards_killed} of your door guards and attacked you!"
+            )
+            db.session.add(mail)
 
     # Use copies of HP so we don't permanently kill the defender
     atk_hp = attacker.hp
@@ -5043,3 +5612,783 @@ def beauty_nest_visit(player, companion_index):
             log.append("Your spouse has been notified of your infidelity...")
 
     return True, f"You visited {nest_name}.", log
+
+
+# ==================== ORB'S BAR ====================
+
+def create_drink(player, name, comment, secret, ingredients):
+    """Create a custom drink at Orb's Bar.
+    ingredients: dict of attr_name -> amount (0-100), must sum to 100.
+    """
+    cost = 2800
+    if player.gold < cost:
+        return False, f"You need {cost} gold to create a drink."
+
+    total = sum(ingredients.values())
+    if total != 100:
+        return False, f"Ingredients must total 100% (currently {total}%)."
+
+    if not name or len(name) > 30:
+        return False, "Drink name must be 1-30 characters."
+
+    # Check max drinks limit
+    max_drinks = int(GameConfig.get('max_drinks', '50') or '50')
+    if Drink.query.count() >= max_drinks:
+        return False, "The drink menu is full! No room for new recipes."
+
+    player.gold -= cost
+    drink = Drink(
+        name=name.strip(),
+        creator_id=player.id,
+        creator_name=player.name,
+        comment=comment.strip()[:70] if comment else '',
+        secret=secret,
+    )
+    for attr, _ in DRINK_INGREDIENTS:
+        setattr(drink, attr, ingredients.get(attr, 0))
+
+    db.session.add(drink)
+    add_news(f"{player.name} created a new cocktail at Orb's Bar: '{name}'!")
+    db.session.commit()
+    return True, f"Your drink '{name}' has been added to the menu!"
+
+
+def order_drink(player, drink_id):
+    """Order and consume a drink from Orb's Bar. Returns (success, msg, log)."""
+    if player.drinks_remaining <= 0:
+        return False, "You've had enough drinks for today.", []
+
+    drink = db.session.get(Drink, drink_id)
+    if not drink:
+        return False, "That drink doesn't exist.", []
+
+    log = []
+    log.append(f"The bartender mixes you a '{drink.name}'...")
+
+    # Check for lethal combinations (matching original)
+    lethal = False
+    death_msg = ""
+
+    if player.player_class == 'Assassin' and drink.troll_rum > 0:
+        lethal = True
+        death_msg = "The Troll Rum reacts fatally with your assassin's constitution!"
+    elif player.player_class in ('Cleric', 'Jester') and drink.elf_water > 0:
+        lethal = True
+        death_msg = "The Elf Water is pure poison to your kind!"
+    elif drink.tabasco > 80:
+        lethal = True
+        death_msg = "Too much Tabasco! Your insides are on fire!"
+    elif drink.chilipeppar > 80:
+        lethal = True
+        death_msg = "The Chilipeppar burns through your stomach!"
+    elif drink.bat_brain > 70:
+        lethal = True
+        death_msg = "The concentrated Bat Brain drives you mad!"
+    elif drink.horse_blood > 90:
+        lethal = True
+        death_msg = "You choke on the thick Horse Blood!"
+    elif drink.bobs_bomber > 90:
+        lethal = True
+        death_msg = "Bob's Bomber is too concentrated! It explodes in your stomach!"
+    elif drink.snake_spit > 80:
+        lethal = True
+        death_msg = "The Snake Spit is lethal at this concentration!"
+
+    player.drinks_remaining -= 1
+    drink.times_ordered += 1
+    drink.last_customer = player.name
+
+    if lethal:
+        log.append(f"*** {death_msg} ***")
+        log.append(f"{player.name} has died from drinking '{drink.name}'!")
+        player.hp = 0
+        add_news(f"{player.name} died after drinking '{drink.name}' at Orb's Bar!")
+        db.session.commit()
+        return True, death_msg, log
+
+    # Calculate stat bonuses based on ingredient amounts
+    log.append("You feel the drink's effects coursing through you...")
+    bonuses = {}
+
+    for attr, name in DRINK_INGREDIENTS:
+        amount = getattr(drink, attr)
+        if amount == 0:
+            continue
+        if amount <= 10:
+            bonuses['stamina'] = bonuses.get('stamina', 0) + random.randint(0, 1)
+            bonuses['charisma'] = bonuses.get('charisma', 0) + random.randint(0, 1)
+        elif amount <= 25:
+            bonuses['agility'] = bonuses.get('agility', 0) + random.randint(0, 1)
+            bonuses['dexterity'] = bonuses.get('dexterity', 0) + random.randint(0, 1)
+            bonuses['wisdom'] = bonuses.get('wisdom', 0) + random.randint(0, 1)
+        elif amount <= 50:
+            bonuses['stamina'] = bonuses.get('stamina', 0) + random.randint(0, 2)
+            bonuses['darkness'] = bonuses.get('darkness', 0) + random.randint(0, 50)
+        elif amount <= 75:
+            bonuses['strength'] = bonuses.get('strength', 0) + random.randint(0, 1)
+            bonuses['defence'] = bonuses.get('defence', 0) + random.randint(0, 1)
+            bonuses['wisdom'] = bonuses.get('wisdom', 0) + random.randint(0, 1)
+        elif amount <= 90:
+            bonuses['agility'] = bonuses.get('agility', 0) + random.randint(0, 2)
+            bonuses['charisma'] = bonuses.get('charisma', 0) + random.randint(0, 1)
+            bonuses['chivalry'] = bonuses.get('chivalry', 0) + random.randint(0, 30)
+        else:  # 91-100
+            bonuses['stamina'] = bonuses.get('stamina', 0) + random.randint(0, 3)
+            bonuses['charisma'] = bonuses.get('charisma', 0) + random.randint(0, 2)
+            bonuses['wisdom'] = bonuses.get('wisdom', 0) + random.randint(0, 2)
+
+    # Apply bonuses
+    stat_attrs = ['strength', 'defence', 'stamina', 'agility', 'charisma', 'dexterity', 'wisdom']
+    for stat in stat_attrs:
+        val = bonuses.get(stat, 0)
+        if val > 0:
+            setattr(player, stat, getattr(player, stat) + val)
+            log.append(f"  +{val} {stat.capitalize()}")
+    if bonuses.get('darkness', 0) > 0:
+        player.darkness += bonuses['darkness']
+        log.append(f"  +{bonuses['darkness']} Darkness")
+    if bonuses.get('chivalry', 0) > 0:
+        player.chivalry += bonuses['chivalry']
+        log.append(f"  +{bonuses['chivalry']} Chivalry")
+
+    # 10% chance of combat training bonus
+    if random.random() < 0.10:
+        xp_bonus = player.level * 700
+        player.experience += xp_bonus
+        log.append(f"The drink inspires you! +{xp_bonus} XP from combat insight!")
+
+    log.append(f"AWESOME! You enjoyed '{drink.name}'!")
+    add_news(f"{player.name} enjoyed '{drink.name}' at Orb's Bar.")
+    db.session.commit()
+    return True, f"You enjoyed '{drink.name}'!", log
+
+
+def send_drink(sender, receiver_id, drink_id):
+    """Send a free drink to another player via mail."""
+    drink = db.session.get(Drink, drink_id)
+    receiver = db.session.get(Player, receiver_id)
+    if not drink or not receiver:
+        return False, "Invalid drink or player."
+    cost = 50 + drink.times_ordered  # small cost to send
+    if sender.gold < cost:
+        return False, f"You need {cost} gold to send a drink."
+    sender.gold -= cost
+    mail = Mail(
+        sender_id=sender.id,
+        receiver_id=receiver.id,
+        subject=f"A drink from {sender.name}!",
+        message=f"{sender.name} has sent you a '{drink.name}' from Orb's Bar!"
+    )
+    db.session.add(mail)
+    db.session.commit()
+    return True, f"You sent '{drink.name}' to {receiver.name}!"
+
+
+# ==================== PICK-POCKETING ====================
+
+def pickpocket(player, target_id):
+    """Attempt to pick-pocket another player. Returns (success, msg, log)."""
+    if player.thefts_remaining <= 0:
+        return False, "You've used all your theft attempts for today.", []
+
+    target = db.session.get(Player, target_id)
+    if not target:
+        return False, "Target not found.", []
+    if target.id == player.id:
+        return False, "You can't steal from yourself.", []
+
+    player.thefts_remaining -= 1
+    log = []
+    log.append(f"You creep up behind {target.name}...")
+
+    # Success based on dexterity and agility vs target's
+    skill = player.dexterity + player.agility + random.randint(0, 20)
+    defence = target.dexterity + target.agility + random.randint(0, 30)
+
+    if skill > defence:
+        # Successful theft
+        max_steal = max(1, target.gold // 4)
+        stolen = random.randint(1, max(1, max_steal))
+        if stolen > target.gold:
+            stolen = target.gold
+        if stolen <= 0:
+            log.append(f"{target.name} has no gold to steal!")
+            return True, f"{target.name} is broke!", log
+
+        player.gold += stolen
+        target.gold -= stolen
+        player.darkness += random.randint(5, 20)
+        log.append(f"SUCCESS! You stole {stolen} gold from {target.name}!")
+
+        # Notify victim
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=target.id,
+            subject="You've been robbed!",
+            message=f"Someone stole {stolen} gold from you while you weren't looking!"
+        )
+        db.session.add(mail)
+        add_news(f"A thief struck in the dark alley! {target.name} lost gold!")
+        db.session.commit()
+        return True, f"You stole {stolen} gold!", log
+    else:
+        # Failed - caught!
+        log.append(f"CAUGHT! {target.name}'s guards spot you!")
+        fine = random.randint(10, 50) * player.level
+        if fine > player.gold:
+            fine = player.gold
+        player.gold -= fine
+        player.darkness += random.randint(1, 5)
+        log.append(f"You were fined {fine} gold!")
+        add_news(f"{player.name} was caught trying to pickpocket {target.name}!")
+        db.session.commit()
+        return True, "You were caught!", log
+
+
+# ==================== BANK ROBBERY ====================
+
+def rob_bank(player):
+    """Attempt to rob the bank. Returns (success, msg, log)."""
+    log = []
+    log.append("You sneak into the bank vault...")
+
+    # Calculate robbery difficulty
+    success_chance = (player.dexterity + player.agility + player.level * 2) / 300
+    success_chance = min(0.35, max(0.05, success_chance))  # 5-35% chance
+
+    player.darkness += random.randint(10, 50)
+
+    if random.random() < success_chance:
+        # Successful robbery
+        loot = random.randint(500, 2000) * player.level
+        player.gold += loot
+        log.append(f"SUCCESS! You grabbed {loot} gold from the vault!")
+
+        # Bank guards may pursue
+        guards = Player.query.filter_by(is_bank_guard=True).all()
+        if guards:
+            guard = random.choice(guards)
+            log.append(f"Bank guard {guard.name} gives chase!")
+            # Simple escape check
+            escape = player.agility + random.randint(0, 50)
+            catch = guard.agility + guard.strength + random.randint(0, 30)
+            if escape > catch:
+                log.append("You outrun the guard and escape!")
+            else:
+                lost = loot // 2
+                player.gold -= lost
+                log.append(f"The guard catches you and recovers {lost} gold!")
+                loot -= lost
+
+        add_news(f"The bank was robbed! {loot} gold was stolen!")
+        db.session.commit()
+        return True, f"You robbed {loot} gold from the bank!", log
+    else:
+        # Failed robbery
+        log.append("CAUGHT! The bank guards seize you!")
+        fine = random.randint(100, 500) * player.level
+        if fine > player.gold:
+            fine = player.gold
+        player.gold -= fine
+        player.is_imprisoned = True
+        player.prison_days = random.randint(1, 3)
+        log.append(f"You were fined {fine} gold and thrown in prison for {player.prison_days} day(s)!")
+        add_news(f"{player.name} was caught trying to rob the bank and was imprisoned!")
+        db.session.commit()
+        return True, "You were caught and imprisoned!", log
+
+
+# ==================== PRISON ESCAPE ====================
+
+def escape_prison(player):
+    """Attempt to escape from prison. Returns (success, msg, log)."""
+    if not player.is_imprisoned:
+        return False, "You are not imprisoned.", []
+
+    max_attempts = int(GameConfig.get('prison_escape_attempts', '2') or '2')
+    if player.escape_attempts >= max_attempts:
+        return False, f"You've used all {max_attempts} escape attempts today.", []
+
+    player.escape_attempts += 1
+    log = []
+    log.append("You try to pick the lock on your cell...")
+
+    # Escape chance based on dexterity and agility
+    chance = (player.dexterity + player.agility) / 200
+    chance = min(0.40, max(0.05, chance))  # 5-40% chance
+
+    if random.random() < chance:
+        player.is_imprisoned = False
+        player.prison_days = 0
+        log.append("SUCCESS! You pick the lock and slip out into the night!")
+        add_news(f"{player.name} escaped from prison!")
+        db.session.commit()
+        return True, "You escaped!", log
+    else:
+        # Failed - extra day added
+        player.prison_days += 1
+        log.append(f"FAILED! The guards add another day to your sentence. ({player.prison_days} days left)")
+        db.session.commit()
+        return True, "Escape failed!", log
+
+
+def add_news(message, player_id=None, category='social'):
+    """Helper to add a news entry."""
+    entry = NewsEntry(player_id=player_id, category=category, message=message)
+    db.session.add(entry)
+
+
+# ==================== PLAYER MARKET ====================
+
+MAX_LISTINGS_PER_PLAYER = 5
+MARKET_TAX_PERCENT = 10  # Ugly Joe takes a 10% cut
+
+
+def list_item_on_market(player, inventory_item_id, price):
+    """List an inventory item for sale on the player market. Returns (success, msg)."""
+    if player.is_imprisoned:
+        return False, "You cannot trade while imprisoned."
+
+    active = MarketListing.query.filter_by(seller_id=player.id).count()
+    if active >= MAX_LISTINGS_PER_PLAYER:
+        return False, f"You can only have {MAX_LISTINGS_PER_PLAYER} active listings."
+
+    inv_item = InventoryItem.query.filter_by(id=inventory_item_id, player_id=player.id).first()
+    if not inv_item:
+        return False, "You don't have that item."
+
+    item = db.session.get(Item, inv_item.item_id)
+    if not item:
+        return False, "Item not found."
+
+    if price < 1:
+        return False, "Price must be at least 1 gold."
+    if price > 10000000:
+        return False, "Price cannot exceed 10,000,000 gold."
+
+    # Remove from player inventory
+    db.session.delete(inv_item)
+
+    listing = MarketListing(
+        seller_id=player.id,
+        seller_name=player.name,
+        item_id=item.id,
+        item_name=item.name,
+        price=price,
+    )
+    db.session.add(listing)
+    add_news(f"{player.name} listed '{item.name}' for sale at the Player Market for {price}g.")
+    db.session.commit()
+    return True, f"Listed '{item.name}' for {price} gold."
+
+
+def buy_market_item(buyer, listing_id):
+    """Buy an item from the player market. Returns (success, msg)."""
+    if buyer.is_imprisoned:
+        return False, "You cannot trade while imprisoned."
+
+    listing = db.session.get(MarketListing, listing_id)
+    if not listing:
+        return False, "That listing no longer exists."
+
+    if listing.seller_id == buyer.id:
+        return False, "You can't buy your own listing."
+
+    if buyer.gold < listing.price:
+        return False, f"You need {listing.price} gold to buy '{listing.item_name}'."
+
+    # Transfer gold (minus tax)
+    tax = max(1, listing.price * MARKET_TAX_PERCENT // 100)
+    seller_gets = listing.price - tax
+
+    buyer.gold -= listing.price
+    seller = db.session.get(Player, listing.seller_id)
+    if seller:
+        seller.gold += seller_gets
+        # Notify seller
+        mail = Mail(
+            sender_id=buyer.id,
+            receiver_id=seller.id,
+            subject="Item sold!",
+            message=f"Your '{listing.item_name}' was bought by {buyer.name} for {listing.price}g. "
+                    f"After Ugly Joe's {MARKET_TAX_PERCENT}% cut, you received {seller_gets}g."
+        )
+        db.session.add(mail)
+
+    # Give item to buyer
+    inv = InventoryItem(player_id=buyer.id, item_id=listing.item_id)
+    db.session.add(inv)
+
+    item_name = listing.item_name
+    db.session.delete(listing)
+    add_news(f"{buyer.name} bought '{item_name}' from the Player Market.")
+    db.session.commit()
+    return True, f"You bought '{item_name}' for {listing.price} gold!"
+
+
+def cancel_market_listing(player, listing_id):
+    """Cancel your own listing and return the item. Returns (success, msg)."""
+    listing = db.session.get(MarketListing, listing_id)
+    if not listing:
+        return False, "Listing not found."
+    if listing.seller_id != player.id:
+        return False, "That's not your listing."
+
+    # Return item to player
+    inv = InventoryItem(player_id=player.id, item_id=listing.item_id)
+    db.session.add(inv)
+    item_name = listing.item_name
+    db.session.delete(listing)
+    db.session.commit()
+    return True, f"Listing cancelled. '{item_name}' returned to your inventory."
+
+
+# ==================== BARD SONGS ====================
+
+BARD_SONGS = [
+    {'name': 'Ballad of the Brave', 'type': 'courage',
+     'desc': 'An inspiring tale of heroism that bolsters the spirit.',
+     'stat': 'strength', 'bonus_min': 1, 'bonus_max': 3, 'xp_min': 50, 'xp_max': 150,
+     'cost': 0, 'min_level': 1},
+    {'name': 'Lullaby of Healing', 'type': 'healing',
+     'desc': 'A soothing melody that mends wounds.',
+     'stat': 'hp', 'bonus_min': 10, 'bonus_max': 30, 'xp_min': 30, 'xp_max': 100,
+     'cost': 50, 'min_level': 1},
+    {'name': 'March of the Ironclad', 'type': 'defense',
+     'desc': 'A rhythmic war march that hardens resolve.',
+     'stat': 'defence', 'bonus_min': 1, 'bonus_max': 3, 'xp_min': 50, 'xp_max': 150,
+     'cost': 100, 'min_level': 3},
+    {'name': 'Trickster\'s Jig', 'type': 'agility',
+     'desc': 'A lively dance tune that quickens reflexes.',
+     'stat': 'agility', 'bonus_min': 1, 'bonus_max': 3, 'xp_min': 50, 'xp_max': 150,
+     'cost': 100, 'min_level': 3},
+    {'name': 'Hymn of Wisdom', 'type': 'wisdom',
+     'desc': 'An ancient chant that opens the third eye.',
+     'stat': 'wisdom', 'bonus_min': 1, 'bonus_max': 4, 'xp_min': 80, 'xp_max': 200,
+     'cost': 200, 'min_level': 5},
+    {'name': 'Serenade of Charm', 'type': 'charisma',
+     'desc': 'A beautiful love song that enchants all who hear.',
+     'stat': 'charisma', 'bonus_min': 2, 'bonus_max': 5, 'xp_min': 80, 'xp_max': 200,
+     'cost': 200, 'min_level': 5},
+    {'name': 'Dirge of Darkness', 'type': 'dark',
+     'desc': 'A haunting funeral dirge that drains the life from foes.',
+     'stat': 'strength', 'bonus_min': 3, 'bonus_max': 7, 'xp_min': 150, 'xp_max': 400,
+     'cost': 500, 'min_level': 8},
+    {'name': 'Epic of the Ancients', 'type': 'epic',
+     'desc': 'A legendary tale passed down through millennia. Grants all-round power.',
+     'stat': 'all', 'bonus_min': 1, 'bonus_max': 2, 'xp_min': 200, 'xp_max': 500,
+     'cost': 1000, 'min_level': 12},
+]
+
+
+def perform_bard_song(player, song_index):
+    """Perform a bard song. Bard class gets bonuses. Returns (success, msg, log)."""
+    if song_index < 0 or song_index >= len(BARD_SONGS):
+        return False, "Invalid song.", []
+
+    song = BARD_SONGS[song_index]
+
+    if player.level < song['min_level']:
+        return False, f"You must be level {song['min_level']} to perform '{song['name']}'.", []
+
+    if player.performances_remaining <= 0:
+        return False, "You have no performances remaining today.", []
+
+    if player.gold < song['cost']:
+        return False, f"You need {song['cost']} gold for the audience fee.", []
+
+    player.performances_remaining -= 1
+    player.gold -= song['cost']
+    log = []
+
+    is_bard = player.player_class == 'Bard'
+    # Bards get double stat bonuses and 50% more XP
+    multiplier = 2 if is_bard else 1
+    xp_mult = 1.5 if is_bard else 1.0
+
+    log.append(f"You perform '{song['name']}'...")
+    log.append(f'"{song["desc"]}"')
+
+    # Performance quality check
+    quality_roll = random.randint(1, 100) + (player.charisma // 2)
+    if is_bard:
+        quality_roll += 25  # Bards are natural performers
+
+    if quality_roll < 30:
+        log.append("The crowd boos and throws rotten vegetables!")
+        player.charisma = max(1, player.charisma - 1)
+        return True, "Terrible performance!", log
+
+    if quality_roll > 90:
+        log.append("MASTERFUL PERFORMANCE! The crowd goes wild!")
+        multiplier += 1
+    elif quality_roll > 60:
+        log.append("The audience is captivated by your performance!")
+    else:
+        log.append("A decent performance. The crowd politely applauds.")
+
+    # Apply stat bonuses
+    bonus = random.randint(song['bonus_min'], song['bonus_max']) * multiplier
+    if song['stat'] == 'all':
+        for stat in ['strength', 'defence', 'stamina', 'agility', 'charisma', 'dexterity', 'wisdom']:
+            current = getattr(player, stat)
+            setattr(player, stat, current + bonus)
+        log.append(f"All stats increased by {bonus}!")
+    elif song['stat'] == 'hp':
+        healed = min(bonus * multiplier, player.max_hp - player.hp)
+        player.hp += healed
+        log.append(f"You recovered {healed} HP!")
+    else:
+        current = getattr(player, song['stat'])
+        setattr(player, song['stat'], current + bonus)
+        log.append(f"{song['stat'].capitalize()} increased by {bonus}!")
+
+    # XP gain
+    xp = int(random.randint(song['xp_min'], song['xp_max']) * xp_mult * player.level)
+    player.experience += xp
+    log.append(f"Gained {xp} experience!")
+
+    # Charisma bonus for good performance
+    if quality_roll > 70:
+        gold_tip = random.randint(10, 50) * player.level
+        player.gold += gold_tip
+        log.append(f"The crowd tips you {gold_tip} gold!")
+
+    # Dark songs increase darkness
+    if song['type'] == 'dark':
+        player.darkness += random.randint(5, 15)
+        log.append("The dark melody resonates with evil forces...")
+    else:
+        player.chivalry += random.randint(1, 3)
+
+    add_news(f"{player.name} performed '{song['name']}' "
+             f"{'brilliantly' if quality_roll > 80 else 'at the town square'}.")
+    db.session.commit()
+    return True, f"Performance complete!", log
+
+
+# ==================== WRESTLING MATCHES ====================
+
+WRESTLING_OPPONENTS = [
+    {'name': 'Scrawny Steve', 'str': 8, 'sta': 6, 'agi': 10, 'level': 1,
+     'prize_mult': 1, 'desc': 'A skinny fellow who looks like he\'d blow over in a breeze.'},
+    {'name': 'Bruiser Bill', 'str': 15, 'sta': 12, 'agi': 8, 'level': 3,
+     'prize_mult': 2, 'desc': 'A burly dockworker with arms like tree trunks.'},
+    {'name': 'Iron Ilsa', 'str': 22, 'sta': 18, 'agi': 14, 'level': 5,
+     'prize_mult': 3, 'desc': 'A massive woman who once wrestled a troll.'},
+    {'name': 'The Masked Goblin', 'str': 18, 'sta': 15, 'agi': 25, 'level': 7,
+     'prize_mult': 4, 'desc': 'Lightning fast and impossibly slippery.'},
+    {'name': 'Grok the Crusher', 'str': 35, 'sta': 28, 'agi': 10, 'level': 10,
+     'prize_mult': 5, 'desc': 'A half-orc champion who has never been pinned.'},
+    {'name': 'Mountain Magnus', 'str': 50, 'sta': 40, 'agi': 15, 'level': 15,
+     'prize_mult': 7, 'desc': 'Standing 7 feet tall, this giant towers over all.'},
+    {'name': 'The Dragon', 'str': 70, 'sta': 55, 'agi': 30, 'level': 20,
+     'prize_mult': 10, 'desc': 'The legendary undefeated champion of the ring.'},
+]
+
+WRESTLING_ENTRY_FEE = 50
+
+
+def wrestle(player, opponent_index):
+    """Wrestling match against an NPC opponent. Returns (success, msg, log)."""
+    if opponent_index < 0 or opponent_index >= len(WRESTLING_OPPONENTS):
+        return False, "Invalid opponent.", []
+
+    if player.wrestling_matches <= 0:
+        return False, "You've had enough wrestling for today.", []
+
+    opp = WRESTLING_OPPONENTS[opponent_index]
+    entry_fee = WRESTLING_ENTRY_FEE * opp['prize_mult']
+
+    if player.gold < entry_fee:
+        return False, f"Entry fee is {entry_fee} gold.", []
+
+    if player.hp < player.max_hp // 4:
+        return False, "You're too wounded to wrestle.", []
+
+    player.gold -= entry_fee
+    player.wrestling_matches -= 1
+    log = []
+
+    log.append(f"=== WRESTLING MATCH ===")
+    log.append(f"You step into the ring against {opp['name']}!")
+    log.append(f'"{opp["desc"]}"')
+    log.append(f"Entry fee: {entry_fee} gold")
+
+    # Wrestling is a 3-round contest of strength, stamina, and agility
+    player_score = 0
+    opp_score = 0
+
+    # Round 1: Grapple (strength based)
+    log.append("")
+    log.append("Round 1 - The Grapple:")
+    p_roll = player.strength + random.randint(0, player.strength // 2)
+    o_roll = opp['str'] + random.randint(0, opp['str'] // 2)
+    if p_roll > o_roll:
+        player_score += 1
+        log.append(f"You overpower {opp['name']} with a crushing grip! (1-0)")
+    elif o_roll > p_roll:
+        opp_score += 1
+        log.append(f"{opp['name']} forces you down! (0-1)")
+    else:
+        log.append("Neither can gain the advantage! (0-0)")
+
+    # Round 2: Endurance (stamina based)
+    log.append("")
+    log.append("Round 2 - The Grind:")
+    p_roll = player.stamina + random.randint(0, player.stamina // 2)
+    o_roll = opp['sta'] + random.randint(0, opp['sta'] // 2)
+    if p_roll > o_roll:
+        player_score += 1
+        log.append(f"You outlast {opp['name']}, wearing them down! ({player_score}-{opp_score})")
+    elif o_roll > p_roll:
+        opp_score += 1
+        log.append(f"{opp['name']} wears you out! ({player_score}-{opp_score})")
+    else:
+        log.append(f"Both fighters are evenly matched! ({player_score}-{opp_score})")
+
+    # Round 3: Finishing Move (agility based)
+    log.append("")
+    log.append("Round 3 - The Finish:")
+    p_roll = player.agility + random.randint(0, player.agility // 2)
+    o_roll = opp['agi'] + random.randint(0, opp['agi'] // 2)
+    if p_roll > o_roll:
+        player_score += 1
+        log.append(f"You execute a perfect takedown! ({player_score}-{opp_score})")
+    elif o_roll > p_roll:
+        opp_score += 1
+        log.append(f"{opp['name']} reverses your hold and pins you! ({player_score}-{opp_score})")
+    else:
+        log.append(f"Both scramble but neither lands the finishing move! ({player_score}-{opp_score})")
+
+    log.append("")
+
+    if player_score > opp_score:
+        # Victory!
+        prize = entry_fee * 3
+        xp = random.randint(50, 150) * opp['prize_mult'] * player.level
+        player.gold += prize
+        player.experience += xp
+        player.wrestling_wins += 1
+        player.strength += random.randint(0, 1)
+        player.stamina += random.randint(0, 1)
+        log.append(f"VICTORY! You defeated {opp['name']}!")
+        log.append(f"Prize: {prize} gold, {xp} XP")
+        add_news(f"{player.name} defeated {opp['name']} in a wrestling match!")
+    elif opp_score > player_score:
+        # Defeat
+        dmg = random.randint(5, 15) * opp['prize_mult']
+        player.hp = max(1, player.hp - dmg)
+        player.wrestling_losses += 1
+        log.append(f"DEFEAT! {opp['name']} wins the match!")
+        log.append(f"You took {dmg} damage from the beating.")
+        add_news(f"{player.name} was defeated by {opp['name']} in the wrestling ring!")
+    else:
+        # Draw - refund half
+        refund = entry_fee // 2
+        player.gold += refund
+        xp = random.randint(20, 50) * player.level
+        player.experience += xp
+        log.append(f"DRAW! The match is declared a tie.")
+        log.append(f"Partial refund: {refund} gold, {xp} XP")
+
+    db.session.commit()
+    return True, f"Match vs {opp['name']} complete!", log
+
+
+# ==================== BEAR TAMING (UMAN CAVE) ====================
+
+BEAR_TYPES = [
+    {'name': 'Small Brown Bear', 'str': 5, 'difficulty': 20,
+     'desc': 'A young bear, curious but wary.'},
+    {'name': 'Grey Mountain Bear', 'str': 10, 'difficulty': 40,
+     'desc': 'A sturdy mountain dweller with thick fur.'},
+    {'name': 'Black Forest Bear', 'str': 15, 'difficulty': 55,
+     'desc': 'A fierce predator from the deep woods.'},
+    {'name': 'Armored Cave Bear', 'str': 22, 'difficulty': 70,
+     'desc': 'An ancient species with hide like stone.'},
+    {'name': 'Great White Bear', 'str': 30, 'difficulty': 85,
+     'desc': 'The legendary king of bears, massive and untamed.'},
+]
+
+
+def attempt_bear_taming(player, bear_index):
+    """Attempt to tame a bear in Uman Cave. Returns (success, msg, log)."""
+    if bear_index < 0 or bear_index >= len(BEAR_TYPES):
+        return False, "Invalid bear.", []
+
+    if player.is_imprisoned:
+        return False, "You cannot visit the cave while imprisoned.", []
+
+    bear = BEAR_TYPES[bear_index]
+    log = []
+
+    cost = 100 + bear['difficulty'] * 10
+    if player.gold < cost:
+        return False, f"You need {cost} gold to buy bait and supplies.", []
+
+    if player.hp < player.max_hp // 3:
+        return False, "You're too wounded for this dangerous expedition.", []
+
+    player.gold -= cost
+    log.append(f"You venture deep into Uman Cave with supplies ({cost} gold)...")
+    log.append(f'You spot a {bear["name"]}! "{bear["desc"]}"')
+
+    # Taming check: charisma + wisdom + dexterity vs difficulty
+    skill = player.charisma + player.wisdom + player.dexterity + random.randint(0, 50)
+    # Bards and Rangers get bonuses
+    if player.player_class in ('Ranger', 'Bard'):
+        skill += 30
+    elif player.player_class == 'Barbarian':
+        skill += 15
+
+    threshold = bear['difficulty'] * 2 + random.randint(0, 30)
+
+    if skill > threshold:
+        # Success!
+        if player.has_tamed_bear:
+            # Release old bear
+            log.append(f"You release your old companion {player.bear_name} into the wild.")
+        player.has_tamed_bear = True
+        # Generate bear name
+        prefixes = ['Grim', 'Shadow', 'Thunder', 'Honey', 'Iron', 'Storm', 'Frost', 'Ember']
+        suffixes = ['paw', 'claw', 'fang', 'heart', 'hide', 'roar', 'fury', 'tooth']
+        bear_name = random.choice(prefixes) + random.choice(suffixes)
+        player.bear_name = bear_name
+        player.bear_strength = bear['str']
+        xp = random.randint(100, 300) * (bear_index + 1)
+        player.experience += xp
+        player.chivalry += random.randint(3, 10)
+        log.append(f"SUCCESS! The {bear['name']} accepts you as its master!")
+        log.append(f"You name your new companion '{bear_name}'.")
+        log.append(f"Bear strength bonus: +{bear['str']} to attack")
+        log.append(f"Gained {xp} XP!")
+        add_news(f"{player.name} tamed a {bear['name']} in Uman Cave! Named it '{bear_name}'.")
+    else:
+        # Failed - bear attacks
+        dmg = random.randint(10, 25) + bear['difficulty'] // 3
+        player.hp = max(1, player.hp - dmg)
+        log.append(f"FAILED! The {bear['name']} swipes at you angrily!")
+        log.append(f"You take {dmg} damage fleeing the cave!")
+        # Small chance of losing current bear
+        if player.has_tamed_bear and random.randint(1, 5) == 1:
+            log.append(f"In the chaos, your companion {player.bear_name} runs away!")
+            player.has_tamed_bear = False
+            player.bear_name = ''
+            player.bear_strength = 0
+
+    db.session.commit()
+    return True, "Cave expedition complete.", log
+
+
+def release_bear(player):
+    """Release your tamed bear. Returns (success, msg)."""
+    if not player.has_tamed_bear:
+        return False, "You don't have a tamed bear."
+
+    name = player.bear_name
+    player.has_tamed_bear = False
+    player.bear_name = ''
+    player.bear_strength = 0
+    db.session.commit()
+    return True, f"You released {name} back into the wild."

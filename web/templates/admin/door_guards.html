@@ -1,0 +1,46 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">
+        Door Guard Editor
+        <a href="{{ url_for('admin_new_door_guard') }}" class="btn btn-sm" style="float:right;">+ New Guard</a>
+    </div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">Door guards protect players sleeping at the inn from PvP attacks. Attackers must fight through all guards before reaching the defender.</p>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Cost</th>
+                    <th>HP</th>
+                    <th>Attack</th>
+                    <th>Armor</th>
+                    <th>Multiple</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in guards %}
+                <tr>
+                    <td class="text-dim">{{ g.id }}</td>
+                    <td>{{ g.name }}</td>
+                    <td class="text-gold">{{ g.cost }}</td>
+                    <td>{{ g.hps }}</td>
+                    <td>{{ g.attack }}</td>
+                    <td>{{ g.armor }}</td>
+                    <td>{{ 'Yes' if g.allow_multiple else 'No' }}</td>
+                    <td>
+                        <a href="{{ url_for('admin_edit_door_guard', guard_id=g.id) }}" class="btn btn-sm">Edit</a>
+                        <form method="POST" action="{{ url_for('admin_delete_door_guard', guard_id=g.id) }}"
+                              class="inline-form" onsubmit="return confirm('Delete {{ g.name }}?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Del</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

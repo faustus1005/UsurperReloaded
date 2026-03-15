@@ -21,8 +21,10 @@ from models import (
     db, User, Player, Item, InventoryItem, Monster, Mail, NewsEntry,
     GameConfig, Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem,
+    MoatCreature, RoyalGuard, DoorGuard, Drink, MarketListing,
     RACES, CLASSES, RACE_BONUSES, CLASS_BONUSES,
-    SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, ITEM_TYPES
+    SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, ITEM_TYPES,
+    DRINK_INGREDIENTS
 )
 import game as game_logic
 from seed import seed_all
@@ -76,6 +78,16 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
     seed_all()
+    # Load custom level XP table from admin config if set
+    try:
+        import json as _json
+        _custom_xp = GameConfig.get('level_xp_table')
+        if _custom_xp:
+            _data = _json.loads(_custom_xp)
+            for _k, _v in _data.items():
+                LEVEL_XP[int(_k)] = int(_v)
+    except Exception:
+        pass
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -93,6 +105,14 @@ def get_player():
     if not current_user.is_authenticated:
         return None
     return Player.query.filter_by(user_id=current_user.id).first()
+
+
+def is_shop_open(shop_key):
+    """Check if an establishment is open (not closed by royal decree)."""
+    _, king_record = game_logic.get_current_king()
+    if not king_record:
+        return True  # No king = all shops open
+    return getattr(king_record, shop_key, True)
 
 
 def admin_required(f):
@@ -127,6 +147,7 @@ def inject_game_data():
         'scrolling_text': scrolling_text,
         'recent_scroll_news': recent_scroll_news,
         'get_location_image': lambda key: GameConfig.get(f'image_{key}', ''),
+        'config': GameConfig,
     }
 
 
@@ -635,9 +656,16 @@ def inn():
     if not player:
         return redirect(url_for('create_character'))
 
+    if not is_shop_open('shop_inn'):
+        flash("The Inn has been closed by royal decree!", 'error')
+        return redirect(url_for('main_menu'))
+
     inn_name = GameConfig.get('inn_name', "The Dragon's Flagon")
     rest_cost = player.level * 5 + 10
-    return render_template('inn.html', inn_name=inn_name, rest_cost=rest_cost)
+    door_guards = DoorGuard.query.all()
+    current_guard = db.session.get(DoorGuard, player.door_guard_id) if player.door_guard_id else None
+    return render_template('inn.html', inn_name=inn_name, rest_cost=rest_cost,
+                           door_guards=door_guards, current_guard=current_guard)
 
 
 @app.route('/inn/rest', methods=['POST'])
@@ -653,13 +681,54 @@ def inn_rest():
     return redirect(url_for('inn'))
 
 
+@app.route('/inn/hire_guard', methods=['POST'])
+@login_required
+def inn_hire_guard():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    try:
+        guard_id = int(request.form.get('guard_id', 0))
+        count = int(request.form.get('count', 1))
+    except ValueError:
+        flash("Invalid input.", 'error')
+        return redirect(url_for('inn'))
+
+    success, msg = game_logic.hire_door_guard(player, guard_id, count)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('inn'))
+
+
+@app.route('/inn/dismiss_guards', methods=['POST'])
+@login_required
+def inn_dismiss_guards():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.dismiss_door_guards(player)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('inn'))
+
+
 @app.route('/bank')
 @login_required
 def bank():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    return render_template('bank.html')
+
+    # Collect accumulated bank wages on visit
+    wages_collected = game_logic.collect_bank_wages(player)
+    if wages_collected > 0:
+        db.session.commit()
+        flash(f"You collected {wages_collected} gold in bank guard salary!", 'success')
+
+    bank_salary = (player.level * 1500) + (player.strength * 9) if not player.is_bank_guard else (player.level * 1500) + (player.strength * 9)
+    return render_template('bank.html', bank_salary=bank_salary)
 
 
 @app.route('/bank/deposit', methods=['POST'])
@@ -695,6 +764,32 @@ def bank_withdraw():
         return redirect(url_for('bank'))
 
     success, msg = game_logic.bank_withdraw(player, amount)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('bank'))
+
+
+@app.route('/bank/apply_guard', methods=['POST'])
+@login_required
+def bank_guard_apply():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.bank_guard_apply(player)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('bank'))
+
+
+@app.route('/bank/resign_guard', methods=['POST'])
+@login_required
+def bank_guard_resign():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.bank_guard_resign(player)
     db.session.commit()
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('bank'))
@@ -739,6 +834,10 @@ def magic_shop():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
+
+    if not is_shop_open('shop_magic'):
+        flash("The Magic Shop has been closed by royal decree!", 'error')
+        return redirect(url_for('main_menu'))
 
     # Show items that give mana/wisdom bonuses
     items = Item.query.filter(
@@ -1089,11 +1188,27 @@ def castle():
     history = KingRecord.query.filter_by(is_current=False).order_by(
         KingRecord.dethroned_at.desc()).limit(10).all()
     prisoners = Player.query.filter_by(is_imprisoned=True).all() if (king and king.id == player.id) else []
+    moat_creatures = MoatCreature.query.all()
+    royal_guards = []
+    hirable_players = []
+    tax_relieved = []
+    if king and king.id == player.id and king_record:
+        royal_guards = RoyalGuard.query.filter_by(king_record_id=king_record.id).all()
+        # Players available to hire as guards (not king, not already guards, not imprisoned)
+        guard_ids = [g.player_id for g in royal_guards]
+        hirable_players = Player.query.filter(
+            Player.id != player.id,
+            Player.is_imprisoned == False,
+            ~Player.id.in_(guard_ids) if guard_ids else True
+        ).order_by(Player.level.desc()).limit(20).all()
+        tax_relieved = Player.query.filter_by(tax_relief=True).all()
 
     castle_name = GameConfig.get('castle_name', 'The Royal Castle')
     return render_template('castle.html', king=king, king_record=king_record,
                            history=history, prisoners=prisoners,
-                           castle_name=castle_name)
+                           castle_name=castle_name, moat_creatures=moat_creatures,
+                           royal_guards=royal_guards, hirable_players=hirable_players,
+                           tax_relieved=tax_relieved)
 
 
 @app.route('/castle/challenge', methods=['POST'])
@@ -1140,9 +1255,9 @@ def abdicate():
     return redirect(url_for('castle'))
 
 
-@app.route('/castle/hire_guards', methods=['POST'])
+@app.route('/castle/hire_moat_creatures', methods=['POST'])
 @login_required
-def hire_guards():
+def hire_moat_creatures():
     player = get_player()
     if not player or not player.is_king:
         flash("Only the ruler can do this.", 'error')
@@ -1154,11 +1269,199 @@ def hire_guards():
         return redirect(url_for('castle'))
 
     try:
+        creature_id = int(request.form.get('creature_id', 0))
+        count = int(request.form.get('count', 1))
+    except ValueError:
+        flash("Invalid input.", 'error')
+        return redirect(url_for('castle'))
+
+    funding = request.form.get('funding', 'treasury')
+    success, msg = game_logic.king_hire_moat_creatures(king_record, creature_id, count, funding)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('castle'))
+
+
+@app.route('/castle/remove_moat_creatures', methods=['POST'])
+@login_required
+def remove_moat_creatures():
+    player = get_player()
+    if not player or not player.is_king:
+        flash("Only the ruler can do this.", 'error')
+        return redirect(url_for('castle'))
+
+    king_record = KingRecord.query.filter_by(player_id=player.id, is_current=True).first()
+    if not king_record:
+        return redirect(url_for('castle'))
+
+    try:
         count = int(request.form.get('count', 1))
     except ValueError:
         count = 1
 
-    success, msg = game_logic.king_hire_guards(king_record, count)
+    success, msg = game_logic.king_remove_moat_creatures(king_record, count)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('castle'))
+
+
+@app.route('/castle/hire_guard', methods=['POST'])
+@login_required
+def hire_royal_guard():
+    player = get_player()
+    if not player or not player.is_king:
+        flash("Only the ruler can do this.", 'error')
+        return redirect(url_for('castle'))
+
+    king_record = KingRecord.query.filter_by(player_id=player.id, is_current=True).first()
+    if not king_record:
+        return redirect(url_for('castle'))
+
+    try:
+        target_id = int(request.form.get('target_id', 0))
+        salary = int(request.form.get('salary', 0))
+    except ValueError:
+        flash("Invalid input.", 'error')
+        return redirect(url_for('castle'))
+
+    success, msg = game_logic.king_hire_royal_guard(king_record, target_id, salary)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('castle'))
+
+
+@app.route('/castle/sack_guard', methods=['POST'])
+@login_required
+def sack_royal_guard():
+    player = get_player()
+    if not player or not player.is_king:
+        flash("Only the ruler can do this.", 'error')
+        return redirect(url_for('castle'))
+
+    king_record = KingRecord.query.filter_by(player_id=player.id, is_current=True).first()
+    if not king_record:
+        return redirect(url_for('castle'))
+
+    try:
+        guard_id = int(request.form.get('guard_id', 0))
+    except ValueError:
+        flash("Invalid input.", 'error')
+        return redirect(url_for('castle'))
+
+    success, msg = game_logic.king_sack_guard(king_record, guard_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('castle'))
+
+
+@app.route('/castle/set_tax', methods=['POST'])
+@login_required
+def set_tax():
+    player = get_player()
+    if not player or not player.is_king:
+        flash("Only the ruler can do this.", 'error')
+        return redirect(url_for('castle'))
+
+    king_record = KingRecord.query.filter_by(player_id=player.id, is_current=True).first()
+    if not king_record:
+        return redirect(url_for('castle'))
+
+    try:
+        rate = int(request.form.get('rate', 5))
+        alignment = int(request.form.get('alignment', 0))
+    except ValueError:
+        flash("Invalid input.", 'error')
+        return redirect(url_for('castle'))
+
+    success, msg = game_logic.king_set_tax(king_record, rate, alignment)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('castle'))
+
+
+@app.route('/castle/grant_tax_relief', methods=['POST'])
+@login_required
+def grant_tax_relief():
+    player = get_player()
+    if not player or not player.is_king:
+        flash("Only the ruler can do this.", 'error')
+        return redirect(url_for('castle'))
+
+    target_name = request.form.get('target', '').strip()
+    success, msg = game_logic.king_grant_tax_relief(player, target_name)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('castle'))
+
+
+@app.route('/castle/revoke_tax_relief', methods=['POST'])
+@login_required
+def revoke_tax_relief():
+    player = get_player()
+    if not player or not player.is_king:
+        flash("Only the ruler can do this.", 'error')
+        return redirect(url_for('castle'))
+
+    target_name = request.form.get('target', '').strip()
+    success, msg = game_logic.king_revoke_tax_relief(player, target_name)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('castle'))
+
+
+@app.route('/castle/withdraw', methods=['POST'])
+@login_required
+def castle_withdraw():
+    player = get_player()
+    if not player or not player.is_king:
+        flash("Only the ruler can do this.", 'error')
+        return redirect(url_for('castle'))
+
+    king_record = KingRecord.query.filter_by(player_id=player.id, is_current=True).first()
+    if not king_record:
+        return redirect(url_for('castle'))
+
+    try:
+        amount = int(request.form.get('amount', 0))
+    except ValueError:
+        flash("Invalid amount.", 'error')
+        return redirect(url_for('castle'))
+
+    success, msg = game_logic.king_treasury_withdraw(king_record, amount)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('castle'))
+
+
+@app.route('/castle/toggle_shop', methods=['POST'])
+@login_required
+def toggle_establishment():
+    player = get_player()
+    if not player or not player.is_king:
+        flash("Only the ruler can do this.", 'error')
+        return redirect(url_for('castle'))
+
+    king_record = KingRecord.query.filter_by(player_id=player.id, is_current=True).first()
+    if not king_record:
+        return redirect(url_for('castle'))
+
+    shop_key = request.form.get('shop_key', '')
+    success, msg = game_logic.king_toggle_establishment(king_record, shop_key)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('castle'))
+
+
+@app.route('/castle/proclamation', methods=['POST'])
+@login_required
+def royal_proclamation():
+    player = get_player()
+    if not player or not player.is_king:
+        flash("Only the ruler can do this.", 'error')
+        return redirect(url_for('castle'))
+
+    message_text = request.form.get('message', '').strip()
+    success, msg = game_logic.king_send_proclamation(player, message_text)
     db.session.commit()
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('castle'))
@@ -1291,6 +1594,10 @@ def tavern():
     if not player:
         return redirect(url_for('create_character'))
 
+    if not is_shop_open('shop_tavern'):
+        flash("The Tavern has been closed by royal decree!", 'error')
+        return redirect(url_for('main_menu'))
+
     if player.is_imprisoned:
         flash("You cannot visit the tavern while imprisoned.", 'error')
         return redirect(url_for('main_menu'))
@@ -1359,6 +1666,160 @@ def drink_result():
     return render_template('brawl_result.html', combat_log=log)
 
 
+# ==================== ORB'S BAR ====================
+
+@app.route('/orbs-bar')
+@login_required
+def orbs_bar():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot visit the bar while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    drinks = Drink.query.order_by(Drink.times_ordered.desc()).all()
+    players = Player.query.filter(Player.id != player.id).order_by(Player.name).all()
+    bartender = GameConfig.get('bartender_name', 'Sly')
+    return render_template('orbs_bar.html', drinks=drinks, player=player,
+                           bartender=bartender, players=players,
+                           ingredients=DRINK_INGREDIENTS)
+
+
+@app.route('/orbs-bar/create', methods=['POST'])
+@login_required
+def create_drink():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    name = request.form.get('name', '').strip()
+    comment = request.form.get('comment', '').strip()
+    secret = request.form.get('secret') == 'on'
+    ingredients = {}
+    for attr, _ in DRINK_INGREDIENTS:
+        val = int(request.form.get(attr, 0) or 0)
+        if val > 0:
+            ingredients[attr] = val
+    success, msg = game_logic.create_drink(player, name, comment, secret, ingredients)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('orbs_bar'))
+
+
+@app.route('/orbs-bar/order/<int:drink_id>', methods=['POST'])
+@login_required
+def order_drink(drink_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.order_drink(player, drink_id)
+    if success and log:
+        session['drink_effect_log'] = log
+        return redirect(url_for('drink_effect_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('orbs_bar'))
+
+
+@app.route('/orbs-bar/drink_result')
+@login_required
+def drink_effect_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('drink_effect_log', [])
+    return render_template('brawl_result.html', combat_log=log)
+
+
+@app.route('/orbs-bar/send', methods=['POST'])
+@login_required
+def send_drink():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    drink_id = int(request.form.get('drink_id', 0))
+    receiver_id = int(request.form.get('receiver_id', 0))
+    success, msg = game_logic.send_drink(player, receiver_id, drink_id)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('orbs_bar'))
+
+
+# ==================== PICK-POCKETING ====================
+
+@app.route('/pickpocket', methods=['POST'])
+@login_required
+def pickpocket():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    target_id = int(request.form.get('target_id', 0))
+    success, msg, log = game_logic.pickpocket(player, target_id)
+    if success and log:
+        session['pickpocket_log'] = log
+        return redirect(url_for('pickpocket_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('shady_dealer'))
+
+
+@app.route('/pickpocket/result')
+@login_required
+def pickpocket_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('pickpocket_log', [])
+    return render_template('brawl_result.html', combat_log=log)
+
+
+# ==================== BANK ROBBERY ====================
+
+@app.route('/bank/rob', methods=['POST'])
+@login_required
+def rob_bank():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.rob_bank(player)
+    if success and log:
+        session['robbery_log'] = log
+        return redirect(url_for('robbery_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('bank'))
+
+
+@app.route('/bank/rob/result')
+@login_required
+def robbery_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('robbery_log', [])
+    return render_template('brawl_result.html', combat_log=log)
+
+
+# ==================== PRISON ESCAPE ====================
+
+@app.route('/prison/escape', methods=['POST'])
+@login_required
+def prison_escape():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.escape_prison(player)
+    if success and log:
+        session['escape_log'] = log
+        return redirect(url_for('escape_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('main_menu'))
+
+
+@app.route('/prison/escape/result')
+@login_required
+def escape_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('escape_log', [])
+    return render_template('brawl_result.html', combat_log=log)
+
+
 # ==================== BOUNTY BOARD ====================
 
 @app.route('/bounty')
@@ -1402,6 +1863,10 @@ def beauty_nest():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
+
+    if not is_shop_open('shop_beauty_nest'):
+        flash("The Beauty Nest has been closed by royal decree!", 'error')
+        return redirect(url_for('main_menu'))
 
     if GameConfig.get('beauty_nest_enabled', 'true').lower() != 'true':
         flash("This establishment is currently closed.", 'error')
@@ -2126,6 +2591,10 @@ def healing_shop():
     if not player:
         return redirect(url_for('create_character'))
 
+    if not is_shop_open('shop_healing'):
+        flash("The Healing Center has been closed by royal decree!", 'error')
+        return redirect(url_for('main_menu'))
+
     items = Item.query.filter_by(in_shop=True, shop_category='healing').order_by(Item.value).all()
     shop_name = GameConfig.get('healing_shop_name', 'The Healing Hut')
     return render_template('shop.html', items=items, shop_name=shop_name,
@@ -2138,6 +2607,10 @@ def general_store():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
+
+    if not is_shop_open('shop_general'):
+        flash("The General Store has been closed by royal decree!", 'error')
+        return redirect(url_for('main_menu'))
 
     items = Item.query.filter_by(in_shop=True, shop_category='general').order_by(Item.value).all()
     shop_name = GameConfig.get('general_store_name', 'General Store')
@@ -2154,8 +2627,9 @@ def shady_dealer():
 
     items = Item.query.filter_by(in_shop=True, shop_category='shady').order_by(Item.value).all()
     dark_alley_name = GameConfig.get('dark_alley_name', 'The Dark Alley')
+    targets = Player.query.filter(Player.id != player.id, Player.hp > 0).order_by(Player.name).all()
     return render_template('dark_alley.html', items=items, player=player,
-                           dark_alley_name=dark_alley_name)
+                           dark_alley_name=dark_alley_name, targets=targets)
 
 
 @app.route('/shop/alchemist')
@@ -2236,6 +2710,199 @@ def buy_steroid(index):
     else:
         flash(msg, 'error' if not success else 'info')
     return redirect(url_for('steroid_shop'))
+
+
+# ==================== PLAYER MARKET ====================
+
+@app.route('/market')
+@login_required
+def player_market():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot visit the market while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+
+    listings = MarketListing.query.order_by(MarketListing.listed_at.desc()).all()
+    my_listings = MarketListing.query.filter_by(seller_id=player.id).all()
+    inventory = InventoryItem.query.filter_by(player_id=player.id).all()
+    # Enrich inventory with item data
+    inv_items = []
+    for inv in inventory:
+        item = db.session.get(Item, inv.item_id)
+        if item:
+            inv_items.append({'inv_id': inv.id, 'item': item})
+    return render_template('player_market.html', listings=listings,
+                           my_listings=my_listings, inv_items=inv_items,
+                           max_listings=game_logic.MAX_LISTINGS_PER_PLAYER,
+                           tax_percent=game_logic.MARKET_TAX_PERCENT)
+
+
+@app.route('/market/list', methods=['POST'])
+@login_required
+def market_list_item():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    inv_id = int(request.form.get('inv_id', 0))
+    price = int(request.form.get('price', 0))
+    success, msg = game_logic.list_item_on_market(player, inv_id, price)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('player_market'))
+
+
+@app.route('/market/buy/<int:listing_id>', methods=['POST'])
+@login_required
+def market_buy_item(listing_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg = game_logic.buy_market_item(player, listing_id)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('player_market'))
+
+
+@app.route('/market/cancel/<int:listing_id>', methods=['POST'])
+@login_required
+def market_cancel_listing(listing_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg = game_logic.cancel_market_listing(player, listing_id)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('player_market'))
+
+
+# ==================== BARD SONGS ====================
+
+@app.route('/bard')
+@login_required
+def bard_stage():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot perform while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    return render_template('bard_stage.html', songs=game_logic.BARD_SONGS,
+                           is_bard=player.player_class == 'Bard')
+
+
+@app.route('/bard/perform/<int:index>', methods=['POST'])
+@login_required
+def bard_perform(index):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.perform_bard_song(player, index)
+    db.session.commit()
+    if log:
+        session['bard_log'] = log
+        return redirect(url_for('bard_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('bard_stage'))
+
+
+@app.route('/bard/result')
+@login_required
+def bard_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('bard_log', [])
+    return render_template('bard_result.html', log=log)
+
+
+# ==================== WRESTLING MATCHES ====================
+
+@app.route('/wrestling')
+@login_required
+def wrestling_arena():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot wrestle while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    return render_template('wrestling.html',
+                           opponents=game_logic.WRESTLING_OPPONENTS,
+                           entry_base=game_logic.WRESTLING_ENTRY_FEE)
+
+
+@app.route('/wrestling/fight/<int:index>', methods=['POST'])
+@login_required
+def wrestling_fight(index):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.wrestle(player, index)
+    db.session.commit()
+    if log:
+        session['wrestling_log'] = log
+        return redirect(url_for('wrestling_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('wrestling_arena'))
+
+
+@app.route('/wrestling/result')
+@login_required
+def wrestling_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('wrestling_log', [])
+    return render_template('wrestling_result.html', log=log)
+
+
+# ==================== BEAR TAMING (UMAN CAVE) ====================
+
+@app.route('/cave')
+@login_required
+def uman_cave():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot visit the cave while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    return render_template('uman_cave.html', bears=game_logic.BEAR_TYPES)
+
+
+@app.route('/cave/tame/<int:index>', methods=['POST'])
+@login_required
+def tame_bear(index):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.attempt_bear_taming(player, index)
+    db.session.commit()
+    if log:
+        session['cave_log'] = log
+        return redirect(url_for('cave_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('uman_cave'))
+
+
+@app.route('/cave/result')
+@login_required
+def cave_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('cave_log', [])
+    return render_template('cave_result.html', log=log)
+
+
+@app.route('/cave/release', methods=['POST'])
+@login_required
+def release_bear():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg = game_logic.release_bear(player)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('uman_cave'))
 
 
 # ==================== DUNGEON EVENTS ====================
@@ -2354,6 +3021,9 @@ def admin_dashboard():
         'total_news': NewsEntry.query.count(),
         'total_bounties': Bounty.query.filter_by(claimed=False).count(),
         'total_gods': God.query.count(),
+        'total_door_guards': DoorGuard.query.count(),
+        'total_moat_creatures': MoatCreature.query.count(),
+        'total_drinks': Drink.query.count(),
     }
     king = Player.query.filter_by(is_king=True).first()
     return render_template('admin/dashboard.html', stats=stats, king=king)
@@ -2405,6 +3075,15 @@ def admin_config():
         'Economy': [
             ('bank_interest_rate', 'Bank Interest Rate (%)', 'number'),
             ('max_players', 'Max Players', 'number'),
+            ('bank_robbery_attempts', 'Bank Robbery Attempts Per Day', 'number'),
+        ],
+        "Orb's Bar": [
+            ('bartender_name', 'Bartender Name', 'text'),
+            ('drinks_per_day', 'Drinks Per Day', 'number'),
+            ('max_drinks', 'Max Custom Drinks', 'number'),
+        ],
+        'Prison': [
+            ('prison_escape_attempts', 'Escape Attempts Per Day', 'number'),
         ],
         'Beauty Nest': [
             ('beauty_nest_name', 'Establishment Name', 'text'),
@@ -2932,13 +3611,271 @@ def admin_run_maintenance():
     return redirect(url_for('admin_dashboard'))
 
 
+# ==================== ADMIN: DOOR GUARDS ====================
+
+@app.route('/admin/door-guards')
+@admin_required
+def admin_door_guards():
+    """List all door guard types for editing."""
+    guards = DoorGuard.query.order_by(DoorGuard.cost).all()
+    return render_template('admin/door_guards.html', guards=guards)
+
+
+@app.route('/admin/door-guards/<int:guard_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_door_guard(guard_id):
+    """Edit a door guard type."""
+    guard = db.session.get(DoorGuard, guard_id)
+    if not guard:
+        flash('Door guard not found.', 'error')
+        return redirect(url_for('admin_door_guards'))
+
+    if request.method == 'POST':
+        guard.name = request.form.get('name', guard.name).strip()
+        guard.cost = int(request.form.get('cost', guard.cost))
+        guard.hps = int(request.form.get('hps', guard.hps))
+        guard.attack = int(request.form.get('attack', guard.attack))
+        guard.armor = int(request.form.get('armor', guard.armor))
+        guard.allow_multiple = request.form.get('allow_multiple') == 'on'
+        guard.description = request.form.get('description', guard.description).strip()
+        db.session.commit()
+        flash(f'Door guard "{guard.name}" updated.', 'success')
+        return redirect(url_for('admin_door_guards'))
+
+    return render_template('admin/edit_door_guard.html', guard=guard)
+
+
+@app.route('/admin/door-guards/new', methods=['GET', 'POST'])
+@admin_required
+def admin_new_door_guard():
+    """Create a new door guard type."""
+    if request.method == 'POST':
+        guard = DoorGuard(
+            name=request.form.get('name', 'New Guard').strip(),
+            cost=int(request.form.get('cost', 100)),
+            hps=int(request.form.get('hps', 50)),
+            attack=int(request.form.get('attack', 10)),
+            armor=int(request.form.get('armor', 0)),
+            allow_multiple=request.form.get('allow_multiple') == 'on',
+            description=request.form.get('description', '').strip(),
+        )
+        db.session.add(guard)
+        db.session.commit()
+        flash(f'Door guard "{guard.name}" created.', 'success')
+        return redirect(url_for('admin_door_guards'))
+
+    guard = DoorGuard(name='', cost=100, hps=50, attack=10, armor=0, allow_multiple=False, description='')
+    return render_template('admin/edit_door_guard.html', guard=guard, is_new=True)
+
+
+@app.route('/admin/door-guards/<int:guard_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_door_guard(guard_id):
+    """Delete a door guard type."""
+    guard = db.session.get(DoorGuard, guard_id)
+    if guard:
+        # Clear references from players using this guard type
+        Player.query.filter_by(door_guard_id=guard_id).update(
+            {'door_guard_id': None, 'door_guard_count': 0})
+        db.session.delete(guard)
+        db.session.commit()
+        flash(f'Door guard "{guard.name}" deleted.', 'success')
+    return redirect(url_for('admin_door_guards'))
+
+
+# ==================== ADMIN: MOAT CREATURES ====================
+
+@app.route('/admin/moat-creatures')
+@admin_required
+def admin_moat_creatures():
+    """List all moat creature types for editing."""
+    creatures = MoatCreature.query.order_by(MoatCreature.cost).all()
+    return render_template('admin/moat_creatures.html', creatures=creatures)
+
+
+@app.route('/admin/moat-creatures/<int:creature_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_moat_creature(creature_id):
+    """Edit a moat creature type."""
+    creature = db.session.get(MoatCreature, creature_id)
+    if not creature:
+        flash('Moat creature not found.', 'error')
+        return redirect(url_for('admin_moat_creatures'))
+
+    if request.method == 'POST':
+        creature.name = request.form.get('name', creature.name).strip()
+        creature.cost = int(request.form.get('cost', creature.cost))
+        creature.hps = int(request.form.get('hps', creature.hps))
+        creature.attack = int(request.form.get('attack', creature.attack))
+        creature.armor = int(request.form.get('armor', creature.armor))
+        creature.description = request.form.get('description', creature.description).strip()
+        db.session.commit()
+        flash(f'Moat creature "{creature.name}" updated.', 'success')
+        return redirect(url_for('admin_moat_creatures'))
+
+    return render_template('admin/edit_moat_creature.html', creature=creature)
+
+
+@app.route('/admin/moat-creatures/new', methods=['GET', 'POST'])
+@admin_required
+def admin_new_moat_creature():
+    """Create a new moat creature type."""
+    if request.method == 'POST':
+        creature = MoatCreature(
+            name=request.form.get('name', 'New Creature').strip(),
+            cost=int(request.form.get('cost', 1000)),
+            hps=int(request.form.get('hps', 50)),
+            attack=int(request.form.get('attack', 15)),
+            armor=int(request.form.get('armor', 10)),
+            description=request.form.get('description', '').strip(),
+        )
+        db.session.add(creature)
+        db.session.commit()
+        flash(f'Moat creature "{creature.name}" created.', 'success')
+        return redirect(url_for('admin_moat_creatures'))
+
+    creature = MoatCreature(name='', cost=1000, hps=50, attack=15, armor=10, description='')
+    return render_template('admin/edit_moat_creature.html', creature=creature, is_new=True)
+
+
+@app.route('/admin/moat-creatures/<int:creature_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_moat_creature(creature_id):
+    """Delete a moat creature type."""
+    creature = db.session.get(MoatCreature, creature_id)
+    if creature:
+        # Clear references from king records using this creature type
+        KingRecord.query.filter_by(moat_creature_id=creature_id).update(
+            {'moat_creature_id': None, 'moat_guards': 0})
+        db.session.delete(creature)
+        db.session.commit()
+        flash(f'Moat creature "{creature.name}" deleted.', 'success')
+    return redirect(url_for('admin_moat_creatures'))
+
+
+# ==================== ADMIN: DRINKS ====================
+
+@app.route('/admin/drinks')
+@admin_required
+def admin_drinks():
+    """List all custom drinks for editing."""
+    drinks = Drink.query.order_by(Drink.times_ordered.desc()).all()
+    return render_template('admin/drinks.html', drinks=drinks)
+
+
+@app.route('/admin/drinks/<int:drink_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_drink(drink_id):
+    """Edit a drink."""
+    drink = db.session.get(Drink, drink_id)
+    if not drink:
+        flash('Drink not found.', 'error')
+        return redirect(url_for('admin_drinks'))
+
+    if request.method == 'POST':
+        drink.name = request.form.get('name', drink.name).strip()
+        drink.creator_name = request.form.get('creator_name', drink.creator_name).strip()
+        drink.comment = request.form.get('comment', drink.comment).strip()
+        drink.secret = request.form.get('secret') == 'on'
+        drink.times_ordered = int(request.form.get('times_ordered', drink.times_ordered))
+        for attr, _ in DRINK_INGREDIENTS:
+            setattr(drink, attr, int(request.form.get(attr, 0) or 0))
+        db.session.commit()
+        flash(f'Drink "{drink.name}" updated.', 'success')
+        return redirect(url_for('admin_drinks'))
+
+    iv = {attr: getattr(drink, attr, 0) for attr, _ in DRINK_INGREDIENTS}
+    return render_template('admin/edit_drink.html', drink=drink,
+                           ingredients=DRINK_INGREDIENTS, ingredient_values=iv)
+
+
+@app.route('/admin/drinks/new', methods=['GET', 'POST'])
+@admin_required
+def admin_new_drink():
+    """Create a new drink via admin."""
+    if request.method == 'POST':
+        drink = Drink(
+            name=request.form.get('name', 'New Drink').strip(),
+            creator_name=request.form.get('creator_name', 'Admin').strip(),
+            comment=request.form.get('comment', '').strip(),
+            secret=request.form.get('secret') == 'on',
+        )
+        for attr, _ in DRINK_INGREDIENTS:
+            setattr(drink, attr, int(request.form.get(attr, 0) or 0))
+        db.session.add(drink)
+        db.session.commit()
+        flash(f'Drink "{drink.name}" created.', 'success')
+        return redirect(url_for('admin_drinks'))
+
+    drink = Drink(name='', creator_name='Admin', comment='', secret=False)
+    iv = {attr: 0 for attr, _ in DRINK_INGREDIENTS}
+    return render_template('admin/edit_drink.html', drink=drink,
+                           ingredients=DRINK_INGREDIENTS, ingredient_values=iv, is_new=True)
+
+
+@app.route('/admin/drinks/<int:drink_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_drink(drink_id):
+    """Delete a drink."""
+    drink = db.session.get(Drink, drink_id)
+    if drink:
+        db.session.delete(drink)
+        db.session.commit()
+        flash(f'Drink "{drink.name}" deleted.', 'success')
+    return redirect(url_for('admin_drinks'))
+
+
+# ==================== ADMIN: LEVELS ====================
+
+@app.route('/admin/levels', methods=['GET', 'POST'])
+@admin_required
+def admin_levels():
+    """Edit level XP requirements."""
+    from models import LEVEL_XP
+
+    if request.method == 'POST':
+        changes = 0
+        for lvl in range(1, 101):
+            form_val = request.form.get(f'level_{lvl}')
+            if form_val is not None:
+                new_xp = int(form_val)
+                if LEVEL_XP.get(lvl) != new_xp:
+                    LEVEL_XP[lvl] = new_xp
+                    changes += 1
+        if changes:
+            # Persist to game config for survival across restarts
+            import json
+            GameConfig.set('level_xp_table', json.dumps(LEVEL_XP))
+            flash(f'Level XP table updated ({changes} level(s) changed).', 'success')
+        else:
+            flash('No changes detected.', 'info')
+        return redirect(url_for('admin_levels'))
+
+    return render_template('admin/levels.html', levels=LEVEL_XP, level_count=100)
+
+
 # ==================== INIT ====================
+
+def load_custom_level_xp():
+    """Load custom level XP table from config if it exists."""
+    try:
+        import json
+        from models import LEVEL_XP
+        custom = GameConfig.get('level_xp_table')
+        if custom:
+            data = json.loads(custom)
+            for k, v in data.items():
+                LEVEL_XP[int(k)] = int(v)
+    except Exception:
+        pass
+
 
 def init_db():
     """Initialize the database and seed data."""
     with app.app_context():
         db.create_all()
         seed_all()
+        load_custom_level_xp()
 
 
 def start_npc_scheduler():

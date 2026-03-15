@@ -22,12 +22,22 @@
             </div>
             {% if king_record %}
             <div class="stat-item">
-                <span class="label">Moat Guards</span>
-                <span class="value">{{ king_record.moat_guards }}</span>
+                <span class="label">Moat Defense</span>
+                <span class="value">
+                    {% if king_record.moat_guards > 0 and king_record.moat_creature %}
+                        {{ king_record.moat_guards }} {{ king_record.moat_creature.name }}{{ 's' if king_record.moat_guards > 1 else '' }}
+                    {% elif king_record.moat_guards > 0 %}
+                        {{ king_record.moat_guards }} creatures
+                    {% else %}
+                        None
+                    {% endif %}
+                </span>
             </div>
             <div class="stat-item">
                 <span class="label">Tax Rate</span>
-                <span class="value">{{ king_record.tax_rate }}%</span>
+                <span class="value">{{ king_record.tax_rate }}%
+                    {% if king_record.tax_alignment == 1 %}(good only){% elif king_record.tax_alignment == 2 %}(evil only){% endif %}
+                </span>
             </div>
             <div class="stat-item">
                 <span class="label">Royal Treasury</span>
@@ -40,8 +50,11 @@
         <hr class="separator">
         <h3 class="text-gold mb-1">Challenge the Throne</h3>
         <p class="text-secondary mb-1">
-            You must defeat {{ king_record.moat_guards }} moat guards and then the
-            {{ 'King' if king.sex == 1 else 'Queen' }} in combat.
+            You must swim across the moat
+            {% if king_record.moat_guards > 0 and king_record.moat_creature %}
+                (guarded by {{ king_record.moat_guards }} {{ king_record.moat_creature.name }}{{ 's' if king_record.moat_guards > 1 else '' }})
+            {% endif %}
+            and defeat the {{ 'King' if king.sex == 1 else 'Queen' }} in combat.
             Requires level 5+ and at least half HP.
         </p>
         <form method="POST" action="{{ url_for('challenge_king') }}" style="display:inline;">
@@ -51,43 +64,200 @@
         </form>
         <a href="{{ url_for('royal_quests') }}" class="btn btn-primary" style="margin-left: 8px;">View Royal Quests</a>
         {% else %}
+        {# =============== ROYAL POWERS (KING ONLY) =============== #}
         <hr class="separator">
         <h3 class="text-gold mb-1">Royal Powers</h3>
 
+        {# --- MOAT SECURITY --- #}
         <div class="panel mb-1">
-            <div class="panel-header">Hire Moat Guards (100g each from treasury)</div>
+            <div class="panel-header">Moat Security
+                {% if king_record.moat_guards > 0 and king_record.moat_creature %}
+                    ({{ king_record.moat_guards }} {{ king_record.moat_creature.name }}{{ 's' if king_record.moat_guards > 1 else '' }})
+                {% else %}
+                    (empty)
+                {% endif %}
+            </div>
             <div class="panel-body">
-                <form method="POST" action="{{ url_for('hire_guards') }}" class="inline-form">
-                    <input type="number" name="count" class="form-control" value="1" min="1" max="50" style="width: 80px;">
-                    <button type="submit" class="btn btn-primary btn-sm">Hire Guards</button>
+                <form method="POST" action="{{ url_for('hire_moat_creatures') }}" class="mb-1">
+                    <div class="inline-form">
+                        <select name="creature_id" class="form-control" style="width: auto;">
+                            {% for c in moat_creatures %}
+                            <option value="{{ c.id }}" title="{{ c.description }}"
+                                {% if king_record.moat_creature_id == c.id %}selected{% endif %}>
+                                {{ c.name }} ({{ c.cost }}g each - HP:{{ c.hps }} ATK:{{ c.attack }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <input type="number" name="count" class="form-control" value="5" min="1" max="100" style="width: 70px;">
+                        <select name="funding" class="form-control" style="width: auto;">
+                            <option value="treasury">Treasury</option>
+                            <option value="personal">Personal Gold</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary btn-sm">Buy Creatures</button>
+                    </div>
                 </form>
+                {% if king_record.moat_guards > 0 %}
+                <form method="POST" action="{{ url_for('remove_moat_creatures') }}" class="inline-form">
+                    <input type="number" name="count" class="form-control" value="1" min="1" max="{{ king_record.moat_guards }}" style="width: 70px;">
+                    <button type="submit" class="btn btn-danger btn-sm">Remove Creatures</button>
+                </form>
+                {% endif %}
             </div>
         </div>
 
+        {# --- ROYAL GUARDS --- #}
         <div class="panel mb-1">
-            <div class="panel-header">Deposit to Royal Treasury</div>
+            <div class="panel-header">Royal Guards ({{ royal_guards|length }}/5)</div>
             <div class="panel-body">
-                <form method="POST" action="{{ url_for('castle_deposit') }}" class="inline-form">
-                    <input type="number" name="amount" class="form-control" placeholder="Amount" min="1" style="width: 120px;">
-                    <button type="submit" class="btn btn-primary btn-sm">Deposit</button>
+                {% if royal_guards %}
+                {% for g in royal_guards %}
+                <div class="item-card">
+                    <div class="item-info">
+                        <span class="text-gold">{{ g.player.name }}</span>
+                        <span class="text-dim"> - Lv{{ g.player.level }} {{ g.player.race }} {{ g.player.player_class }}</span>
+                        <span class="text-secondary"> ({{ g.salary }}g/day)</span>
+                    </div>
+                    <form method="POST" action="{{ url_for('sack_royal_guard') }}">
+                        <input type="hidden" name="guard_id" value="{{ g.id }}">
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Sack this guard?')">Sack</button>
+                    </form>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-dim">You have no personal guards! THIS IS DANGEROUS!</p>
+                {% endif %}
+
+                {% if royal_guards|length < 5 and hirable_players %}
+                <hr class="separator">
+                <p class="text-secondary">Hire a guard (salaries paid daily from treasury):</p>
+                <form method="POST" action="{{ url_for('hire_royal_guard') }}" class="inline-form">
+                    <select name="target_id" class="form-control" style="width: auto;">
+                        {% for p in hirable_players %}
+                        <option value="{{ p.id }}">{{ p.name }} (Lv{{ p.level }} {{ p.race }} {{ p.player_class }}{% if p.is_npc %} - NPC{% endif %})</option>
+                        {% endfor %}
+                    </select>
+                    <input type="number" name="salary" class="form-control" placeholder="Salary/day" value="500" min="1" style="width: 100px;">
+                    <button type="submit" class="btn btn-primary btn-sm">Hire Guard</button>
                 </form>
+                {% endif %}
             </div>
         </div>
 
+        {# --- FISCAL MATTERS --- #}
         <div class="panel mb-1">
-            <div class="panel-header">Imprison a Player</div>
+            <div class="panel-header">Fiscal Matters (Treasury: {{ king_record.treasury }}g)</div>
             <div class="panel-body">
-                <form method="POST" action="{{ url_for('imprison_player') }}" class="inline-form">
-                    <input type="text" name="target" class="form-control player-search" placeholder="Search player (3+ chars)..." required>
-                    <button type="submit" class="btn btn-danger btn-sm">Imprison</button>
-                </form>
+                <div class="mb-1">
+                    <strong>Set Tax Rate</strong>
+                    <form method="POST" action="{{ url_for('set_tax') }}" class="inline-form">
+                        <select name="rate" class="form-control" style="width: auto;">
+                            {% for r in range(6) %}
+                            <option value="{{ r }}" {% if king_record.tax_rate == r %}selected{% endif %}>{{ r }}%</option>
+                            {% endfor %}
+                        </select>
+                        <select name="alignment" class="form-control" style="width: auto;">
+                            <option value="0" {% if king_record.tax_alignment == 0 %}selected{% endif %}>All subjects</option>
+                            <option value="1" {% if king_record.tax_alignment == 1 %}selected{% endif %}>Good-aligned only</option>
+                            <option value="2" {% if king_record.tax_alignment == 2 %}selected{% endif %}>Evil-aligned only</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary btn-sm">Set Tax</button>
+                    </form>
+                </div>
+                <hr class="separator">
+                <div class="mb-1">
+                    <strong>Deposit to Treasury</strong>
+                    <form method="POST" action="{{ url_for('castle_deposit') }}" class="inline-form">
+                        <input type="number" name="amount" class="form-control" placeholder="Amount" min="1" style="width: 120px;">
+                        <button type="submit" class="btn btn-primary btn-sm">Deposit</button>
+                    </form>
+                </div>
+                <div class="mb-1">
+                    <strong>Withdraw from Treasury</strong> <span class="text-dim">(may leak to the press)</span>
+                    <form method="POST" action="{{ url_for('castle_withdraw') }}" class="inline-form">
+                        <input type="number" name="amount" class="form-control" placeholder="Amount" min="1" style="width: 120px;">
+                        <button type="submit" class="btn btn-danger btn-sm">Withdraw</button>
+                    </form>
+                </div>
+                <hr class="separator">
+                <div class="mb-1">
+                    <strong>Tax Relief</strong>
+                    <form method="POST" action="{{ url_for('grant_tax_relief') }}" class="inline-form">
+                        <input type="text" name="target" class="form-control player-search" placeholder="Player name..." style="width: 150px;">
+                        <button type="submit" class="btn btn-primary btn-sm">Grant Relief</button>
+                    </form>
+                    {% if tax_relieved %}
+                    <div class="mt-1">
+                        <span class="text-dim">Currently exempt:</span>
+                        {% for p in tax_relieved %}
+                        <div class="item-card">
+                            <span class="text-gold">{{ p.name }}</span>
+                            <form method="POST" action="{{ url_for('revoke_tax_relief') }}" style="display:inline;">
+                                <input type="hidden" name="target" value="{{ p.name }}">
+                                <button type="submit" class="btn btn-danger btn-sm">Revoke</button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
-        {% if prisoners %}
+        {# --- ESTABLISHMENTS --- #}
         <div class="panel mb-1">
-            <div class="panel-header">Prisoners</div>
+            <div class="panel-header">Establishments (Royal Decree)</div>
             <div class="panel-body">
+                <p class="text-dim mb-1">Open or close shops by royal decree. Weapon and Armor shops cannot be closed.</p>
+                {% set shops = [
+                    ('shop_weapon', 'Weapon Shop', king_record.shop_weapon, true),
+                    ('shop_armor', 'Armor Shop', king_record.shop_armor, true),
+                    ('shop_magic', 'Magic Shop', king_record.shop_magic, false),
+                    ('shop_healing', 'Healing Center', king_record.shop_healing, false),
+                    ('shop_general', 'General Store', king_record.shop_general, false),
+                    ('shop_inn', 'Inn', king_record.shop_inn, false),
+                    ('shop_tavern', 'Tavern', king_record.shop_tavern, false),
+                    ('shop_beauty_nest', 'Beauty Nest', king_record.shop_beauty_nest, false),
+                ] %}
+                {% for key, name, is_open, locked in shops %}
+                <div class="item-card">
+                    <div class="item-info">
+                        <span>{{ name }}</span>
+                        {% if is_open %}
+                        <span class="text-success"> OPEN</span>
+                        {% else %}
+                        <span class="text-danger"> CLOSED</span>
+                        {% endif %}
+                    </div>
+                    {% if not locked %}
+                    <form method="POST" action="{{ url_for('toggle_establishment') }}">
+                        <input type="hidden" name="shop_key" value="{{ key }}">
+                        <button type="submit" class="btn {% if is_open %}btn-danger{% else %}btn-success{% endif %} btn-sm">
+                            {% if is_open %}Close{% else %}Open{% endif %}
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="text-dim">(required)</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# --- ROYAL ORDERS --- #}
+        <div class="panel mb-1">
+            <div class="panel-header">Royal Orders</div>
+            <div class="panel-body">
+                <div class="mb-1">
+                    <strong>Imprison a Player</strong>
+                    <form method="POST" action="{{ url_for('imprison_player') }}" class="inline-form">
+                        <input type="text" name="target" class="form-control player-search" placeholder="Search player (3+ chars)..." required>
+                        <button type="submit" class="btn btn-danger btn-sm">Imprison</button>
+                    </form>
+                </div>
+
+                {% if prisoners %}
+                <hr class="separator">
+                <strong>Prisoners</strong>
                 {% for p in prisoners %}
                 <div class="item-card">
                     <div class="item-info">
@@ -100,10 +270,19 @@
                     </form>
                 </div>
                 {% endfor %}
+                {% endif %}
+
+                <hr class="separator">
+                <strong>Royal Proclamation</strong>
+                <p class="text-dim">Send a message to all subjects.</p>
+                <form method="POST" action="{{ url_for('royal_proclamation') }}">
+                    <textarea name="message" class="form-control mb-1" placeholder="Your royal message..." rows="3" maxlength="500" required></textarea>
+                    <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('Send this proclamation to all subjects?')">Send Proclamation</button>
+                </form>
             </div>
         </div>
-        {% endif %}
 
+        {# --- QUESTS & ABDICATION --- #}
         <div class="panel mb-1">
             <div class="panel-header">Royal Quests</div>
             <div class="panel-body">

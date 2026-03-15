@@ -28,6 +28,49 @@
     </div>
 </div>
 
+<div class="panel">
+    <div class="panel-header">Door Guards
+        {% if player.door_guard_count > 0 and current_guard %}
+            ({{ player.door_guard_count }} {{ current_guard.name }}{{ 's' if player.door_guard_count > 1 else '' }})
+        {% else %}
+            (none)
+        {% endif %}
+    </div>
+    <div class="panel-body">
+        <p class="text-secondary mb-1">
+            Hire a guard to protect your room while you sleep. If someone tries to attack you
+            at the inn, they must fight through your guards first.
+        </p>
+
+        {% if player.door_guard_count > 0 and current_guard %}
+        <div class="item-card mb-1">
+            <div class="item-info">
+                <span class="text-gold">{{ player.door_guard_count }}x {{ current_guard.name }}</span>
+                <span class="text-dim"> - HP:{{ current_guard.hps }} ATK:{{ current_guard.attack }} DEF:{{ current_guard.armor }}</span>
+            </div>
+            <form method="POST" action="{{ url_for('inn_dismiss_guards') }}">
+                <button type="submit" class="btn btn-danger btn-sm">Dismiss</button>
+            </form>
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('inn_hire_guard') }}">
+            <div class="inline-form">
+                <select name="guard_id" class="form-control" style="width: auto;">
+                    {% for g in door_guards %}
+                    <option value="{{ g.id }}" title="{{ g.description }}">
+                        {{ g.name }} ({{ g.cost }}g - HP:{{ g.hps }} ATK:{{ g.attack }}{% if g.allow_multiple %}, can hire multiple{% endif %})
+                    </option>
+                    {% endfor %}
+                </select>
+                <input type="number" name="count" class="form-control" value="1" min="1" max="10" style="width: 70px;">
+                <button type="submit" class="btn btn-primary btn-sm">Hire Guard</button>
+            </div>
+        </form>
+        <p class="text-dim mt-1">Guards are consumed when they fight. Non-multiple guard types are limited to 1.</p>
+    </div>
+</div>
+
 <div class="text-center mt-1">
     <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
 </div>
