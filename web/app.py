@@ -23,8 +23,8 @@ from models import (
     Child, RoyalQuest, God, TeamRecord, HomeChestItem,
     MoatCreature, RoyalGuard, DoorGuard, Drink, MarketListing,
     RACES, CLASSES, RACE_BONUSES, CLASS_BONUSES,
-    SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, ITEM_TYPES,
-    DRINK_INGREDIENTS
+    SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, EQUIPMENT_SLOT_LABELS,
+    ITEM_TYPES, DRINK_INGREDIENTS
 )
 import game as game_logic
 from seed import seed_all
@@ -77,6 +77,19 @@ db.init_app(app)
 # or via a WSGI server like Gunicorn (gunicorn app:app).
 with app.app_context():
     db.create_all()
+    # Add finger equipment columns if missing (for existing databases).
+    # Wrapped in try/except so concurrent workers don't crash if another
+    # worker already added the column between the inspect and the ALTER.
+    from sqlalchemy import text as _sa_text
+    from sqlalchemy.exc import OperationalError as _SAOpError
+    for _col in ('equipped_finger1', 'equipped_finger2'):
+        try:
+            db.session.execute(_sa_text(
+                f'ALTER TABLE players ADD COLUMN {_col} INTEGER REFERENCES items(id)'
+            ))
+            db.session.commit()
+        except _SAOpError:
+            db.session.rollback()
     seed_all()
     # Load custom level XP table from admin config if set
     try:
@@ -230,6 +243,12 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    # Clear encounter state so it cannot leak to the next login
+    session.pop('combat_monster', None)
+    session.pop('combat_log', None)
+    session.pop('combat_result', None)
+    session.pop('dungeon_event', None)
+    session.pop('encounter_player_id', None)
     logout_user()
     flash('You have left the realm.', 'info')
     return redirect(url_for('index'))
@@ -298,6 +317,25 @@ def main_menu():
     if not player:
         return redirect(url_for('create_character'))
 
+    # Only honour encounter state that belongs to the current player.
+    # Stale keys from a previous login (e.g. logout mid-fight, then
+    # log in as a different user in the same browser) are discarded.
+    _enc_owner = session.get('encounter_player_id')
+    if _enc_owner and _enc_owner != player.id:
+        session.pop('combat_monster', None)
+        session.pop('combat_log', None)
+        session.pop('combat_result', None)
+        session.pop('dungeon_event', None)
+        session.pop('encounter_player_id', None)
+
+    if session.get('combat_monster'):
+        flash("You cannot return to town while in combat!", 'error')
+        return redirect(url_for('combat'))
+
+    if session.get('dungeon_event'):
+        flash("You cannot return to town during an event!", 'error')
+        return redirect(url_for('dungeon_event'))
+
     player.last_played = datetime.now(timezone.utc)
     db.session.commit()
 
@@ -325,7 +363,8 @@ def status():
 
     xp_next = player.xp_for_next_level()
     return render_template('status.html', equipped=equipped, xp_next=xp_next,
-                           LEVEL_XP=LEVEL_XP)
+                           LEVEL_XP=LEVEL_XP, EQUIPMENT_SLOTS=EQUIPMENT_SLOTS,
+                           EQUIPMENT_SLOT_LABELS=EQUIPMENT_SLOT_LABELS)
 
 
 # ==================== PLAYER SEARCH API ====================
@@ -414,6 +453,7 @@ def dungeon_explore():
         if random.randint(1, 2) == 1:
             event = game_logic.get_random_dungeon_event()
             session['dungeon_event'] = event
+            session['encounter_player_id'] = player.id
             return redirect(url_for('dungeon_event'))
         else:
             event = game_logic.dungeon_event(player, dungeon_level)
@@ -433,6 +473,7 @@ def dungeon_explore():
         f"You encounter a {monster['name']}!",
         f'"{monster["phrase"]}"' if monster['phrase'] else '',
     ]
+    session['encounter_player_id'] = player.id
     db.session.commit()
 
     return redirect(url_for('combat'))
@@ -818,7 +859,7 @@ def armor_shop():
         return redirect(url_for('create_character'))
 
     armor_types = ['Body', 'Shield', 'Head', 'Arms', 'Hands', 'Legs', 'Feet',
-                   'Waist', 'Neck', 'Face', 'Around Body']
+                   'Waist', 'Neck', 'Face', 'Around Body', 'Fingers']
     items = Item.query.filter(
         Item.in_shop == True,
         Item.item_type.in_(armor_types)
@@ -941,7 +982,8 @@ def inventory():
             equipped[slot] = None
 
     return render_template('inventory.html', inv_items=inv_items, equipped=equipped,
-                           EQUIPMENT_SLOTS=EQUIPMENT_SLOTS)
+                           EQUIPMENT_SLOTS=EQUIPMENT_SLOTS,
+                           EQUIPMENT_SLOT_LABELS=EQUIPMENT_SLOT_LABELS)
 
 
 @app.route('/inventory/equip/<int:inv_item_id>', methods=['POST'])
@@ -3507,6 +3549,7 @@ def admin_edit_player(player_id):
     return render_template('admin/edit_player.html', player=player,
                            races=RACES, classes=CLASSES,
                            equipped=equipped, EQUIPMENT_SLOTS=EQUIPMENT_SLOTS,
+                           EQUIPMENT_SLOT_LABELS=EQUIPMENT_SLOT_LABELS,
                            all_items=all_items)
 
 

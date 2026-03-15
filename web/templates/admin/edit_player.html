@@ -374,7 +374,7 @@
             <tbody>
                 {% for slot in EQUIPMENT_SLOTS %}
                 <tr>
-                    <td>{{ slot|replace('_', ' ')|title }}</td>
+                    <td>{{ EQUIPMENT_SLOT_LABELS.get(slot, slot|replace('_', ' ')|title) }}</td>
                     <td>
                         {% if equipped[slot] %}
                         <span class="text-gold">{{ equipped[slot].name }}</span>
