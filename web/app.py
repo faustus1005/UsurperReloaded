@@ -377,12 +377,12 @@ def dungeon():
         return redirect(url_for('main_menu'))
 
     dungeon_name = GameConfig.get('dungeon_name', 'The Dungeon Complex')
-    # Initialize dungeon level if not set
-    if not player.dungeon_level or player.dungeon_level < 1:
-        player.dungeon_level = player.level
-        db.session.commit()
     min_level = max(1, player.level - 5)
     max_level = min(100, player.level + 5)
+    # Validate dungeon level is within allowed range for current player level
+    if not player.dungeon_level or player.dungeon_level < min_level or player.dungeon_level > max_level:
+        player.dungeon_level = max(min_level, min(player.level, max_level))
+        db.session.commit()
     return render_template('dungeon.html', dungeon_name=dungeon_name,
                            min_dungeon_level=min_level, max_dungeon_level=max_level)
 
@@ -3393,6 +3393,39 @@ def admin_edit_player(player_id):
         return redirect(url_for('admin_players'))
 
     if request.method == 'POST':
+        action = request.form.get('action', 'save')
+
+        # Handle inventory actions
+        if action == 'add_item':
+            item_id = request.form.get('new_item_id')
+            if item_id:
+                inv_item = InventoryItem(player_id=player.id, item_id=int(item_id))
+                db.session.add(inv_item)
+                db.session.commit()
+                flash('Item added to inventory.', 'success')
+            return redirect(url_for('admin_edit_player', player_id=player_id))
+
+        if action == 'remove_item':
+            inv_id = request.form.get('inv_item_id')
+            if inv_id:
+                inv_item = db.session.get(InventoryItem, int(inv_id))
+                if inv_item and inv_item.player_id == player.id:
+                    db.session.delete(inv_item)
+                    db.session.commit()
+                    flash('Item removed from inventory.', 'success')
+            return redirect(url_for('admin_edit_player', player_id=player_id))
+
+        if action == 'equip_item':
+            slot = request.form.get('equip_slot')
+            item_id = request.form.get('equip_item_id')
+            if slot in EQUIPMENT_SLOTS:
+                setattr(player, f'equipped_{slot}', int(item_id) if item_id else None)
+                player.recalculate_equipment_power()
+                db.session.commit()
+                flash(f'Equipment slot "{slot}" updated.', 'success')
+            return redirect(url_for('admin_edit_player', player_id=player_id))
+
+        # Standard field updates
         player.name = request.form.get('name', player.name).strip()
         player.race = request.form.get('race', player.race)
         player.player_class = request.form.get('player_class', player.player_class)
@@ -3419,24 +3452,62 @@ def admin_edit_player(player_id):
         player.player_fights = int(request.form.get('player_fights', player.player_fights))
         player.thefts_remaining = int(request.form.get('thefts_remaining', player.thefts_remaining))
         player.brawls_remaining = int(request.form.get('brawls_remaining', player.brawls_remaining))
+        player.drinks_remaining = int(request.form.get('drinks_remaining', player.drinks_remaining))
+        player.wrestling_matches = int(request.form.get('wrestling_matches', player.wrestling_matches))
+        player.performances_remaining = int(request.form.get('performances_remaining', player.performances_remaining))
+        player.team_fights = int(request.form.get('team_fights', player.team_fights))
+        player.intimacy_acts = int(request.form.get('intimacy_acts', player.intimacy_acts))
+        player.beauty_nest_visits = int(request.form.get('beauty_nest_visits', player.beauty_nest_visits))
         player.weapon_power = int(request.form.get('weapon_power', player.weapon_power))
         player.armor_power = int(request.form.get('armor_power', player.armor_power))
         player.monster_kills = int(request.form.get('monster_kills', player.monster_kills))
+        player.monster_defeats = int(request.form.get('monster_defeats', player.monster_defeats))
         player.player_kills = int(request.form.get('player_kills', player.player_kills))
+        player.player_defeats = int(request.form.get('player_defeats', player.player_defeats))
         player.healing_potions = int(request.form.get('healing_potions', player.healing_potions))
+        player.dungeon_level = int(request.form.get('dungeon_level', player.dungeon_level))
+        player.wrestling_wins = int(request.form.get('wrestling_wins', player.wrestling_wins))
+        player.wrestling_losses = int(request.form.get('wrestling_losses', player.wrestling_losses))
+        player.quests_completed = int(request.form.get('quests_completed', player.quests_completed))
+        player.quests_failed = int(request.form.get('quests_failed', player.quests_failed))
+        player.bank_wage = int(request.form.get('bank_wage', player.bank_wage))
+        player.prison_days = int(request.form.get('prison_days', player.prison_days))
+        player.escape_attempts = int(request.form.get('escape_attempts', player.escape_attempts))
+        player.mental_health = int(request.form.get('mental_health', player.mental_health))
+        player.addiction = int(request.form.get('addiction', player.addiction))
+        player.bear_name = request.form.get('bear_name', player.bear_name).strip()
+        player.bear_strength = int(request.form.get('bear_strength', player.bear_strength))
+        player.children_count = int(request.form.get('children_count', player.children_count))
+        player.pregnancy_days = int(request.form.get('pregnancy_days', player.pregnancy_days))
+        player.door_guard_count = int(request.form.get('door_guard_count', player.door_guard_count))
+        player.market_listings = int(request.form.get('market_listings', player.market_listings))
         player.is_poisoned = request.form.get('is_poisoned') == 'on'
         player.is_blind = request.form.get('is_blind') == 'on'
         player.has_plague = request.form.get('has_plague') == 'on'
         player.is_king = request.form.get('is_king') == 'on'
         player.is_imprisoned = request.form.get('is_imprisoned') == 'on'
         player.is_god = request.form.get('is_god') == 'on'
+        player.tax_relief = request.form.get('tax_relief') == 'on'
+        player.is_bank_guard = request.form.get('is_bank_guard') == 'on'
+        player.has_tamed_bear = request.form.get('has_tamed_bear') == 'on'
+        player.is_pregnant = request.form.get('is_pregnant') == 'on'
+        player.married = request.form.get('married') == 'on'
         db.session.commit()
         flash(f'Player "{player.name}" updated.', 'success')
         return redirect(url_for('admin_players',
                                 show='npcs' if player.is_npc else 'humans'))
 
+    # Build equipped items dict
+    equipped = {}
+    for slot in EQUIPMENT_SLOTS:
+        item_id = getattr(player, f'equipped_{slot}', None)
+        equipped[slot] = db.session.get(Item, item_id) if item_id else None
+
+    all_items = Item.query.order_by(Item.name).all()
     return render_template('admin/edit_player.html', player=player,
-                           races=RACES, classes=CLASSES)
+                           races=RACES, classes=CLASSES,
+                           equipped=equipped, EQUIPMENT_SLOTS=EQUIPMENT_SLOTS,
+                           all_items=all_items)
 
 
 @app.route('/admin/players/<int:player_id>/delete', methods=['POST'])
@@ -3852,6 +3923,133 @@ def admin_levels():
         return redirect(url_for('admin_levels'))
 
     return render_template('admin/levels.html', levels=LEVEL_XP, level_count=100)
+
+
+# ==================== ADMIN: TEAMS ====================
+
+@app.route('/admin/teams')
+@admin_required
+def admin_teams():
+    """List all teams for editing."""
+    teams = Team.query.order_by(Team.name).all()
+    return render_template('admin/teams.html', teams=teams)
+
+
+@app.route('/admin/teams/<int:team_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_team(team_id):
+    """Edit a team's details."""
+    team = db.session.get(Team, team_id)
+    if not team:
+        flash('Team not found.', 'error')
+        return redirect(url_for('admin_teams'))
+
+    if request.method == 'POST':
+        action = request.form.get('action', 'save')
+
+        if action == 'add_member':
+            player_name = request.form.get('player_name', '').strip()
+            if player_name:
+                p = Player.query.filter_by(name=player_name).first()
+                if not p:
+                    flash(f'Player "{player_name}" not found.', 'error')
+                elif TeamMember.query.filter_by(player_id=p.id).first():
+                    flash(f'{p.name} is already on a team.', 'error')
+                else:
+                    member = TeamMember(team_id=team.id, player_id=p.id)
+                    db.session.add(member)
+                    p.team_name = team.name
+                    db.session.commit()
+                    flash(f'{p.name} added to team.', 'success')
+            return redirect(url_for('admin_edit_team', team_id=team_id))
+
+        if action == 'remove_member':
+            member_id = request.form.get('member_id')
+            if member_id:
+                member = db.session.get(TeamMember, int(member_id))
+                if member and member.team_id == team.id:
+                    if member.player:
+                        member.player.team_name = ''
+                    db.session.delete(member)
+                    db.session.commit()
+                    flash('Member removed.', 'success')
+            return redirect(url_for('admin_edit_team', team_id=team_id))
+
+        # Standard team field updates
+        team.name = request.form.get('name', team.name).strip()
+        leader_id = request.form.get('leader_id')
+        if leader_id:
+            team.leader_id = int(leader_id)
+        team.wins = int(request.form.get('wins', team.wins))
+        team.losses = int(request.form.get('losses', team.losses))
+        team.treasury = int(request.form.get('treasury', team.treasury))
+        team.town_control = request.form.get('town_control') == 'on'
+        team.town_control_days = int(request.form.get('town_control_days', team.town_control_days))
+        # Update team_name on all members
+        for member in team.members:
+            if member.player:
+                member.player.team_name = team.name
+        db.session.commit()
+        flash(f'Team "{team.name}" updated.', 'success')
+        return redirect(url_for('admin_teams'))
+
+    players = Player.query.order_by(Player.name).all()
+    return render_template('admin/edit_team.html', team=team, players=players)
+
+
+@app.route('/admin/teams/new', methods=['GET', 'POST'])
+@admin_required
+def admin_new_team():
+    """Create a new team."""
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        leader_id = request.form.get('leader_id')
+        if not name or not leader_id:
+            flash('Team name and leader are required.', 'error')
+            players = Player.query.order_by(Player.name).all()
+            return render_template('admin/edit_team.html', team=None, players=players)
+
+        leader = db.session.get(Player, int(leader_id))
+        if not leader:
+            flash('Leader not found.', 'error')
+            players = Player.query.order_by(Player.name).all()
+            return render_template('admin/edit_team.html', team=None, players=players)
+
+        if Team.query.filter_by(name=name).first():
+            flash('A team with that name already exists.', 'error')
+            players = Player.query.order_by(Player.name).all()
+            return render_template('admin/edit_team.html', team=None, players=players)
+
+        team = Team(name=name, leader_id=int(leader_id))
+        db.session.add(team)
+        db.session.flush()
+        # Add leader as member
+        member = TeamMember(team_id=team.id, player_id=int(leader_id))
+        db.session.add(member)
+        leader.team_name = name
+        db.session.commit()
+        flash(f'Team "{name}" created.', 'success')
+        return redirect(url_for('admin_teams'))
+
+    players = Player.query.order_by(Player.name).all()
+    return render_template('admin/edit_team.html', team=None, players=players)
+
+
+@app.route('/admin/teams/<int:team_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_team(team_id):
+    """Delete a team."""
+    team = db.session.get(Team, team_id)
+    if team:
+        # Clear team_name on all members
+        for member in team.members:
+            if member.player:
+                member.player.team_name = ''
+        name = team.name
+        db.session.delete(team)
+        db.session.commit()
+        flash(f'Team "{name}" deleted.', 'success')
+    return redirect(url_for('admin_teams'))
 
 
 # ==================== INIT ====================
