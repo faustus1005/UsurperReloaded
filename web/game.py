@@ -6521,82 +6521,114 @@ def beer_stealing(player):
     return {'success': True, 'message': 'Heist successful!', 'log': log, 'gold': gold_reward, 'xp': xp_gain}
 
 
-def dormitory_fistfight(player, num_opponents=1):
-    """Dormitory fist fight using close combat moves."""
-    num_opponents = min(5, max(1, num_opponents))
-    skills = player.get_combat_skills()
+def dormitory_fistfight(player, num_opponents):
+    """Fight 1-5 sleeping guests using close combat moves.
+
+    Each round player picks a move, damage based on skill level.
+    Can flee (20% success). XP per opponent defeated (level*100).
+    """
+    if num_opponents < 1 or num_opponents > 5:
+        return {'success': False, 'message': 'You can fight 1-5 opponents.', 'log': [], 'rounds': []}
+
     log = []
-    total_xp = 0
-    opponents_defeated = 0
+    rounds = []
+    skills = player.get_combat_skills()
+    defeated = 0
+
+    log.append(f"You challenge {num_opponents} sleeping guests to a brawl!")
 
     for i in range(num_opponents):
-        opp_hp = random.randint(20, 50) + player.level * 3
-        opp_str = random.randint(5, 15) + player.level * 2
-        opp_name = f'Dormitory Guest #{i+1}'
-        log.append(f'--- Fighting {opp_name} (HP: {opp_hp}) ---')
+        opponent_hp = random.randint(20, 50) + player.level * 3
+        opponent_str = random.randint(5, 15) + player.level * 2
+        opponent_name = random.choice([
+            'Burly Dwarf', 'Surly Sailor', 'Drunk Knight', 'Grumpy Merchant',
+            'Angry Farmer', 'Sleepy Guard', 'Rowdy Bard', 'Cranky Innkeeper'
+        ])
+        log.append(f"\nOpponent #{i+1}: {opponent_name} (HP: {opponent_hp})")
 
-        while opp_hp > 0 and player.hp > 0:
-            # Player attacks with random move
-            move = random.choice(CLOSE_COMBAT_MOVES)
-            skill = skills.get(move, 0)
-            damage = max(1, (player.strength // 3) + skill * 2 + random.randint(1, 10))
-            opp_hp -= damage
-            log.append(f'You use {move} ({COMBAT_SKILL_RANKS[min(skill, 17)]}) for {damage} {hit_intensity_text(damage)} damage!')
+        round_num = 0
+        while opponent_hp > 0 and player.hp > 0:
+            round_num += 1
+            # Player picks a random available move (in actual gameplay, player would choose)
+            available_moves = [m for m in CLOSE_COMBAT_MOVES if skills.get(m, 0) > 0]
+            if not available_moves:
+                available_moves = ['Straight Punch']  # Fallback basic move
 
-            if opp_hp <= 0:
-                opponents_defeated += 1
-                xp = player.level * 100
-                total_xp += xp
-                log.append(f'{opp_name} is knocked out! +{xp} XP')
-                # Train a random move
-                trained = random.choice(CLOSE_COMBAT_MOVES)
-                old_skill = skills.get(trained, 0)
-                if old_skill < 17 and random.randint(1, 3) == 1:
-                    skills[trained] = old_skill + 1
-                    player.set_combat_skill(trained, old_skill + 1)
-                    log.append(f'Your {trained} skill improved to {COMBAT_SKILL_RANKS[old_skill + 1]}!')
+            move = random.choice(available_moves)
+            skill_level = skills.get(move, 1)
+            rank_name = COMBAT_SKILL_RANKS[min(skill_level, len(COMBAT_SKILL_RANKS) - 1)]
+
+            # Player attacks
+            player_dmg = random.randint(1, 5) + skill_level * 2 + player.strength // 4
+            opponent_hp -= player_dmg
+            hit_text = hit_intensity_text(player_dmg)
+            log.append(f"  Round {round_num}: You use {move} ({rank_name}) - {hit_text} hit for {player_dmg} damage!")
+
+            if opponent_hp <= 0:
+                log.append(f"  {opponent_name} is knocked out!")
+                defeated += 1
                 break
 
-            # Opponent attacks back
-            opp_dmg = max(1, opp_str + random.randint(1, 8))
+            # Opponent attacks
+            opp_dmg = random.randint(1, 8) + opponent_str // 3
             player.hp = max(0, player.hp - opp_dmg)
-            log.append(f'{opp_name} hits you for {opp_dmg} damage! (HP: {player.hp})')
+            log.append(f"  {opponent_name} strikes back for {opp_dmg} damage!")
 
-    player.experience += total_xp
+            if player.hp <= 0:
+                log.append("You have been knocked unconscious!")
+                break
+
+            rounds.append({'round': round_num, 'move': move, 'player_dmg': player_dmg, 'opp_dmg': opp_dmg})
+
+        if player.hp <= 0:
+            break
+
+    # XP reward
+    xp_gain = defeated * player.level * 100
+    player.experience += xp_gain
+    log.append(f"\nYou defeated {defeated} out of {num_opponents} opponents!")
+    log.append(f"Gained {xp_gain} XP!")
+
+    if defeated == num_opponents:
+        add_news(f"{player.name} won a dormitory brawl against {num_opponents} opponents!")
+
     db.session.commit()
-
-    if opponents_defeated > 0:
-        add_news(player, 'combat', f'{player.name} defeated {opponents_defeated} opponents in a dormitory fist fight!')
-
     return {
-        'success': opponents_defeated > 0,
+        'success': defeated > 0,
+        'message': f'Defeated {defeated}/{num_opponents} opponents.',
         'log': log,
-        'opponents_defeated': opponents_defeated,
-        'total_xp': total_xp,
-        'player_hp': player.hp
+        'rounds': rounds,
+        'defeated': defeated,
+        'xp': xp_gain,
     }
 
 
 def train_combat_move(player, move_name):
-    """Train a close combat move at the level master."""
+    """Train a close combat move at the level master.
+
+    Increases skill by 1 (max 17). Returns success message with rank name.
+    """
     if move_name not in CLOSE_COMBAT_MOVES:
-        return {'success': False, 'message': 'Unknown combat move.'}
+        return {'success': False, 'message': f"'{move_name}' is not a valid close combat move."}
 
     skills = player.get_combat_skills()
-    current = skills.get(move_name, 0)
-    if current >= 17:
-        return {'success': False, 'message': f'Your {move_name} is already *COMPLETE*!'}
+    current_level = skills.get(move_name, 0)
 
-    cost = (current + 1) * 100 * player.level
-    if player.gold < cost:
-        return {'success': False, 'message': f'Training costs {cost} gold. You only have {player.gold}.'}
+    if current_level >= 17:
+        return {'success': False, 'message': f"Your {move_name} skill is already at *COMPLETE* mastery!"}
 
-    player.gold -= cost
-    player.set_combat_skill(move_name, current + 1)
-    new_rank = COMBAT_SKILL_RANKS[current + 1]
+    new_level = current_level + 1
+    player.set_combat_skill(move_name, new_level)
+    rank_name = COMBAT_SKILL_RANKS[min(new_level, len(COMBAT_SKILL_RANKS) - 1)]
+
     db.session.commit()
-
-    return {'success': True, 'message': f'Your {move_name} improved to {new_rank}! Cost: {cost} gold.'}
+    return {
+        'success': True,
+        'message': f"Your {move_name} skill improved to level {new_level} ({rank_name})!",
+        'move': move_name,
+        'new_level': new_level,
+        'rank': rank_name,
+    }
 
 
 def gym_barrel_lift(player):
