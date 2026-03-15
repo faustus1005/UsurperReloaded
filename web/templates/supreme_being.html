@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Supreme Being{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Supreme Being</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">You have reached the end of all things. Before you stand three doors, each radiating a different aura. The Supreme Being's voice echoes through the void:</p>
+
+        <p class="text-gold mb-2" style="font-style: italic;">"Choose wisely, mortal. Each door leads to a different fate. Only one path leads to ultimate power."</p>
+
+        <div class="menu-grid">
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-gold">&#9737;</span>
+                <span class="label">Door of Light</span>
+                <span class="sublabel">Radiance and hope</span>
+                <form method="POST" action="{{ url_for('supreme_being') }}" class="mt-1">
+                    <input type="hidden" name="door" value="light">
+                    <button type="submit" class="btn btn-success btn-sm btn-block">Enter</button>
+                </form>
+            </div>
+
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-red">&#9760;</span>
+                <span class="label">Door of Darkness</span>
+                <span class="sublabel">Power and shadow</span>
+                <form method="POST" action="{{ url_for('supreme_being') }}" class="mt-1">
+                    <input type="hidden" name="door" value="darkness">
+                    <button type="submit" class="btn btn-danger btn-sm btn-block">Enter</button>
+                </form>
+            </div>
+
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-purple">&#9883;</span>
+                <span class="label">Door of Balance</span>
+                <span class="sublabel">Wisdom and equilibrium</span>
+                <form method="POST" action="{{ url_for('supreme_being') }}" class="mt-1">
+                    <input type="hidden" name="door" value="balance">
+                    <button type="submit" class="btn btn-primary btn-sm btn-block">Enter</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Flee</a>
+</div>
+{% endblock %}

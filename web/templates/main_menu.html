@@ -40,6 +40,28 @@
                 <span class="label">Bounty Board</span>
                 <span class="sublabel">Most wanted</span>
             </a>
+            <a href="{{ url_for('death_maze') }}" class="menu-item">
+                <span class="icon text-dim">&#9776;</span>
+                <span class="label">Death Maze</span>
+                <span class="sublabel">Labyrinth horrors</span>
+            </a>
+            <a href="{{ url_for('ice_caves') }}" class="menu-item">
+                <span class="icon text-blue">&#10052;</span>
+                <span class="label">Ice Caves</span>
+                <span class="sublabel">Frozen depths</span>
+            </a>
+            {% if player.level >= 15 %}
+            <a href="{{ url_for('supreme_being') }}" class="menu-item">
+                <span class="icon text-gold">&#9812;</span>
+                <span class="label">Supreme Being</span>
+                <span class="sublabel">Endgame boss</span>
+            </a>
+            {% endif %}
+            <a href="{{ url_for('godworld') }}" class="menu-item">
+                <span class="icon text-gold">&#9728;</span>
+                <span class="label">God World</span>
+                <span class="sublabel">Divine realm</span>
+            </a>
         </div>
 
         {# === SHOPS & SERVICES === #}
@@ -84,6 +106,11 @@
                 <span class="icon text-gold">&#9873;</span>
                 <span class="label">Player Market</span>
                 <span class="sublabel">Buy & sell items</span>
+            </a>
+            <a href="{{ url_for('alchemist_craft') }}" class="menu-item">
+                <span class="icon text-green">&#9879;</span>
+                <span class="label">Alchemist</span>
+                <span class="sublabel">Craft poisons</span>
             </a>
         </div>
 
@@ -135,6 +162,46 @@
                 <span class="label">Uman Cave</span>
                 <span class="sublabel">{% if player.has_tamed_bear %}{{ player.bear_name }}{% else %}Bear taming{% endif %}</span>
             </a>
+            <a href="{{ url_for('gym') }}" class="menu-item">
+                <span class="icon text-red">&#9889;</span>
+                <span class="label">Gym</span>
+                <span class="sublabel">Barrel lift & massage</span>
+            </a>
+            <a href="{{ url_for('groggo') }}" class="menu-item">
+                <span class="icon text-dim">&#9760;</span>
+                <span class="label">Groggo</span>
+                <span class="sublabel">Disease & demons</span>
+            </a>
+            <a href="{{ url_for('gigolo') }}" class="menu-item">
+                <span class="icon text-red">&#9829;</span>
+                <span class="label">Gigolo</span>
+                <span class="sublabel">Romance for hire</span>
+            </a>
+            <a href="{{ url_for('beer_stealing') }}" class="menu-item">
+                <span class="icon text-gold">&#127866;</span>
+                <span class="label">Beer Stealing</span>
+                <span class="sublabel">Tavern heist</span>
+            </a>
+            <a href="{{ url_for('dormitory') }}" class="menu-item">
+                <span class="icon text-red">&#9876;</span>
+                <span class="label">Dormitory Fights</span>
+                <span class="sublabel">Fistfights</span>
+            </a>
+            <a href="{{ url_for('inn_chat') }}" class="menu-item">
+                <span class="icon text-blue">&#9993;</span>
+                <span class="label">Inn Chat</span>
+                <span class="sublabel">Chat board</span>
+            </a>
+            <a href="{{ url_for('equipment_swap') }}" class="menu-item">
+                <span class="icon text-secondary">&#8644;</span>
+                <span class="label">Equipment Swap</span>
+                <span class="sublabel">Trade with players</span>
+            </a>
+            <a href="{{ url_for('combat_train') }}" class="menu-item">
+                <span class="icon text-red">&#9876;</span>
+                <span class="label">Combat Training</span>
+                <span class="sublabel">Close combat moves</span>
+            </a>
         </div>
 
         {# === CHARACTER === #}
@@ -164,6 +231,21 @@
                 <span class="icon text-blue">&#9764;</span>
                 <span class="label">Temple</span>
                 <span class="sublabel">{% if player.god_name %}{{ player.god_name }}{% else %}Worship a deity{% endif %}</span>
+            </a>
+            <a href="{{ url_for('good_deeds') }}" class="menu-item">
+                <span class="icon text-green">&#10003;</span>
+                <span class="label">Good Deeds</span>
+                <span class="sublabel">Help the poor</span>
+            </a>
+            <a href="{{ url_for('dark_deeds') }}" class="menu-item">
+                <span class="icon text-red">&#9760;</span>
+                <span class="label">Dark Deeds</span>
+                <span class="sublabel">Evil actions</span>
+            </a>
+            <a href="{{ url_for('orphanage') }}" class="menu-item">
+                <span class="icon text-blue">&#9751;</span>
+                <span class="label">Orphanage</span>
+                <span class="sublabel">Adopt children</span>
             </a>
         </div>
 

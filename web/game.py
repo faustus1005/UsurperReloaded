@@ -7,8 +7,12 @@ from models import (
     Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem, GameConfig,
     MoatCreature, RoyalGuard, DoorGuard, Drink, MarketListing,
+    InnChat, BarrelLiftRecord, EquipmentSwapOffer,
     RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES,
-    DRINK_INGREDIENTS
+    DRINK_INGREDIENTS,
+    CLOSE_COMBAT_MOVES, COMBAT_SKILL_RANKS, HIT_INTENSITY, BATTLE_MASTER_RANKS,
+    DISEASES, GIGOLOS, POISON_LEVELS, FATAL_DRINK_COMBOS, DRINK_STAT_EFFECTS,
+    MONSTER_SPELLS
 )
 
 
@@ -86,6 +90,10 @@ def create_character(player, name, race, player_class, sex):
     player.beauty_nest_visits = int(GameConfig.get('beauty_nest_visits_per_day', '3') or '3')
     player.wrestling_matches = 2
     player.performances_remaining = 3
+    player.dark_deeds_remaining = 3
+    player.good_deeds_remaining = 3
+    player.gym_sessions = 4
+    player.massage_visits = 3
     player.dungeon_level = 1
 
     # Starting spells for spellcasters
@@ -96,15 +104,15 @@ def create_character(player, name, race, player_class, sex):
     elif player_class == 'Paladin':
         player.spells_known = '2'  # Heal
     elif player_class == 'Sage':
-        player.spells_known = '1,2'  # Magic Missile + Heal
+        player.spells_known = '1,2,68'  # Magic Missile + Heal + Fog of War
     elif player_class == 'Alchemist':
         player.spells_known = '11'  # Acid Splash
     elif player_class == 'Necromancer':
-        player.spells_known = '49'  # Drain Life
+        player.spells_known = '74'  # Drain Life
     elif player_class == 'Monk':
-        player.spells_known = '58'  # Inner Focus
+        player.spells_known = '83'  # Inner Focus
     elif player_class == 'Witch Hunter':
-        player.spells_known = '67'  # Silver Bolt
+        player.spells_known = '92'  # Silver Bolt
 
 
 def level_up(player):
@@ -615,9 +623,17 @@ def daily_maintenance(player):
     player.escape_attempts = 0
     player.wrestling_matches = 2
     player.performances_remaining = 3
+    player.dark_deeds_remaining = int(GameConfig.get('dark_deeds_per_day', '3') or '3')
+    player.good_deeds_remaining = int(GameConfig.get('good_deeds_per_day', '3') or '3')
+    player.gym_sessions = int(GameConfig.get('gym_sessions_per_day', '4') or '4')
+    player.massage_visits = int(GameConfig.get('massage_visits_per_day', '3') or '3')
     player.hp = player.max_hp
     player.mana = player.max_mana
     player.last_maintenance = now
+
+    # Haunting decay
+    if player.is_haunted > 0:
+        player.is_haunted = max(0, player.is_haunted - 1)
 
     # Bank interest
     if player.bank_gold > 0:
@@ -6402,3 +6418,1489 @@ def release_bear(player):
     player.bear_strength = 0
     db.session.commit()
     return True, f"You released {name} back into the wild."
+
+
+# ============================================================
+# NEW FEATURES - Original Usurper mechanics
+# ============================================================
+
+def hit_intensity_text(damage):
+    """Returns flavor text for damage level from HIT_INTENSITY."""
+    if damage <= 3:
+        idx = 0
+    elif damage <= 7:
+        idx = 1
+    elif damage <= 12:
+        idx = 2
+    elif damage <= 20:
+        idx = 3
+    elif damage <= 35:
+        idx = 4
+    elif damage <= 55:
+        idx = 5
+    else:
+        idx = 6
+    idx = min(idx, len(HIT_INTENSITY) - 1)
+    return HIT_INTENSITY[idx]
+
+
+def apply_disease_damage(player):
+    """Apply per-battle disease damage. Returns damage amount."""
+    dmg = player.get_disease_damage()
+    if dmg > 0:
+        player.hp = max(1, player.hp - dmg)
+        db.session.commit()
+    return dmg
+
+
+def beer_stealing(player):
+    """Beer stealing heist mini-game.
+
+    Fight guard dogs (strength check), then merchant's sons.
+    Stamina-based. Success = gold reward. Requires dark_deeds_remaining.
+    Returns dict with results.
+    """
+    if player.dark_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no dark deeds remaining today.', 'log': []}
+
+    if player.stamina < 5:
+        return {'success': False, 'message': 'You are too exhausted for a heist.', 'log': []}
+
+    player.dark_deeds_remaining -= 1
+    log = []
+    log.append("You sneak toward the merchant's beer cellar under cover of darkness...")
+
+    # Phase 1: Guard dogs - strength check
+    dog_difficulty = random.randint(10, 30) + player.level * 2
+    dog_check = player.strength + random.randint(1, 20)
+    log.append("A guard dog lunges at you!")
+
+    if dog_check < dog_difficulty:
+        dmg = random.randint(5, 15)
+        player.hp = max(1, player.hp - dmg)
+        player.stamina = max(0, player.stamina - 3)
+        player.darkness += 1
+        log.append(f"The dog bites you for {dmg} damage! You flee empty-handed.")
+        add_news(f"{player.name} was caught trying to steal beer!", player_id=player.id, category='crime')
+        db.session.commit()
+        return {'success': False, 'message': 'The guard dog drove you off!', 'log': log}
+
+    log.append("You wrestle the dog into submission!")
+    player.stamina = max(0, player.stamina - 2)
+
+    # Phase 2: Merchant's sons (1-3)
+    num_sons = random.randint(1, 3)
+    log.append(f"But {num_sons} of the merchant's sons heard the commotion!")
+
+    for i in range(num_sons):
+        son_str = random.randint(8, 20) + player.level
+        player_roll = player.strength + random.randint(1, 15)
+        if player_roll < son_str:
+            dmg = random.randint(3, 10)
+            player.hp = max(1, player.hp - dmg)
+            player.stamina = max(0, player.stamina - 2)
+            player.darkness += 2
+            log.append(f"Son #{i+1} knocks you down for {dmg} damage! You retreat!")
+            add_news(f"{player.name} was beaten during a beer heist!", player_id=player.id, category='crime')
+            db.session.commit()
+            return {'success': False, 'message': "The merchant's sons overpowered you!", 'log': log}
+        log.append(f"You overpower son #{i+1}!")
+        player.stamina = max(0, player.stamina - 1)
+
+    # Success!
+    gold_reward = random.randint(50, 200) * player.level
+    player.gold += gold_reward
+    player.darkness += 3
+    xp_gain = random.randint(50, 150) * player.level
+    player.experience += xp_gain
+    log.append("You grab the beer barrels and escape into the night!")
+    log.append(f"You sell the stolen beer for {gold_reward} gold!")
+    log.append(f"Gained {xp_gain} XP!")
+    add_news(f"{player.name} pulled off a daring beer heist!", player_id=player.id, category='crime')
+    db.session.commit()
+    return {'success': True, 'message': 'Heist successful!', 'log': log, 'gold': gold_reward, 'xp': xp_gain}
+
+
+def dormitory_fistfight(player, num_opponents):
+    """Fight 1-5 sleeping guests using close combat moves.
+
+    Each round player picks a move, damage based on skill level.
+    Can flee (20% success). XP per opponent defeated (level*100).
+    """
+    if num_opponents < 1 or num_opponents > 5:
+        return {'success': False, 'message': 'You can fight 1-5 opponents.', 'log': [], 'rounds': []}
+
+    log = []
+    rounds = []
+    skills = player.get_combat_skills()
+    defeated = 0
+
+    log.append(f"You challenge {num_opponents} sleeping guests to a brawl!")
+
+    for i in range(num_opponents):
+        opponent_hp = random.randint(20, 50) + player.level * 3
+        opponent_str = random.randint(5, 15) + player.level * 2
+        opponent_name = random.choice([
+            'Burly Dwarf', 'Surly Sailor', 'Drunk Knight', 'Grumpy Merchant',
+            'Angry Farmer', 'Sleepy Guard', 'Rowdy Bard', 'Cranky Innkeeper'
+        ])
+        log.append(f"\nOpponent #{i+1}: {opponent_name} (HP: {opponent_hp})")
+
+        round_num = 0
+        while opponent_hp > 0 and player.hp > 0:
+            round_num += 1
+            # Player picks a random available move (in actual gameplay, player would choose)
+            available_moves = [m for m in CLOSE_COMBAT_MOVES if skills.get(m, 0) > 0]
+            if not available_moves:
+                available_moves = ['Straight Punch']  # Fallback basic move
+
+            move = random.choice(available_moves)
+            skill_level = skills.get(move, 1)
+            rank_name = COMBAT_SKILL_RANKS[min(skill_level, len(COMBAT_SKILL_RANKS) - 1)]
+
+            # Player attacks
+            player_dmg = random.randint(1, 5) + skill_level * 2 + player.strength // 4
+            opponent_hp -= player_dmg
+            hit_text = hit_intensity_text(player_dmg)
+            log.append(f"  Round {round_num}: You use {move} ({rank_name}) - {hit_text} hit for {player_dmg} damage!")
+
+            if opponent_hp <= 0:
+                log.append(f"  {opponent_name} is knocked out!")
+                defeated += 1
+                break
+
+            # Opponent attacks
+            opp_dmg = random.randint(1, 8) + opponent_str // 3
+            player.hp = max(0, player.hp - opp_dmg)
+            log.append(f"  {opponent_name} strikes back for {opp_dmg} damage!")
+
+            if player.hp <= 0:
+                log.append("You have been knocked unconscious!")
+                break
+
+            rounds.append({'round': round_num, 'move': move, 'player_dmg': player_dmg, 'opp_dmg': opp_dmg})
+
+        if player.hp <= 0:
+            break
+
+    # XP reward
+    xp_gain = defeated * player.level * 100
+    player.experience += xp_gain
+    log.append(f"\nYou defeated {defeated} out of {num_opponents} opponents!")
+    log.append(f"Gained {xp_gain} XP!")
+
+    if defeated == num_opponents:
+        add_news(f"{player.name} won a dormitory brawl against {num_opponents} opponents!")
+
+    db.session.commit()
+    return {
+        'success': defeated > 0,
+        'message': f'Defeated {defeated}/{num_opponents} opponents.',
+        'log': log,
+        'rounds': rounds,
+        'defeated': defeated,
+        'xp': xp_gain,
+    }
+
+
+def train_combat_move(player, move_name):
+    """Train a close combat move at the level master.
+
+    Increases skill by 1 (max 17). Returns success message with rank name.
+    """
+    if move_name not in CLOSE_COMBAT_MOVES:
+        return {'success': False, 'message': f"'{move_name}' is not a valid close combat move."}
+
+    skills = player.get_combat_skills()
+    current_level = skills.get(move_name, 0)
+
+    if current_level >= 17:
+        return {'success': False, 'message': f"Your {move_name} skill is already at *COMPLETE* mastery!"}
+
+    new_level = current_level + 1
+    player.set_combat_skill(move_name, new_level)
+    rank_name = COMBAT_SKILL_RANKS[min(new_level, len(COMBAT_SKILL_RANKS) - 1)]
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"Your {move_name} skill improved to level {new_level} ({rank_name})!",
+        'move': move_name,
+        'new_level': new_level,
+        'rank': rank_name,
+    }
+
+
+def gym_barrel_lift(player):
+    """Barrel lifting competition.
+
+    Strength+Stamina based, random number of barrels.
+    Updates barrel_lift_record. Requires gym_sessions > 0.
+    """
+    if player.gym_sessions <= 0:
+        return {'success': False, 'message': 'You have no gym sessions remaining today.', 'log': []}
+
+    player.gym_sessions -= 1
+    log = []
+    log.append("You step up to the barrel lifting platform!")
+
+    barrels_lifted = 0
+    max_barrels = random.randint(5, 20)
+    base_ability = player.strength + player.stamina
+
+    for i in range(max_barrels):
+        difficulty = (i + 1) * 10 + random.randint(0, 15)
+        lift_roll = base_ability + random.randint(1, 30) - (i * 3)  # gets harder each barrel
+
+        if lift_roll >= difficulty:
+            barrels_lifted += 1
+            log.append(f"Barrel #{i+1}: LIFTED! (strain increasing...)")
+        else:
+            log.append(f"Barrel #{i+1}: You can't lift it! Your arms give out.")
+            break
+
+    log.append(f"\nTotal barrels lifted: {barrels_lifted}")
+
+    # Update personal record
+    is_record = False
+    if barrels_lifted > player.barrel_lift_record:
+        player.barrel_lift_record = barrels_lifted
+        is_record = True
+        log.append("NEW PERSONAL RECORD!")
+
+    # Stat gains
+    str_gain = barrels_lifted // 5
+    sta_gain = barrels_lifted // 7
+    if str_gain > 0:
+        player.strength += str_gain
+        log.append(f"Strength increased by {str_gain}!")
+    if sta_gain > 0:
+        player.stamina += sta_gain
+        log.append(f"Stamina increased by {sta_gain}!")
+
+    # Save to leaderboard
+    record = BarrelLiftRecord(
+        player_id=player.id,
+        player_name=player.name,
+        barrels=barrels_lifted
+    )
+    db.session.add(record)
+
+    if is_record and barrels_lifted >= 10:
+        add_news(f"{player.name} set a personal barrel lift record of {barrels_lifted}!")
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f'You lifted {barrels_lifted} barrels!',
+        'log': log,
+        'barrels': barrels_lifted,
+        'is_record': is_record,
+    }
+
+
+def gym_massage(player):
+    """Massage at the gym. Restores some HP and stamina. Requires massage_visits > 0."""
+    if player.massage_visits <= 0:
+        return {'success': False, 'message': 'You have no massage visits remaining today.'}
+
+    player.massage_visits -= 1
+
+    hp_restore = random.randint(10, 30) + player.level * 2
+    sta_restore = random.randint(2, 8)
+
+    player.hp = min(player.max_hp, player.hp + hp_restore)
+    player.stamina += sta_restore
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"The masseuse works out your aches. Restored {hp_restore} HP and {sta_restore} stamina.",
+        'hp_restored': hp_restore,
+        'stamina_restored': sta_restore,
+    }
+
+
+def groggo_disease(player, target_id):
+    """Groggo's mad mage disease spell.
+
+    Costs 14000*target.level gold. 33% success rate.
+    Inflicts random disease on target. On failure, disease hits caster.
+    Requires dark_deeds_remaining.
+    """
+    if player.dark_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no dark deeds remaining today.'}
+
+    target = db.session.get(Player, target_id)
+    if not target:
+        return {'success': False, 'message': 'Target player not found.'}
+
+    if target.id == player.id:
+        return {'success': False, 'message': 'You cannot curse yourself.'}
+
+    cost = 14000 * target.level
+    if player.gold < cost:
+        return {'success': False, 'message': f'Not enough gold. Cost: {cost} gold.'}
+
+    player.gold -= cost
+    player.dark_deeds_remaining -= 1
+
+    # Pick a random disease
+    disease_key = random.choice(list(DISEASES.keys()))
+    disease_name = DISEASES[disease_key]['name']
+    disease_attr = f'has_{disease_key}'
+
+    if random.randint(1, 3) == 1:
+        # Success - inflict on target
+        setattr(target, disease_attr, True)
+        player.darkness += 5
+        add_news(f"{target.name} has been afflicted with {disease_name} by dark magic!", player_id=target.id, category='crime')
+
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=target.id,
+            subject="You feel unwell...",
+            message=f"A dark curse washes over you. You have contracted {disease_name}!"
+        )
+        db.session.add(mail)
+        db.session.commit()
+        return {
+            'success': True,
+            'message': f"Groggo's spell worked! {target.name} now has {disease_name}!",
+            'disease': disease_name,
+        }
+    else:
+        # Failure - backfires on caster
+        setattr(player, disease_attr, True)
+        add_news(f"{player.name}'s dark magic backfired! They contracted {disease_name}!", player_id=player.id, category='crime')
+        db.session.commit()
+        return {
+            'success': False,
+            'message': f"The spell backfired! YOU now have {disease_name}!",
+            'disease': disease_name,
+        }
+
+
+def groggo_summon_demon(player, target_id):
+    """Summon demon to haunt target.
+
+    Costs 50000*target.level gold. 90% success.
+    Sets target.is_haunted += 1. On failure, random player gets haunted.
+    Requires dark_deeds_remaining.
+    """
+    if player.dark_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no dark deeds remaining today.'}
+
+    target = db.session.get(Player, target_id)
+    if not target:
+        return {'success': False, 'message': 'Target player not found.'}
+
+    if target.id == player.id:
+        return {'success': False, 'message': 'You cannot haunt yourself.'}
+
+    cost = 50000 * target.level
+    if player.gold < cost:
+        return {'success': False, 'message': f'Not enough gold. Cost: {cost} gold.'}
+
+    player.gold -= cost
+    player.dark_deeds_remaining -= 1
+    player.darkness += 10
+
+    if random.randint(1, 10) <= 9:
+        # 90% success
+        target.is_haunted += 1
+        add_news(f"A demon has been summoned to haunt {target.name}!", player_id=target.id, category='crime')
+
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=target.id,
+            subject="Something watches you...",
+            message="You feel a dark presence following you. A demon has been sent to haunt your dreams!"
+        )
+        db.session.add(mail)
+        db.session.commit()
+        return {
+            'success': True,
+            'message': f"A demon now haunts {target.name}!",
+        }
+    else:
+        # 10% failure - random player gets haunted (could be caster)
+        all_players = Player.query.filter(Player.hp > 0, Player.is_npc == False).all()
+        if all_players:
+            victim = random.choice(all_players)
+            victim.is_haunted += 1
+            add_news(f"A summoned demon went rogue and is now haunting {victim.name}!", category='crime')
+            db.session.commit()
+            return {
+                'success': False,
+                'message': f"The demon broke free! It is now haunting {victim.name} instead!",
+            }
+        db.session.commit()
+        return {'success': False, 'message': 'The demon escaped into the void!'}
+
+
+def visit_gigolo(player, gigolo_index):
+    """Visit a gigolo from GIGOLOS list.
+
+    Costs gold, grants XP, adds darkness.
+    1/3 chance of fatal virus (player dies). Requires dark_deeds_remaining.
+    """
+    if player.dark_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no dark deeds remaining today.'}
+
+    if gigolo_index < 0 or gigolo_index >= len(GIGOLOS):
+        return {'success': False, 'message': 'Invalid gigolo selection.'}
+
+    gigolo = GIGOLOS[gigolo_index]
+
+    if player.level < gigolo['level']:
+        return {'success': False, 'message': f"You must be at least level {gigolo['level']} to visit {gigolo['name']}."}
+
+    if player.gold < gigolo['cost']:
+        return {'success': False, 'message': f"Not enough gold. {gigolo['name']} charges {gigolo['cost']} gold."}
+
+    player.gold -= gigolo['cost']
+    player.dark_deeds_remaining -= 1
+    player.darkness += 3
+
+    # 1/3 chance of fatal virus
+    if random.randint(1, 3) == 1:
+        player.hp = 0
+        add_news(f"{player.name} died from a fatal virus after visiting {gigolo['name']}!", player_id=player.id, category='social')
+        db.session.commit()
+        return {
+            'success': False,
+            'message': f"You contracted a fatal virus from {gigolo['name']}! Everything goes dark...",
+            'dead': True,
+        }
+
+    # Success
+    xp_gain = gigolo['cost'] // 2
+    player.experience += xp_gain
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"You spent the evening with {gigolo['name']}. Gained {xp_gain} XP.",
+        'xp': xp_gain,
+        'dead': False,
+    }
+
+
+def good_deed_poor(player, amount):
+    """Give to the poor. Donates gold, gains chivalry (amount/10). Requires good_deeds_remaining."""
+    if player.good_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no good deeds remaining today.'}
+
+    if amount <= 0:
+        return {'success': False, 'message': 'You must donate a positive amount.'}
+
+    if player.gold < amount:
+        return {'success': False, 'message': 'You do not have enough gold.'}
+
+    player.gold -= amount
+    player.good_deeds_remaining -= 1
+    chivalry_gain = max(1, amount // 10)
+    player.chivalry += chivalry_gain
+
+    add_news(f"{player.name} donated {amount} gold to the poor!", player_id=player.id, category='social')
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"You donate {amount} gold to the poor. The people thank you warmly! Gained {chivalry_gain} chivalry.",
+        'chivalry': chivalry_gain,
+    }
+
+
+def good_deed_church(player, amount):
+    """Church collection. Donates gold, gains chivalry (amount/11). Cures one random disease."""
+    if player.good_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no good deeds remaining today.'}
+
+    if amount <= 0:
+        return {'success': False, 'message': 'You must donate a positive amount.'}
+
+    if player.gold < amount:
+        return {'success': False, 'message': 'You do not have enough gold.'}
+
+    player.gold -= amount
+    player.good_deeds_remaining -= 1
+    chivalry_gain = max(1, amount // 11)
+    player.chivalry += chivalry_gain
+
+    # Cure one random disease
+    cured = None
+    active = player.active_diseases()
+    if active:
+        disease_to_cure = random.choice(active)
+        disease_key_map = {v['name']: k for k, v in DISEASES.items()}
+        disease_key = disease_key_map.get(disease_to_cure)
+        if disease_key:
+            setattr(player, f'has_{disease_key}', False)
+            cured = disease_to_cure
+
+    msg = f"You donate {amount} gold to the church. Gained {chivalry_gain} chivalry."
+    if cured:
+        msg += f" The priest's blessing has cured your {cured}!"
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': msg,
+        'chivalry': chivalry_gain,
+        'cured': cured,
+    }
+
+
+def good_deed_blessing(player, amount):
+    """Buy blessing. Pays gold, reduces darkness by amount/15."""
+    if player.good_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no good deeds remaining today.'}
+
+    if amount <= 0:
+        return {'success': False, 'message': 'You must pay a positive amount.'}
+
+    if player.gold < amount:
+        return {'success': False, 'message': 'You do not have enough gold.'}
+
+    player.gold -= amount
+    player.good_deeds_remaining -= 1
+    darkness_reduction = max(1, amount // 15)
+    player.darkness = max(0, player.darkness - darkness_reduction)
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"The holy blessing washes away some of your sins. Darkness reduced by {darkness_reduction}.",
+        'darkness_reduced': darkness_reduction,
+    }
+
+
+def kidnap_child(player, child_id):
+    """Kidnap another player's child.
+
+    1/3 success. Sets child location='kidnapped', ransom=100*player.level.
+    On failure, player imprisoned. Requires dark_deeds_remaining.
+    """
+    if player.dark_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no dark deeds remaining today.'}
+
+    child = db.session.get(Child, child_id)
+    if not child:
+        return {'success': False, 'message': 'Child not found.'}
+
+    if child.location != 'home':
+        return {'success': False, 'message': 'This child is not at home.'}
+
+    # Cannot kidnap own child
+    if child.mother_id == player.id or child.father_id == player.id:
+        return {'success': False, 'message': 'You cannot kidnap your own child!'}
+
+    player.dark_deeds_remaining -= 1
+
+    if random.randint(1, 3) == 1:
+        # Success
+        child.location = 'kidnapped'
+        child.kidnapped_by_id = player.id
+        child.ransom_amount = 100 * player.level
+        player.darkness += 10
+
+        parent = db.session.get(Player, child.mother_id) or db.session.get(Player, child.father_id)
+        if parent:
+            mail = Mail(
+                sender_id=player.id,
+                receiver_id=parent.id,
+                subject="Your child has been kidnapped!",
+                message=f"Your child {child.name} has been kidnapped! A ransom of {child.ransom_amount} gold is demanded."
+            )
+            db.session.add(mail)
+            add_news(f"{child.name} has been kidnapped! A ransom of {child.ransom_amount} gold is demanded.", player_id=parent.id, category='crime')
+
+        db.session.commit()
+        return {
+            'success': True,
+            'message': f"You kidnapped {child.name}! Ransom set to {child.ransom_amount} gold.",
+            'ransom': child.ransom_amount,
+        }
+    else:
+        # Failure - imprisoned
+        player.is_imprisoned = True
+        player.darkness += 5
+        add_news(f"{player.name} was caught trying to kidnap a child and has been imprisoned!", player_id=player.id, category='crime')
+        db.session.commit()
+        return {
+            'success': False,
+            'message': 'You were caught! The guards drag you to prison.',
+            'imprisoned': True,
+        }
+
+
+def poison_child(player, child_id):
+    """Poison another player's child.
+
+    1/3 success. Sets child health='poisoned'.
+    On failure, player imprisoned. Requires dark_deeds_remaining.
+    """
+    if player.dark_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no dark deeds remaining today.'}
+
+    child = db.session.get(Child, child_id)
+    if not child:
+        return {'success': False, 'message': 'Child not found.'}
+
+    if child.health != 'normal':
+        return {'success': False, 'message': 'This child is already unwell.'}
+
+    # Cannot poison own child
+    if child.mother_id == player.id or child.father_id == player.id:
+        return {'success': False, 'message': 'You cannot poison your own child!'}
+
+    player.dark_deeds_remaining -= 1
+
+    if random.randint(1, 3) == 1:
+        # Success
+        child.health = 'poisoned'
+        player.darkness += 15
+
+        parent = db.session.get(Player, child.mother_id) or db.session.get(Player, child.father_id)
+        if parent:
+            mail = Mail(
+                sender_id=player.id,
+                receiver_id=parent.id,
+                subject="Your child is ill!",
+                message=f"Your child {child.name} has been poisoned by an unknown assailant!"
+            )
+            db.session.add(mail)
+            add_news(f"{child.name} has been poisoned!", player_id=parent.id, category='crime')
+
+        db.session.commit()
+        return {
+            'success': True,
+            'message': f"You poisoned {child.name}!",
+        }
+    else:
+        # Failure - imprisoned
+        player.is_imprisoned = True
+        player.darkness += 5
+        add_news(f"{player.name} was caught trying to poison a child and has been imprisoned!", player_id=player.id, category='crime')
+        db.session.commit()
+        return {
+            'success': False,
+            'message': 'You were caught! The guards drag you to prison.',
+            'imprisoned': True,
+        }
+
+
+def murder_player(player, target_id):
+    """Murder another player outside combat.
+
+    Strength vs defense check. On success, target dies (HP=0).
+    Generates bounty and news. Requires dark_deeds_remaining.
+    """
+    if player.dark_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no dark deeds remaining today.'}
+
+    target = db.session.get(Player, target_id)
+    if not target:
+        return {'success': False, 'message': 'Target player not found.'}
+
+    if target.id == player.id:
+        return {'success': False, 'message': 'You cannot murder yourself.'}
+
+    if target.hp <= 0:
+        return {'success': False, 'message': f'{target.name} is already dead.'}
+
+    player.dark_deeds_remaining -= 1
+
+    # Strength vs defense check
+    attack_roll = player.strength + random.randint(1, 20) + player.level * 2
+    defense_roll = target.defence + target.armor_power + random.randint(1, 20) + target.level * 2
+
+    if attack_roll > defense_roll:
+        # Success - target dies
+        target.hp = 0
+        player.darkness += 20
+        player.player_kills = (player.player_kills or 0) + 1
+
+        # Generate bounty
+        bounty_amount = target.level * 500
+        bounty = Bounty(
+            target_id=player.id,
+            poster_id=target.id,
+            amount=bounty_amount,
+            reason=f"Murder of {target.name}"
+        )
+        db.session.add(bounty)
+
+        add_news(f"{player.name} murdered {target.name} in cold blood!", player_id=player.id, category='crime')
+
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=target.id,
+            subject="You have been murdered!",
+            message=f"{player.name} stabbed you in the back! You are dead."
+        )
+        db.session.add(mail)
+
+        db.session.commit()
+        return {
+            'success': True,
+            'message': f"You murdered {target.name}! A bounty of {bounty_amount} gold has been placed on your head.",
+            'bounty': bounty_amount,
+        }
+    else:
+        # Failed
+        player.darkness += 5
+        dmg = random.randint(5, 20)
+        player.hp = max(1, player.hp - dmg)
+        add_news(f"{player.name} attempted to murder {target.name} but failed!", player_id=player.id, category='crime')
+        db.session.commit()
+        return {
+            'success': False,
+            'message': f"{target.name} fought you off! You took {dmg} damage fleeing.",
+        }
+
+
+def loot_chest(player, target_id):
+    """Steal from another player's home chest.
+
+    Dexterity check. On success, steal random item.
+    On failure, caught and fined. Requires dark_deeds_remaining.
+    """
+    if player.dark_deeds_remaining <= 0:
+        return {'success': False, 'message': 'You have no dark deeds remaining today.'}
+
+    target = db.session.get(Player, target_id)
+    if not target:
+        return {'success': False, 'message': 'Target player not found.'}
+
+    if target.id == player.id:
+        return {'success': False, 'message': 'You cannot steal from yourself.'}
+
+    # Check target has chest items
+    chest_items = HomeChestItem.query.filter_by(player_id=target.id).all()
+    if not chest_items:
+        return {'success': False, 'message': f"{target.name}'s chest is empty."}
+
+    player.dark_deeds_remaining -= 1
+
+    # Dexterity check
+    steal_roll = player.dexterity + random.randint(1, 20) + player.level
+    guard_roll = random.randint(10, 30) + target.level * 2
+
+    if steal_roll > guard_roll:
+        # Success - steal random item
+        stolen_chest_item = random.choice(chest_items)
+        item = stolen_chest_item.item
+
+        # Remove from target's chest
+        db.session.delete(stolen_chest_item)
+
+        # Add to player's inventory
+        inv_count = InventoryItem.query.filter_by(player_id=player.id).count()
+        if inv_count < 15:
+            inv_item = InventoryItem(player_id=player.id, item_id=item.id)
+            db.session.add(inv_item)
+            stolen_msg = f"You stole {item.name} from {target.name}'s chest!"
+        else:
+            # Inventory full, sell it
+            player.gold += item.value
+            stolen_msg = f"You stole {item.name} but your inventory was full. Sold it for {item.value} gold."
+
+        player.darkness += 5
+        add_news(f"Someone broke into {target.name}'s home chest!", player_id=target.id, category='crime')
+
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=target.id,
+            subject="Your chest was robbed!",
+            message=f"Someone broke into your home and stole {item.name} from your chest!"
+        )
+        db.session.add(mail)
+
+        db.session.commit()
+        return {
+            'success': True,
+            'message': stolen_msg,
+            'item_name': item.name,
+        }
+    else:
+        # Caught - fined
+        fine = random.randint(100, 500) * player.level
+        fine = min(fine, player.gold)
+        player.gold -= fine
+        player.darkness += 3
+        add_news(f"{player.name} was caught trying to rob {target.name}'s home!", player_id=player.id, category='crime')
+        db.session.commit()
+        return {
+            'success': False,
+            'message': f"You were caught! Fined {fine} gold.",
+            'fine': fine,
+        }
+
+
+def haunting_check(player):
+    """Called at login/rest. If is_haunted > 0, player has nightmares,
+    loses some HP, haunted decreases by 1. Returns flavor text."""
+    if player.is_haunted <= 0:
+        return {'haunted': False, 'message': ''}
+
+    nightmare_texts = [
+        "Shadowy figures dance at the edge of your vision...",
+        "You hear whispers in a language you cannot understand...",
+        "A cold hand grips your shoulder, but nothing is there...",
+        "Your dreams are filled with dark omens and screaming faces...",
+        "The demon's laughter echoes in your mind...",
+        "You wake in a cold sweat, trembling with fear...",
+        "Ghostly chains rattle beneath your bed...",
+        "An otherworldly presence watches your every move...",
+    ]
+
+    text = random.choice(nightmare_texts)
+    hp_loss = random.randint(3, 10) + player.is_haunted * 2
+    player.hp = max(1, player.hp - hp_loss)
+    player.is_haunted -= 1
+
+    db.session.commit()
+    return {
+        'haunted': True,
+        'message': f"{text} You lose {hp_loss} HP from the haunting. (Haunting level: {player.is_haunted})",
+        'hp_lost': hp_loss,
+        'haunting_remaining': player.is_haunted,
+    }
+
+
+def apply_drink_effects(player, drink):
+    """Apply stat effects from drink based on DRINK_STAT_EFFECTS.
+
+    Check FATAL_DRINK_COMBOS for death.
+    Returns dict with effects applied and death status.
+    """
+    effects = {}
+    messages = []
+
+    # Check fatal combos first
+    for combo in FATAL_DRINK_COMBOS:
+        ingredient = combo['ingredient']
+        threshold = combo['threshold']
+        ingredient_amount = getattr(drink, ingredient, 0)
+
+        if ingredient_amount >= threshold:
+            # Check race restriction if any
+            if 'race' in combo:
+                if player.race != combo['race']:
+                    continue
+            messages.append(combo['message'])
+            player.hp = 0
+            add_news(f"{player.name} died after drinking '{drink.name}'!")
+            db.session.commit()
+            return {
+                'success': False,
+                'effects': effects,
+                'dead': True,
+                'messages': messages,
+            }
+
+    # Apply stat effects
+    for ingredient, stat_effects in DRINK_STAT_EFFECTS.items():
+        ingredient_amount = getattr(drink, ingredient, 0)
+        if ingredient_amount <= 0:
+            continue
+
+        bonus_ticks = ingredient_amount // 10  # bonus per 10%
+        for stat, bonus_per_tick in stat_effects.items():
+            total_bonus = bonus_ticks * bonus_per_tick
+            if total_bonus == 0:
+                continue
+
+            if stat in ('darkness', 'chivalry'):
+                current = getattr(player, stat, 0)
+                setattr(player, stat, max(0, current + total_bonus))
+            else:
+                current = getattr(player, stat, 0)
+                setattr(player, stat, max(1, current + total_bonus))
+
+            effects[stat] = effects.get(stat, 0) + total_bonus
+            if total_bonus > 0:
+                messages.append(f"{stat.capitalize()} +{total_bonus}")
+            else:
+                messages.append(f"{stat.capitalize()} {total_bonus}")
+
+    db.session.commit()
+    return {
+        'success': True,
+        'effects': effects,
+        'dead': False,
+        'messages': messages,
+    }
+
+
+def send_drink_mail(player, target_id, drink_id):
+    """Send a drink to another player via mail."""
+    target = db.session.get(Player, target_id)
+    if not target:
+        return {'success': False, 'message': 'Target player not found.'}
+
+    if target.id == player.id:
+        return {'success': False, 'message': 'You cannot send a drink to yourself.'}
+
+    drink = db.session.get(Drink, drink_id)
+    if not drink:
+        return {'success': False, 'message': 'Drink not found.'}
+
+    # Cost is 50 gold for delivery
+    delivery_cost = 50
+    if player.gold < delivery_cost:
+        return {'success': False, 'message': f'Not enough gold for delivery. Cost: {delivery_cost} gold.'}
+
+    player.gold -= delivery_cost
+
+    mail = Mail(
+        sender_id=player.id,
+        receiver_id=target.id,
+        subject=f"A drink for you: {drink.name}",
+        message=f"{player.name} sent you a drink called '{drink.name}' from Orb's Bar! "
+                f"Visit the bar to claim it."
+    )
+    db.session.add(mail)
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"You sent '{drink.name}' to {target.name} for {delivery_cost} gold.",
+    }
+
+
+def craft_poison(player, level):
+    """Alchemist poison crafting.
+
+    Level 1-4. Requires Alchemist class and appropriate level.
+    Sets player.poison_level.
+    """
+    if player.player_class != 'Alchemist':
+        return {'success': False, 'message': 'Only Alchemists can craft poisons.'}
+
+    if level < 1 or level > 4:
+        return {'success': False, 'message': 'Poison level must be between 1 and 4.'}
+
+    # Level requirements: level 1=any, 2=level 10, 3=level 20, 4=level 35
+    level_requirements = {1: 1, 2: 10, 3: 20, 4: 35}
+    required_level = level_requirements.get(level, 1)
+
+    if player.level < required_level:
+        return {'success': False, 'message': f'You must be at least level {required_level} to craft {POISON_LEVELS[level-1]} poison.'}
+
+    # Crafting cost
+    cost = level * 500
+    if player.gold < cost:
+        return {'success': False, 'message': f'Not enough gold. Crafting cost: {cost} gold.'}
+
+    player.gold -= cost
+    player.poison_level = level
+    poison_name = POISON_LEVELS[level - 1]
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"You crafted {poison_name} poison! Your weapon now deals poison damage.",
+        'poison_name': poison_name,
+        'level': level,
+    }
+
+
+def get_troll_discount(player, price):
+    """Returns discounted price if player is Troll (10% off)."""
+    if player.race == 'Troll':
+        return int(price * 0.9)
+    return price
+
+
+def get_gnoll_poison_damage(player):
+    """Returns poison damage for Gnoll race (level + 1)."""
+    if player.race == 'Gnoll':
+        return player.level + 1
+    return 0
+
+
+# ==================== ROYAL SPELLS ====================
+
+def royal_angel_spell(king_player, target_id):
+    """King casts Angel on a player (heals them fully). Costs treasury gold."""
+    king_record = KingRecord.query.filter_by(player_id=king_player.id, is_current=True).first()
+    if not king_record:
+        return {'success': False, 'message': 'You are not the current ruler.'}
+
+    target = db.session.get(Player, target_id)
+    if not target:
+        return {'success': False, 'message': 'Target player not found.'}
+
+    cost = target.level * 1000
+    if king_record.treasury < cost:
+        return {'success': False, 'message': f'Not enough treasury gold. Cost: {cost} gold.'}
+
+    king_record.treasury -= cost
+    target.hp = target.max_hp
+    target.mana = target.max_mana
+
+    # Cure all diseases
+    target.has_plague = False
+    target.has_smallpox = False
+    target.has_measles = False
+    target.has_leprosy = False
+
+    add_news(f"The King cast Angel on {target.name}, fully healing them!", player_id=king_player.id, category='royal')
+
+    mail = Mail(
+        sender_id=king_player.id,
+        receiver_id=target.id,
+        subject="Royal Blessing: Angel",
+        message="The King has blessed you with the Angel spell! You have been fully healed."
+    )
+    db.session.add(mail)
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"You cast Angel on {target.name}! They have been fully healed. Cost: {cost} gold from treasury.",
+        'cost': cost,
+    }
+
+
+def royal_avenger_spell(king_player, target_id):
+    """King casts Avenger on a player (deals damage). Costs treasury gold. Dark deed."""
+    king_record = KingRecord.query.filter_by(player_id=king_player.id, is_current=True).first()
+    if not king_record:
+        return {'success': False, 'message': 'You are not the current ruler.'}
+
+    target = db.session.get(Player, target_id)
+    if not target:
+        return {'success': False, 'message': 'Target player not found.'}
+
+    if target.hp <= 0:
+        return {'success': False, 'message': f'{target.name} is already dead.'}
+
+    cost = target.level * 2000
+    if king_record.treasury < cost:
+        return {'success': False, 'message': f'Not enough treasury gold. Cost: {cost} gold.'}
+
+    king_record.treasury -= cost
+    king_player.darkness += 10
+
+    damage = random.randint(50, 150) + target.level * 5
+    target.hp = max(0, target.hp - damage)
+
+    killed = target.hp <= 0
+    kill_msg = f" {target.name} has been slain!" if killed else ""
+
+    add_news(f"The King cast Avenger on {target.name} for {damage} damage!{kill_msg}", player_id=king_player.id, category='royal')
+
+    mail = Mail(
+        sender_id=king_player.id,
+        receiver_id=target.id,
+        subject="Royal Wrath: Avenger",
+        message=f"The King has struck you with the Avenger spell! You took {damage} damage."
+    )
+    db.session.add(mail)
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"You cast Avenger on {target.name} for {damage} damage!{kill_msg} Cost: {cost} gold from treasury.",
+        'damage': damage,
+        'killed': killed,
+        'cost': cost,
+    }
+
+
+def send_to_orphanage(player, child_id):
+    """Send child to royal orphanage. Sets child location='orphanage'."""
+    child = db.session.get(Child, child_id)
+    if not child:
+        return {'success': False, 'message': 'Child not found.'}
+
+    # Must be parent
+    if child.mother_id != player.id and child.father_id != player.id:
+        return {'success': False, 'message': 'This is not your child.'}
+
+    if child.location == 'orphanage':
+        return {'success': False, 'message': f'{child.name} is already at the orphanage.'}
+
+    if child.location == 'kidnapped':
+        return {'success': False, 'message': f'{child.name} has been kidnapped and cannot be sent to the orphanage.'}
+
+    child.location = 'orphanage'
+    child.is_orphan = True
+
+    add_news(f"{player.name} sent their child {child.name} to the royal orphanage.", player_id=player.id, category='social')
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"You sent {child.name} to the royal orphanage.",
+    }
+
+
+def recruit_npc(player, npc_id):
+    """Recruit an NPC to player's team. NPC must be in dormitory and not on a team."""
+    npc = db.session.get(Player, npc_id)
+    if not npc:
+        return {'success': False, 'message': 'NPC not found.'}
+
+    if not npc.is_npc:
+        return {'success': False, 'message': 'That is not an NPC.'}
+
+    if npc.npc_location != 'dormitory':
+        return {'success': False, 'message': f'{npc.name} is not in the dormitory.'}
+
+    # Check NPC is not already on a team
+    existing_membership = TeamMember.query.filter_by(player_id=npc.id).first()
+    if existing_membership:
+        return {'success': False, 'message': f'{npc.name} is already on a team.'}
+
+    # Player must be on a team
+    player_membership = TeamMember.query.filter_by(player_id=player.id).first()
+    if not player_membership:
+        return {'success': False, 'message': 'You must be on a team to recruit NPCs.'}
+
+    team = db.session.get(Team, player_membership.team_id)
+    if not team:
+        return {'success': False, 'message': 'Your team could not be found.'}
+
+    # Check team leader
+    if team.leader_id != player.id:
+        return {'success': False, 'message': 'Only the team leader can recruit NPCs.'}
+
+    # Add NPC to team
+    membership = TeamMember(team_id=team.id, player_id=npc.id)
+    db.session.add(membership)
+    npc.npc_location = 'team'
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"You recruited {npc.name} to your team!",
+    }
+
+
+def equipment_swap_offer(player, target_id, offered_item_id, wanted_item_id):
+    """Create a swap offer using EquipmentSwapOffer model."""
+    target = db.session.get(Player, target_id)
+    if not target:
+        return {'success': False, 'message': 'Target player not found.'}
+
+    if target.id == player.id:
+        return {'success': False, 'message': 'You cannot swap with yourself.'}
+
+    # Verify player owns offered item
+    offered_inv = InventoryItem.query.filter_by(player_id=player.id, item_id=offered_item_id).first()
+    if not offered_inv:
+        return {'success': False, 'message': 'You do not own the offered item.'}
+
+    # Verify target owns wanted item (if specified)
+    if wanted_item_id:
+        wanted_inv = InventoryItem.query.filter_by(player_id=target.id, item_id=wanted_item_id).first()
+        if not wanted_inv:
+            return {'success': False, 'message': f'{target.name} does not own the requested item.'}
+
+    offer = EquipmentSwapOffer(
+        offerer_id=player.id,
+        target_id=target.id,
+        offered_item_id=offered_item_id,
+        wanted_item_id=wanted_item_id,
+        status='pending'
+    )
+    db.session.add(offer)
+
+    offered_item = db.session.get(Item, offered_item_id)
+    wanted_item = db.session.get(Item, wanted_item_id) if wanted_item_id else None
+    offered_name = offered_item.name if offered_item else 'Unknown'
+    wanted_name = wanted_item.name if wanted_item else 'anything you choose'
+
+    mail = Mail(
+        sender_id=player.id,
+        receiver_id=target.id,
+        subject="Equipment Swap Offer",
+        message=f"{player.name} offers to trade their {offered_name} for your {wanted_name}."
+    )
+    db.session.add(mail)
+
+    db.session.commit()
+    return {
+        'success': True,
+        'message': f"Swap offer sent to {target.name}!",
+        'offer_id': offer.id,
+    }
+
+
+def equipment_swap_respond(player, swap_id, accept):
+    """Accept/decline a swap offer. Transfers items."""
+    offer = db.session.get(EquipmentSwapOffer, swap_id)
+    if not offer:
+        return {'success': False, 'message': 'Swap offer not found.'}
+
+    if offer.target_id != player.id:
+        return {'success': False, 'message': 'This offer is not for you.'}
+
+    if offer.status != 'pending':
+        return {'success': False, 'message': 'This offer has already been resolved.'}
+
+    offerer = db.session.get(Player, offer.offerer_id)
+    if not offerer:
+        return {'success': False, 'message': 'The offerer no longer exists.'}
+
+    if not accept:
+        offer.status = 'declined'
+        mail = Mail(
+            sender_id=player.id,
+            receiver_id=offerer.id,
+            subject="Swap Offer Declined",
+            message=f"{player.name} declined your equipment swap offer."
+        )
+        db.session.add(mail)
+        db.session.commit()
+        return {'success': True, 'message': 'You declined the swap offer.'}
+
+    # Accept - transfer items
+    # Verify both sides still have items
+    offerer_inv = InventoryItem.query.filter_by(player_id=offerer.id, item_id=offer.offered_item_id).first()
+    if not offerer_inv:
+        offer.status = 'declined'
+        db.session.commit()
+        return {'success': False, 'message': 'The offerer no longer has the offered item.'}
+
+    if offer.wanted_item_id:
+        target_inv = InventoryItem.query.filter_by(player_id=player.id, item_id=offer.wanted_item_id).first()
+        if not target_inv:
+            offer.status = 'declined'
+            db.session.commit()
+            return {'success': False, 'message': 'You no longer have the requested item.'}
+
+        # Swap ownership
+        target_inv.player_id = offerer.id
+    offerer_inv.player_id = player.id
+
+    offer.status = 'accepted'
+
+    mail = Mail(
+        sender_id=player.id,
+        receiver_id=offerer.id,
+        subject="Swap Offer Accepted!",
+        message=f"{player.name} accepted your equipment swap offer!"
+    )
+    db.session.add(mail)
+
+    add_news(f"{offerer.name} and {player.name} swapped equipment!")
+    db.session.commit()
+    return {
+        'success': True,
+        'message': 'Swap completed! Items have been exchanged.',
+    }
+
+
+def inn_chat_send(player, message, anonymous=False):
+    """Send chat message to inn. Creates InnChat record."""
+    if not message or len(message.strip()) == 0:
+        return {'success': False, 'message': 'Message cannot be empty.'}
+
+    if len(message) > 200:
+        return {'success': False, 'message': 'Message is too long (max 200 characters).'}
+
+    chat = InnChat(
+        player_id=player.id,
+        player_name=player.name,
+        message=message.strip(),
+        is_anonymous=anonymous
+    )
+    db.session.add(chat)
+    db.session.commit()
+    return {
+        'success': True,
+        'message': 'Message sent to inn chat.',
+        'chat_id': chat.id,
+    }
+
+
+def inn_chat_get(limit=20):
+    """Get recent inn chat messages."""
+    messages = InnChat.query.order_by(InnChat.created_at.desc()).limit(limit).all()
+    result = []
+    for msg in reversed(messages):
+        result.append({
+            'id': msg.id,
+            'player_name': 'Anonymous' if msg.is_anonymous else msg.player_name,
+            'message': msg.message,
+            'timestamp': msg.created_at.isoformat() if msg.created_at else '',
+        })
+    return result
+
+
+def haggle_price(player, base_price):
+    """Attempt to haggle. Charisma-based chance. Returns new price (85-100% of base)."""
+    if base_price <= 0:
+        return base_price
+
+    # Charisma-based success: higher charisma = bigger discount
+    haggle_roll = random.randint(1, 100)
+    charisma_bonus = player.charisma * 2
+
+    if haggle_roll <= charisma_bonus:
+        # Successful haggle - discount between 85% and 99%
+        discount_pct = random.randint(85, 99)
+        new_price = max(1, int(base_price * discount_pct / 100))
+        return new_price
+
+    # Failed haggle - full price
+    return base_price
+
+
+def supreme_being_encounter(player, door_choice):
+    """The endgame boss.
+
+    door_choice is 'golden', 'silver', or 'bronze'.
+    Golden: trade 25 healing potions for Lantern.
+    Silver: trivia for Black Sword.
+    Bronze: staff choice.
+    Then fight Supreme Being boss.
+    """
+    log = []
+    reward_item = None
+
+    if door_choice not in ('golden', 'silver', 'bronze'):
+        return {'success': False, 'message': 'Invalid door choice. Choose golden, silver, or bronze.', 'log': []}
+
+    log.append("You stand before the three ancient doors at the end of the dungeon...")
+    log.append(f"You choose the {door_choice} door and step through...")
+
+    if door_choice == 'golden':
+        # Trade 25 healing potions for Lantern of Guidance
+        if player.healing_potions < 25:
+            log.append("A voice booms: 'Bring me 25 healing potions, mortal!'")
+            log.append(f"You only have {player.healing_potions}. You are turned away.")
+            db.session.commit()
+            return {'success': False, 'message': 'Not enough healing potions.', 'log': log}
+
+        player.healing_potions -= 25
+        log.append("A golden light fills the chamber as you offer 25 healing potions.")
+        log.append("A radiant lantern materializes before you!")
+
+        # Find Lantern item
+        lantern = Item.query.filter_by(name='Lantern of Guidance').first()
+        if lantern:
+            inv_count = InventoryItem.query.filter_by(player_id=player.id).count()
+            if inv_count < 15:
+                inv_item = InventoryItem(player_id=player.id, item_id=lantern.id)
+                db.session.add(inv_item)
+                log.append("You received the Lantern of Guidance!")
+                reward_item = lantern.name
+            else:
+                log.append("But your inventory is full! The lantern fades away...")
+        else:
+            log.append("The lantern shimmers but has no physical form... (item not found)")
+
+    elif door_choice == 'silver':
+        # Trivia challenge for Black Sword
+        log.append("A sphinx blocks the silver passage...")
+        log.append("'Answer my riddle and the Black Sword is yours!'")
+
+        # Wisdom check as trivia proxy
+        trivia_roll = player.wisdom + random.randint(1, 20)
+        difficulty = random.randint(15, 30)
+
+        if trivia_roll >= difficulty:
+            log.append("Your wisdom impresses the sphinx!")
+            black_sword = Item.query.filter_by(name='Black Sword').first()
+            if black_sword:
+                inv_count = InventoryItem.query.filter_by(player_id=player.id).count()
+                if inv_count < 15:
+                    inv_item = InventoryItem(player_id=player.id, item_id=black_sword.id)
+                    db.session.add(inv_item)
+                    log.append("You received the Black Sword!")
+                    reward_item = black_sword.name
+                else:
+                    log.append("But your inventory is full!")
+            else:
+                log.append("The sword shimmers but has no physical form... (item not found)")
+        else:
+            log.append("The sphinx shakes its head. 'Incorrect, mortal.'")
+            dmg = random.randint(10, 30)
+            player.hp = max(1, player.hp - dmg)
+            log.append(f"The sphinx strikes you for {dmg} damage as punishment!")
+
+    elif door_choice == 'bronze':
+        # Staff choice - random magical staff
+        log.append("The bronze door leads to an ancient armory...")
+        log.append("A dusty shelf holds a single staff.")
+
+        staff = Item.query.filter(Item.name.like('%Staff%')).first()
+        if staff:
+            inv_count = InventoryItem.query.filter_by(player_id=player.id).count()
+            if inv_count < 15:
+                inv_item = InventoryItem(player_id=player.id, item_id=staff.id)
+                db.session.add(inv_item)
+                log.append(f"You received the {staff.name}!")
+                reward_item = staff.name
+            else:
+                log.append("But your inventory is full!")
+        else:
+            log.append("The shelf is empty... (item not found)")
+
+    # Now fight the Supreme Being
+    log.append("\n*** THE SUPREME BEING APPEARS! ***")
+    log.append("A colossal entity of pure energy materializes before you!")
+
+    boss_hp = 500 + player.level * 50
+    boss_str = 50 + player.level * 10
+    boss_def = 30 + player.level * 5
+    boss_name = "Supreme Being"
+
+    round_num = 0
+    while boss_hp > 0 and player.hp > 0:
+        round_num += 1
+
+        # Player attacks
+        player_atk = calculate_attack(player.strength, player.weapon_power, player.level)
+        boss_block = calculate_defense(boss_def, 0)
+        player_dmg = max(1, player_atk - boss_block)
+        boss_hp -= player_dmg
+        log.append(f"Round {round_num}: You strike the {boss_name} for {player_dmg} damage! (Boss HP: {max(0, boss_hp)})")
+
+        if boss_hp <= 0:
+            break
+
+        # Boss attacks
+        boss_atk = boss_str + random.randint(-20, 20)
+        player_block = calculate_defense(player.defence, player.armor_power)
+        boss_dmg = max(1, boss_atk - player_block)
+        player.hp = max(0, player.hp - boss_dmg)
+        log.append(f"  The {boss_name} strikes you for {boss_dmg} damage! (Your HP: {player.hp})")
+
+        if player.hp <= 0:
+            log.append(f"The {boss_name} has defeated you!")
+            add_news(f"{player.name} was defeated by the Supreme Being!", player_id=player.id)
+            db.session.commit()
+            return {
+                'success': False,
+                'message': 'You were defeated by the Supreme Being.',
+                'log': log,
+                'reward_item': reward_item,
+            }
+
+    # Victory!
+    xp_gain = 100000 * player.level
+    gold_gain = 50000 * player.level
+    player.experience += xp_gain
+    player.gold += gold_gain
+    player.chivalry += 50
+
+    log.append(f"\n*** VICTORY! The Supreme Being is vanquished! ***")
+    log.append(f"Gained {xp_gain} XP and {gold_gain} gold!")
+    log.append("Your legend will be told for ages to come!")
+
+    add_news(f"{player.name} has defeated the Supreme Being! A legendary achievement!", player_id=player.id)
+    db.session.commit()
+    return {
+        'success': True,
+        'message': 'You defeated the Supreme Being!',
+        'log': log,
+        'xp': xp_gain,
+        'gold': gold_gain,
+        'reward_item': reward_item,
+    }

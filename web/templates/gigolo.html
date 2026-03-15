@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Hall of Dreams{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Hall of Dreams</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">Welcome to the Hall of Dreams. Choose a companion to spend some time with. Each offers unique... benefits.</p>
+
+        <p class="text-secondary mb-1">Gold: <span class="text-gold">{{ player.gold }}</span></p>
+
+        {% if gigolos %}
+        <div class="menu-grid">
+            {% for gig in gigolos %}
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-purple">&#9829;</span>
+                <span class="label">{{ gig.name }}</span>
+                <span class="sublabel">{{ gig.description }} &mdash; {{ gig.cost }}g</span>
+                <form method="POST" action="{{ url_for('gigolo') }}" class="mt-1">
+                    <input type="hidden" name="gigolo_id" value="{{ gig.id }}">
+                    <button type="submit" class="btn btn-primary btn-sm btn-block"
+                            {% if player.gold < gig.cost %}disabled{% endif %}>Visit ({{ gig.cost }}g)</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-dim">The Hall of Dreams is empty today.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

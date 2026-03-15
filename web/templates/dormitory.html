@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Dormitory{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Dormitory</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">The dormitory is filled with sleeping adventurers and those looking for trouble. The air is thick with snoring and the occasional muttered curse.</p>
+
+        <div class="panel-header" style="margin-top: 12px;">Guests</div>
+        {% if guests %}
+        <div class="menu-grid">
+            {% for guest in guests %}
+            <div class="menu-item" style="cursor: default;">
+                <span class="label">{{ guest.name }}</span>
+                <span class="sublabel">Level {{ guest.level }} {{ guest.player_class }}</span>
+                <form method="POST" action="{{ url_for('dormitory_fight') }}" class="mt-1">
+                    <input type="hidden" name="target_id" value="{{ guest.id }}">
+                    <button type="submit" class="btn btn-danger btn-sm btn-block">Fist Fight</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-dim">The dormitory is empty. No one to fight.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

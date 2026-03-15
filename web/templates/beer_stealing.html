@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Beer Stealing{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Beer Stealing Heist</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">The brewery's back door is unlocked. Barrels of fine ale line the walls, barely guarded. Do you dare attempt a heist?</p>
+
+        <p class="text-secondary mb-1">Your Agility: <span class="text-gold">{{ player.agility }}</span></p>
+
+        <form method="POST" action="{{ url_for('beer_stealing') }}" class="mb-2">
+            <button type="submit" class="btn btn-danger">Attempt Beer Heist</button>
+        </form>
+
+        {% if log %}
+        <div class="panel-header" style="margin-top: 12px;">Heist Results</div>
+        <div class="combat-log">
+            {% for entry in log %}
+            <div class="log-entry">{{ entry }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}
