@@ -4199,13 +4199,13 @@ def dormitory_fight():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    target_id = int(request.form.get('target_id', 0))
-    success, msg, log = game_logic.dormitory_fistfight(player, target_id)
+    num_opponents = int(request.form.get('num_opponents', 1))
+    result = game_logic.dormitory_fistfight(player, num_opponents)
     db.session.commit()
-    if log:
-        session['fistfight_log'] = log
+    if result.get('log'):
+        session['fistfight_log'] = result['log']
         return redirect(url_for('fistfight_result'))
-    flash(msg, 'success' if success else 'error')
+    flash(result.get('message', ''), 'success' if result.get('success') else 'error')
     return redirect(url_for('dormitory'))
 
 
@@ -4259,10 +4259,11 @@ def groggo():
         return redirect(url_for('main_menu'))
     if request.method == 'POST':
         action = request.form.get('action', '')
+        target_id = int(request.form.get('target_id', 0))
         if action == 'disease':
-            success, msg = game_logic.groggo_disease(player)
+            success, msg = game_logic.groggo_disease(player, target_id)
         elif action == 'summon_demon':
-            success, msg = game_logic.groggo_summon_demon(player)
+            success, msg = game_logic.groggo_summon_demon(player, target_id)
         else:
             success, msg = False, "Unknown action."
         db.session.commit()
@@ -4305,9 +4306,11 @@ def good_deeds():
             amount = int(request.form.get('amount', 0))
             success, msg = game_logic.good_deed_poor(player, amount)
         elif action == 'church':
-            success, msg = game_logic.good_deed_church(player)
+            amount = int(request.form.get('amount', 0))
+            success, msg = game_logic.good_deed_church(player, amount)
         elif action == 'blessing':
-            success, msg = game_logic.good_deed_blessing(player)
+            amount = int(request.form.get('amount', 0))
+            success, msg = game_logic.good_deed_blessing(player, amount)
         else:
             success, msg = False, "Unknown deed."
         db.session.commit()
@@ -4363,10 +4366,9 @@ def death_maze():
         flash("You cannot enter the Death Maze while imprisoned.", 'error')
         return redirect(url_for('main_menu'))
     if request.method == 'POST':
-        direction = request.form.get('direction', 'north')
-        success, msg, event = game_logic.haunting_check(player, 'death_maze', direction)
+        result = game_logic.haunting_check(player)
         db.session.commit()
-        flash(msg, 'success' if success else 'warning')
+        flash(result.get('message', ''), 'success' if result.get('success') else 'warning')
         return redirect(url_for('death_maze'))
     return render_template('death_maze.html', player=player)
 
@@ -4383,10 +4385,9 @@ def ice_caves():
         flash("You cannot enter the Ice Caves while imprisoned.", 'error')
         return redirect(url_for('main_menu'))
     if request.method == 'POST':
-        direction = request.form.get('direction', 'north')
-        success, msg, event = game_logic.haunting_check(player, 'ice_caves', direction)
+        result = game_logic.haunting_check(player)
         db.session.commit()
-        flash(msg, 'success' if success else 'warning')
+        flash(result.get('message', ''), 'success' if result.get('success') else 'warning')
         return redirect(url_for('ice_caves'))
     return render_template('ice_caves.html', player=player)
 
@@ -4459,7 +4460,7 @@ def equipment_swap():
             target_id = int(request.form.get('target_id', 0))
             wanted_id = int(request.form.get('wanted_id', 0))
             success, msg = game_logic.equipment_swap_offer(
-                player, item_id, target_id, wanted_id)
+                player, target_id, item_id, wanted_id)
         elif action == 'respond':
             offer_id = int(request.form.get('offer_id', 0))
             accept = request.form.get('accept') == 'yes'
