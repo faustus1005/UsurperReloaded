@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from models import (
     db, Player, Monster, Item, InventoryItem, NewsEntry, Mail,
     Team, TeamMember, KingRecord, Bounty, Relationship,
-    Child, RoyalQuest, God, TeamRecord, HomeChestItem,
+    Child, RoyalQuest, God, TeamRecord, HomeChestItem, GameConfig,
     RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES
 )
 
