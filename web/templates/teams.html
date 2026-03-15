@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - Teams{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">Teams of {{ town_name }}</div>
     <div class="panel-body">
+        {{ location_img('teams') }}
         {% if my_team %}
         <div class="panel mb-2" style="border-color: var(--gold-dark);">
             <div class="panel-header">Your Team: {{ my_team.name }}{% if my_team.town_control %} (Town Control!){% endif %}</div>

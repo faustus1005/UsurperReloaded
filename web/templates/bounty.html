@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - Bounty Board{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">Bounty Board - Most Wanted</div>
     <div class="panel-body">
+        {{ location_img('bounty_board') }}
         {% if wanted %}
         <table>
             <thead>

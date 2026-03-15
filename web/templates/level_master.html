@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - Level Master{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">{{ master_name }}</div>
     <div class="panel-body">
+        {{ location_img('level_master') }}
         <p class="text-secondary mb-2">
             The ancient master studies you carefully.
             {% if can_level %}

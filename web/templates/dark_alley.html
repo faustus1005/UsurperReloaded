@@ -1,9 +1,11 @@
 {% extends "base.html" %}
-{% block title_suffix %} - The Dark Alley{% endblock %}
+{% from "macros.html" import location_img %}
+{% block title_suffix %} - {{ dark_alley_name }}{% endblock %}
 {% block content %}
 <div class="panel">
-    <div class="panel-header">The Dark Alley</div>
+    <div class="panel-header">{{ dark_alley_name }}</div>
     <div class="panel-body">
+        {{ location_img('dark_alley') }}
         <p class="text-dim mb-2">The shadows deepen as you enter the narrow alley. Figures lurk in doorways and the air smells of smoke and desperation. Several establishments beckon...</p>
 
         <div class="menu-grid mb-2">

@@ -22,9 +22,15 @@
                     {% elif field_type == 'number' %}
                     <input type="number" name="{{ key }}" id="{{ key }}"
                            value="{{ config_values[key] }}" class="admin-input admin-input-sm">
+                    {% elif field_type == 'textarea' %}
+                    <textarea name="{{ key }}" id="{{ key }}" class="admin-input"
+                              rows="4" style="resize: vertical;">{{ config_values[key] }}</textarea>
                     {% else %}
                     <input type="text" name="{{ key }}" id="{{ key }}"
                            value="{{ config_values[key] }}" class="admin-input">
+                    {% if 'image_' in key %}
+                    <span class="text-dim" style="font-size: 0.75em;">Path relative to static/images/ (e.g. locations/inn.png)</span>
+                    {% endif %}
                     {% endif %}
                 </div>
                 {% endfor %}

@@ -81,6 +81,12 @@ def admin_required(f):
 def inject_game_data():
     player = get_player() if current_user.is_authenticated else None
     town_name = GameConfig.get('town_name', 'Dolingen')
+    scrolling_text = ''
+    recent_scroll_news = []
+    if current_user.is_authenticated and player:
+        scrolling_text = GameConfig.get('scrolling_text', '')
+        recent_scroll_news = NewsEntry.query.order_by(
+            NewsEntry.created_at.desc()).limit(15).all()
     return {
         'player': player,
         'town_name': town_name,
@@ -88,6 +94,9 @@ def inject_game_data():
         'RACES': RACES,
         'CLASSES': CLASSES,
         'SPELLS': SPELLS,
+        'scrolling_text': scrolling_text,
+        'recent_scroll_news': recent_scroll_news,
+        'get_location_image': lambda key: GameConfig.get(f'image_{key}', ''),
     }
 
 
@@ -672,7 +681,8 @@ def weapon_shop():
 
     items = Item.query.filter_by(in_shop=True, item_type='Weapon').order_by(Item.value).all()
     shop_name = GameConfig.get('weapon_shop_name', 'Weapon Shop')
-    return render_template('shop.html', items=items, shop_name=shop_name, shop_type='weapons')
+    return render_template('shop.html', items=items, shop_name=shop_name,
+                           shop_type='weapons', shop_image_key='weapon_shop')
 
 
 @app.route('/shop/armor')
@@ -689,7 +699,8 @@ def armor_shop():
         Item.item_type.in_(armor_types)
     ).order_by(Item.item_type, Item.value).all()
     shop_name = GameConfig.get('armor_shop_name', 'Armor Shop')
-    return render_template('shop.html', items=items, shop_name=shop_name, shop_type='armor')
+    return render_template('shop.html', items=items, shop_name=shop_name,
+                           shop_type='armor', shop_image_key='armor_shop')
 
 
 @app.route('/shop/magic')
@@ -1049,8 +1060,10 @@ def castle():
         KingRecord.dethroned_at.desc()).limit(10).all()
     prisoners = Player.query.filter_by(is_imprisoned=True).all() if (king and king.id == player.id) else []
 
+    castle_name = GameConfig.get('castle_name', 'The Royal Castle')
     return render_template('castle.html', king=king, king_record=king_record,
-                           history=history, prisoners=prisoners)
+                           history=history, prisoners=prisoners,
+                           castle_name=castle_name)
 
 
 @app.route('/castle/challenge', methods=['POST'])
@@ -1253,7 +1266,9 @@ def tavern():
         return redirect(url_for('main_menu'))
 
     drink_cost = 10 + player.level * 2
-    return render_template('tavern.html', drink_cost=drink_cost)
+    tavern_name = GameConfig.get('tavern_name', "Bob's Tavern")
+    return render_template('tavern.html', drink_cost=drink_cost,
+                           tavern_name=tavern_name)
 
 
 @app.route('/tavern/brawl', methods=['POST'])
@@ -1349,6 +1364,56 @@ def post_bounty():
     return redirect(url_for('bounty_board'))
 
 
+# ==================== THE BEAUTY NEST ====================
+
+@app.route('/beauty_nest')
+@login_required
+def beauty_nest():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    if GameConfig.get('beauty_nest_enabled', 'true').lower() != 'true':
+        flash("This establishment is currently closed.", 'error')
+        return redirect(url_for('main_menu'))
+
+    if player.is_imprisoned:
+        flash("You cannot visit while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+
+    nest_name = GameConfig.get('beauty_nest_name', 'The Beauty Nest')
+    owner_name = GameConfig.get('beauty_nest_owner', 'Clarissa')
+    companions = game_logic.BEAUTY_NEST_COMPANIONS
+    return render_template('beauty_nest.html', companions=companions,
+                           nest_name=nest_name, owner_name=owner_name)
+
+
+@app.route('/beauty_nest/visit/<int:index>', methods=['POST'])
+@login_required
+def beauty_nest_visit(index):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    if GameConfig.get('beauty_nest_enabled', 'true').lower() != 'true':
+        flash("This establishment is currently closed.", 'error')
+        return redirect(url_for('main_menu'))
+
+    if player.is_imprisoned:
+        flash("You cannot visit while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+
+    success, msg, log = game_logic.beauty_nest_visit(player, index)
+    db.session.commit()
+
+    if log:
+        for entry in log:
+            flash(entry, 'info')
+    else:
+        flash(msg, 'error' if not success else 'info')
+    return redirect(url_for('beauty_nest'))
+
+
 # ==================== LOVE CORNER / RELATIONSHIPS ====================
 
 @app.route('/love_corner')
@@ -1371,9 +1436,11 @@ def love_corner():
     ).order_by(Player.name).all()
 
     married_couples = Relationship.query.filter_by(rel_type='married').all()
+    love_corner_name = GameConfig.get('love_corner_name', 'The Love Corner')
     return render_template('love_corner.html', relationships=relationships,
                            spouse=spouse, proposals=proposals, players_list=players_list,
-                           married_couples=married_couples)
+                           married_couples=married_couples,
+                           love_corner_name=love_corner_name)
 
 
 @app.route('/love_corner/propose', methods=['POST'])
@@ -1942,7 +2009,9 @@ def temple():
     gods = God.query.filter_by(is_active=True).order_by(God.experience.desc()).all()
     current_god = God.query.filter_by(name=player.god_name).first() if player.god_name else None
 
-    return render_template('temple.html', gods=gods, current_god=current_god)
+    temple_name = GameConfig.get('temple_name', 'Temple of the Gods')
+    return render_template('temple.html', gods=gods, current_god=current_god,
+                           temple_name=temple_name)
 
 
 @app.route('/temple/worship', methods=['POST'])
@@ -2028,8 +2097,9 @@ def healing_shop():
         return redirect(url_for('create_character'))
 
     items = Item.query.filter_by(in_shop=True, shop_category='healing').order_by(Item.value).all()
-    return render_template('shop.html', items=items, shop_name='The Healing Hut',
-                           shop_type='healing')
+    shop_name = GameConfig.get('healing_shop_name', 'The Healing Hut')
+    return render_template('shop.html', items=items, shop_name=shop_name,
+                           shop_type='healing', shop_image_key='healing_shop')
 
 
 @app.route('/shop/general')
@@ -2040,8 +2110,9 @@ def general_store():
         return redirect(url_for('create_character'))
 
     items = Item.query.filter_by(in_shop=True, shop_category='general').order_by(Item.value).all()
-    return render_template('shop.html', items=items, shop_name='General Store',
-                           shop_type='general')
+    shop_name = GameConfig.get('general_store_name', 'General Store')
+    return render_template('shop.html', items=items, shop_name=shop_name,
+                           shop_type='general', shop_image_key='general_store')
 
 
 @app.route('/shop/shady')
@@ -2052,7 +2123,9 @@ def shady_dealer():
         return redirect(url_for('create_character'))
 
     items = Item.query.filter_by(in_shop=True, shop_category='shady').order_by(Item.value).all()
-    return render_template('dark_alley.html', items=items, player=player)
+    dark_alley_name = GameConfig.get('dark_alley_name', 'The Dark Alley')
+    return render_template('dark_alley.html', items=items, player=player,
+                           dark_alley_name=dark_alley_name)
 
 
 @app.route('/shop/alchemist')
@@ -2268,6 +2341,7 @@ def admin_config():
             ('dungeon_name', 'Dungeon Name', 'text'),
             ('challenges_place', 'Challenges Place', 'text'),
             ('start_gold', 'Starting Gold', 'number'),
+            ('scrolling_text', 'Scrolling News Text (shown on all pages)', 'textarea'),
         ],
         'Combat & Limits': [
             ('max_fights_per_day', 'Dungeon Fights Per Day', 'number'),
@@ -2302,6 +2376,13 @@ def admin_config():
             ('bank_interest_rate', 'Bank Interest Rate (%)', 'number'),
             ('max_players', 'Max Players', 'number'),
         ],
+        'Beauty Nest': [
+            ('beauty_nest_name', 'Establishment Name', 'text'),
+            ('beauty_nest_owner', 'Proprietress Name', 'text'),
+            ('beauty_nest_visits_per_day', 'Visits Per Day', 'number'),
+            ('beauty_nest_disease_chance', 'Disease Chance (1 in N)', 'number'),
+            ('beauty_nest_enabled', 'Beauty Nest Enabled', 'toggle'),
+        ],
         'NPC Names': [
             ('weaponshop_owner', 'Weapon Shop Owner', 'text'),
             ('armorshop_owner', 'Armor Shop Owner', 'text'),
@@ -2321,6 +2402,33 @@ def admin_config():
             ('magic_shop_name', 'Magic Shop Name', 'text'),
             ('healing_shop_name', 'Healing Shop Name', 'text'),
             ('general_store_name', 'General Store Name', 'text'),
+            ('tavern_name', 'Tavern Name', 'text'),
+            ('dark_alley_name', 'Dark Alley Name', 'text'),
+            ('temple_name', 'Temple Name', 'text'),
+            ('castle_name', 'Castle Name', 'text'),
+            ('love_corner_name', 'Love Corner Name', 'text'),
+        ],
+        'Location Images': [
+            ('image_main_menu', 'Town / Main Menu', 'text'),
+            ('image_dungeon', 'Dungeon', 'text'),
+            ('image_weapon_shop', 'Weapon Shop', 'text'),
+            ('image_armor_shop', 'Armor Shop', 'text'),
+            ('image_magic_shop', 'Magic Shop', 'text'),
+            ('image_healing_shop', 'Healing Shop', 'text'),
+            ('image_general_store', 'General Store', 'text'),
+            ('image_inn', 'Inn', 'text'),
+            ('image_tavern', 'Tavern', 'text'),
+            ('image_bank', 'Bank', 'text'),
+            ('image_castle', 'Castle', 'text'),
+            ('image_temple', 'Temple', 'text'),
+            ('image_dark_alley', 'Dark Alley', 'text'),
+            ('image_beauty_nest', 'Beauty Nest', 'text'),
+            ('image_love_corner', 'Love Corner', 'text'),
+            ('image_home', 'Home', 'text'),
+            ('image_dormitory', 'Dormitory (PvP)', 'text'),
+            ('image_bounty_board', 'Bounty Board', 'text'),
+            ('image_level_master', 'Level Master', 'text'),
+            ('image_teams', 'Teams', 'text'),
         ],
     }
 

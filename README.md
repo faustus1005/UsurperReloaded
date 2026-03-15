@@ -70,19 +70,33 @@ Usurper was originally a multi-player BBS door game known for its deep fantasy R
 - **Background Scheduler**: NPCs act on a configurable timer interval (default: every 5 minutes)
 - **Configurable Behavior**: Control NPC population, combat frequency, and social interactions
 
+### Location Images
+- **Configurable Images**: Every location (town, dungeon, shops, inn, tavern, bank, castle, temple, dark alley, beauty nest, love corner, home, dormitory, bounty board, level master, teams) supports an optional image
+- **Easy Setup**: Drop images into `web/static/images/` and set the path in the admin panel under Location Images
+- **Responsive Display**: Images scale to fit with a 300px max height, using cover fit with dark border styling
+
+### Scrolling Text Window (Town Crier)
+- **Persistent News Ticker**: A fixed panel at the bottom of every game page showing recent news and admin announcements
+- **Admin-Configurable Text**: Set custom announcements via the "Scrolling News Text" field in admin configuration
+- **Recent News Feed**: Automatically displays the 15 most recent news entries (combat, social, governance events)
+- **Collapsible**: Click to collapse/expand; state is remembered across page loads via localStorage
+
 ### Web Admin Panel (Game Editor)
 
 A comprehensive admin panel inspired by the original Usurper editor, accessible at `/admin` for designated admin users.
 
 #### Admin Features
 - **Dashboard**: Overview of game state with player counts, NPC counts, items, monsters, teams, active bounties, and current monarch
-- **Game Configuration**: Edit 50+ game settings organized into categories:
-  - General settings (game name, town name, dungeon name, NPC names)
+- **Game Configuration**: Edit 70+ game settings organized into categories:
+  - General settings (game name, town name, dungeon name, scrolling news text)
   - Combat & daily limits (fights per day, dungeon difficulty, XP loss rates)
   - Throne & governance (level required to usurp, attack rules)
   - NPC behavior (enable/disable, action intervals, social permissions)
   - Economy (bank interest, starting gold, max players)
-  - Location names (inn, shops, dungeon)
+  - Beauty Nest settings (name, proprietress, visits per day, disease chance, enable/disable)
+  - NPC names (all shop owners, trainers, and characters are renameable)
+  - Location names (inn, shops, tavern, dark alley, temple, castle, love corner, dungeon)
+  - Location images (20 configurable image paths for every game location)
 - **Item Editor**: Create, edit, and delete items with full control over stats, bonuses, shop availability, level ranges, class restrictions, and alignment requirements
 - **Monster Editor**: Create, edit, and delete monsters with control over stats, dungeon levels, rewards, special abilities (poison, disease, magic), and aggression
 - **Player Editor**: View and modify any player's stats, level, gold, alignment, status effects, and flags (king, imprisoned, god). Separate views for human players and NPCs
@@ -265,8 +279,11 @@ web/
   requirements.txt - Python dependencies
   static/
     css/style.css  - Dark fantasy theme stylesheet
+    images/        - Location and character images (admin-configurable)
+      locations/   - Location-specific images (e.g. inn.png, tavern.png)
   templates/
-    base.html      - Base layout template
+    base.html      - Base layout with scrolling text window (Town Crier)
+    macros.html    - Reusable Jinja macros (location_img)
     admin/         - Admin panel templates (dashboard, editors, user management)
     *.html         - Game page templates (dungeon, shops, combat, etc.)
 SOURCE/

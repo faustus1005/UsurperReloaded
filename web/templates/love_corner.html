@@ -1,9 +1,11 @@
 {% extends "base.html" %}
-{% block title_suffix %} - Love Corner{% endblock %}
+{% from "macros.html" import location_img %}
+{% block title_suffix %} - {{ love_corner_name }}{% endblock %}
 {% block content %}
 <div class="panel">
-    <div class="panel-header">The Love Corner</div>
+    <div class="panel-header">{{ love_corner_name }}</div>
     <div class="panel-body">
+        {{ location_img('love_corner') }}
         <p class="text-secondary mb-2">
             Come and train your romantic skills. There is nothing like a big family and a house.
             You should also make up to the people you have hurt through the years.

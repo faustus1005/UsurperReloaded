@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import location_img %}
 {% block title_suffix %} - {{ shop_name }}{% endblock %}
 {% block content %}
 <div class="panel">
     <div class="panel-header">{{ shop_name }}</div>
     <div class="panel-body">
+        {{ location_img('magic_shop') }}
         <p class="text-secondary mb-1">
             The old mage peers at you from behind stacks of ancient tomes.
         </p>
