@@ -324,15 +324,15 @@ For production use, serve with Gunicorn instead of the built-in Flask developmen
 source venv/bin/activate
 pip install gunicorn
 
-# Run with Gunicorn (4 workers)
-cd /opt/UsurperReloaded/web
-gunicorn -w 4 -b 0.0.0.0:5000 app:app
+# Run with Gunicorn (4 workers) from the web directory
+cd /path/to/UsurperReloaded/web
+gunicorn --preload -w 4 -b 0.0.0.0:5000 app:app
 ```
 
 Update the systemd service `ExecStart` line for Gunicorn:
 
 ```ini
-ExecStart=/opt/UsurperReloaded/web/venv/bin/gunicorn -w 4 -b 0.0.0.0:5000 app:app
+ExecStart=/opt/UsurperReloaded/web/venv/bin/gunicorn --preload -w 4 -b 0.0.0.0:5000 app:app
 ```
 
 ---
