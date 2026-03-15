@@ -355,6 +355,7 @@ class Player(db.Model):
     married = db.Column(db.Boolean, default=False)
     spouse_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=True)
     is_imprisoned = db.Column(db.Boolean, default=False)
+    tax_relief = db.Column(db.Boolean, default=False)  # exempt from royal tax
     town_control = db.Column(db.Boolean, default=False)  # turf flag
     team_fights = db.Column(db.Integer, default=1)  # gang war attempts per day
     quests_completed = db.Column(db.Integer, default=0)
@@ -648,6 +649,33 @@ class TeamMember(db.Model):
     player = db.relationship('Player', backref='team_membership')
 
 
+class MoatCreature(db.Model):
+    """Types of creatures available for moat defense."""
+    __tablename__ = 'moat_creatures'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(30), nullable=False)
+    cost = db.Column(db.Integer, nullable=False)  # cost per creature
+    hps = db.Column(db.Integer, nullable=False)  # hitpoints
+    attack = db.Column(db.Integer, nullable=False)  # base attack
+    armor = db.Column(db.Integer, default=0)  # base armor/defense
+    description = db.Column(db.String(200), default='')
+
+
+class RoyalGuard(db.Model):
+    """Player/NPC bodyguards hired by the king."""
+    __tablename__ = 'royal_guards'
+
+    id = db.Column(db.Integer, primary_key=True)
+    king_record_id = db.Column(db.Integer, db.ForeignKey('king_records.id'), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    salary = db.Column(db.Integer, default=0)  # daily pay from treasury
+    hired_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    king_record = db.relationship('KingRecord', backref='royal_guards')
+    player = db.relationship('Player', backref='guard_duty')
+
+
 class KingRecord(db.Model):
     """Tracks the current and historical monarchs."""
     __tablename__ = 'king_records'
@@ -657,12 +685,25 @@ class KingRecord(db.Model):
     crowned_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     dethroned_at = db.Column(db.DateTime, nullable=True)
     is_current = db.Column(db.Boolean, default=True)
-    moat_guards = db.Column(db.Integer, default=5)
-    tax_rate = db.Column(db.Integer, default=5)  # percentage
+    moat_guards = db.Column(db.Integer, default=0)  # number of creatures in moat
+    moat_creature_id = db.Column(db.Integer, db.ForeignKey('moat_creatures.id'), nullable=True)
+    tax_rate = db.Column(db.Integer, default=5)  # percentage 0-5
+    tax_alignment = db.Column(db.Integer, default=0)  # 0=all, 1=good only, 2=evil only
     treasury = db.Column(db.Integer, default=0)
     quests_left = db.Column(db.Integer, default=3)  # quests king can issue per day
     town_control_days = db.Column(db.Integer, default=0)  # days team has held town
+    marry_actions = db.Column(db.Integer, default=5)  # matrimonial actions per day
+    # Establishment open/close controls (king can shut down shops)
+    shop_weapon = db.Column(db.Boolean, default=True)
+    shop_armor = db.Column(db.Boolean, default=True)
+    shop_magic = db.Column(db.Boolean, default=True)
+    shop_healing = db.Column(db.Boolean, default=True)
+    shop_general = db.Column(db.Boolean, default=True)
+    shop_inn = db.Column(db.Boolean, default=True)
+    shop_tavern = db.Column(db.Boolean, default=True)
+    shop_beauty_nest = db.Column(db.Boolean, default=True)
 
+    moat_creature = db.relationship('MoatCreature')
     player = db.relationship('Player', backref='king_records')
 
 

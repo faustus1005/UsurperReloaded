@@ -6,6 +6,7 @@ from models import (
     db, Player, Monster, Item, InventoryItem, NewsEntry, Mail,
     Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem, GameConfig,
+    MoatCreature, RoyalGuard,
     RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES
 )
 
@@ -770,45 +771,68 @@ def challenge_king(challenger):
     if challenger.hp < challenger.max_hp // 2:
         return False, "You are too wounded to challenge the throne. Heal first.", []
 
-    # Fight through moat guards first
+    # Fight through moat creatures first
     combat_log = []
     guards_remaining = king_record.moat_guards
 
     if guards_remaining > 0:
-        combat_log.append(f"You must fight through {guards_remaining} moat guards!")
-        guard_hp = 30 + king.level * 5
+        # Determine moat creature stats
+        moat_creature = king_record.moat_creature
+        if moat_creature:
+            creature_name = moat_creature.name
+            guard_hp_base = moat_creature.hps
+            guard_atk_base = moat_creature.attack
+            guard_def_base = moat_creature.armor
+        else:
+            creature_name = "Moat Guard"
+            guard_hp_base = 30 + king.level * 5
+            guard_atk_base = 8 + king.level * 3
+            guard_def_base = 5 + king.level * 2
+
+        combat_log.append(f"You must swim across the moat! You encounter {guards_remaining} {creature_name}{'s' if guards_remaining > 1 else ''}!")
         for i in range(guards_remaining):
-            combat_log.append(f"--- Moat Guard {i + 1} ---")
-            ghp = guard_hp
+            combat_log.append(f"--- {creature_name} {i + 1} ---")
+            ghp = guard_hp_base
             while ghp > 0 and challenger.hp > 0:
-                # Challenger attacks guard
+                # Challenger attacks creature
                 atk = calculate_attack(challenger.strength, challenger.weapon_power, challenger.level)
-                guard_def = 5 + king.level * 2
-                dmg = max(1, atk - guard_def)
+                dmg = max(1, atk - guard_def_base)
                 ghp -= dmg
-                combat_log.append(f"You strike the guard for {dmg} damage.")
+                combat_log.append(f"You strike the {creature_name} for {dmg} damage.")
 
                 if ghp <= 0:
-                    combat_log.append("The guard falls!")
+                    combat_log.append(f"The {creature_name} is slain!")
+                    # Creature dies - reduce moat count
+                    king_record.moat_guards -= 1
                     break
 
-                # Guard attacks challenger
-                guard_atk = 8 + king.level * 3
+                # Creature attacks challenger
                 pdef = calculate_defense(challenger.defence, challenger.armor_power)
-                gdmg = max(1, guard_atk - pdef)
+                gdmg = max(1, guard_atk_base - pdef)
                 challenger.hp -= gdmg
-                combat_log.append(f"The guard strikes you for {gdmg} damage.")
+                combat_log.append(f"The {creature_name} strikes you for {gdmg} damage.")
 
                 if challenger.hp <= 0:
                     challenger.hp = max(1, challenger.max_hp // 4)
-                    combat_log.append("The moat guards have defeated you!")
+                    combat_log.append(f"The {creature_name}s have defeated you!")
                     news = NewsEntry(
                         player_id=challenger.id,
                         category='royal',
-                        message=f"{challenger.name} failed to get past the castle moat guards."
+                        message=f"{challenger.name} was killed by {creature_name}s in the castle moat."
                     )
                     db.session.add(news)
-                    return False, "You were defeated by the moat guards!", combat_log
+
+                    # Mail the king about the failed attempt
+                    mail = Mail(
+                        sender_id=challenger.id,
+                        receiver_id=king.id,
+                        subject="The Moat",
+                        message=f"{challenger.name} swam across the Moat but was killed by your {creature_name}s."
+                    )
+                    db.session.add(mail)
+                    return False, f"You were killed by the {creature_name}s!", combat_log
+
+        combat_log.append("You made it across the moat!")
 
     # Now fight the king
     combat_log.append(f"=== You face {king.name}, the {'King' if king.sex == 1 else 'Queen'}! ===")
@@ -864,7 +888,7 @@ def crown_new_king(player):
 
     record = KingRecord(
         player_id=player.id,
-        moat_guards=5,
+        moat_guards=0,
         tax_rate=5,
         treasury=0
     )
@@ -884,8 +908,18 @@ def dethrone_king(king, king_record):
     """Remove a king from power."""
     king.is_king = False
     king_record.is_current = False
-    from datetime import datetime, timezone
     king_record.dethroned_at = datetime.now(timezone.utc)
+
+    # Sack all royal guards
+    for guard in king_record.royal_guards:
+        mail = Mail(
+            sender_id=king.id,
+            receiver_id=guard.player_id,
+            subject="SACKED",
+            message=f"The throne has been usurped. You have been dismissed from Royal Guard duty."
+        )
+        db.session.add(mail)
+    RoyalGuard.query.filter_by(king_record_id=king_record.id).delete()
 
 
 def abdicate(player):
@@ -907,17 +941,333 @@ def abdicate(player):
     return True, "You have abdicated the throne."
 
 
-def king_hire_guards(king_record, count):
-    """Hire moat guards (costs gold from treasury)."""
-    cost_per_guard = 100
-    total_cost = count * cost_per_guard
-    if king_record.treasury < total_cost:
-        return False, f"Not enough gold in treasury. Need {total_cost}, have {king_record.treasury}."
-    if king_record.moat_guards + count > 100:
-        return False, "Maximum 100 moat guards."
-    king_record.treasury -= total_cost
+def king_hire_moat_creatures(king_record, creature_id, count, funding='treasury'):
+    """Buy moat creatures for castle defense.
+
+    Args:
+        king_record: The current KingRecord
+        creature_id: ID of the MoatCreature type to buy
+        count: How many to buy
+        funding: 'treasury' or 'personal' (player's own gold)
+    """
+    creature = db.session.get(MoatCreature, creature_id)
+    if not creature:
+        return False, "Unknown creature type."
+
+    max_moat = 100
+    if king_record.moat_guards + count > max_moat:
+        return False, f"Maximum {max_moat} creatures in the moat. You have {king_record.moat_guards}."
+
+    # If changing creature type, must empty moat first
+    if king_record.moat_creature_id and king_record.moat_creature_id != creature_id and king_record.moat_guards > 0:
+        return False, f"The moat already has {king_record.moat_creature.name}s. Remove them first before adding a different creature."
+
+    total_cost = count * creature.cost
+    player = king_record.player
+
+    if funding == 'personal':
+        if player.gold < total_cost:
+            return False, f"Not enough gold. Need {total_cost}, you have {player.gold}."
+        player.gold -= total_cost
+    else:
+        if king_record.treasury < total_cost:
+            return False, f"Not enough in treasury. Need {total_cost}, treasury has {king_record.treasury}."
+        king_record.treasury -= total_cost
+
+    king_record.moat_creature_id = creature_id
     king_record.moat_guards += count
-    return True, f"Hired {count} moat guards. Total: {king_record.moat_guards}"
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='royal',
+        message=f"{'King' if player.sex == 1 else 'Queen'} {player.name} put {count} {creature.name}{'s' if count > 1 else ''} in the moat."
+    )
+    db.session.add(news)
+
+    return True, f"Added {count} {creature.name}{'s' if count > 1 else ''} to the moat. Total: {king_record.moat_guards}"
+
+
+def king_remove_moat_creatures(king_record, count):
+    """Remove creatures from the moat."""
+    if king_record.moat_guards <= 0:
+        return False, "There are no creatures in the moat."
+    if count > king_record.moat_guards:
+        count = king_record.moat_guards
+
+    king_record.moat_guards -= count
+    creature_name = king_record.moat_creature.name if king_record.moat_creature else "creature"
+
+    if king_record.moat_guards == 0:
+        king_record.moat_creature_id = None
+
+    return True, f"Removed {count} {creature_name}{'s' if count > 1 else ''} from the moat. Remaining: {king_record.moat_guards}"
+
+
+def king_hire_royal_guard(king_record, target_id, salary):
+    """Hire a player/NPC as a royal bodyguard."""
+    max_guards = 5
+    current_count = RoyalGuard.query.filter_by(king_record_id=king_record.id).count()
+    if current_count >= max_guards:
+        return False, f"You already have the maximum {max_guards} guards."
+
+    target = db.session.get(Player, target_id)
+    if not target:
+        return False, "Player not found."
+
+    if target.id == king_record.player_id:
+        return False, "You cannot hire yourself as a guard."
+
+    # Check if already a guard
+    existing = RoyalGuard.query.filter_by(king_record_id=king_record.id, player_id=target_id).first()
+    if existing:
+        return False, f"{target.name} is already in the Royal Guard."
+
+    if target.is_imprisoned:
+        return False, f"{target.name} is imprisoned and cannot serve."
+
+    # NPC auto-accepts; for human players this would normally be a mail request
+    # but for web we simplify to direct hire
+    if target.is_npc:
+        # NPC salary is based on level
+        salary = (target.level * 900) + random.randint(0, 450)
+
+    guard = RoyalGuard(
+        king_record_id=king_record.id,
+        player_id=target_id,
+        salary=salary
+    )
+    db.session.add(guard)
+
+    news = NewsEntry(
+        player_id=target_id,
+        category='royal',
+        message=f"{target.name} became a Royal Guard!"
+    )
+    db.session.add(news)
+
+    if not target.is_npc:
+        mail = Mail(
+            sender_id=king_record.player_id,
+            receiver_id=target_id,
+            subject="Royal Employment",
+            message=f"{'King' if king_record.player.sex == 1 else 'Queen'} {king_record.player.name} has appointed you as a Royal Guard with a salary of {salary} gold per day."
+        )
+        db.session.add(mail)
+
+    return True, f"{target.name} has joined the Royal Guard with salary {salary}g/day."
+
+
+def king_sack_guard(king_record, guard_id):
+    """Fire a royal guard."""
+    guard = RoyalGuard.query.filter_by(id=guard_id, king_record_id=king_record.id).first()
+    if not guard:
+        return False, "Guard not found."
+
+    player = guard.player
+    db.session.delete(guard)
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='royal',
+        message=f"{player.name} was sacked from the Royal Guard!"
+    )
+    db.session.add(news)
+
+    mail = Mail(
+        sender_id=king_record.player_id,
+        receiver_id=player.id,
+        subject="SACKED",
+        message=f"{'King' if king_record.player.sex == 1 else 'Queen'} {king_record.player.name} has dismissed you from the Royal Guard."
+    )
+    db.session.add(mail)
+
+    return True, f"{player.name} has been sacked from the Royal Guard!"
+
+
+def king_set_tax(king_record, rate, alignment=0):
+    """Set the royal tax rate and alignment."""
+    if rate < 0 or rate > 5:
+        return False, "Tax rate must be between 0% and 5%."
+    if alignment not in (0, 1, 2):
+        return False, "Tax alignment must be 0 (all), 1 (good only), or 2 (evil only)."
+
+    old_rate = king_record.tax_rate
+    king_record.tax_rate = rate
+    king_record.tax_alignment = alignment
+
+    align_desc = {0: 'all subjects', 1: 'good-aligned only', 2: 'evil-aligned only'}
+
+    player = king_record.player
+    title = 'King' if player.sex == 1 else 'Queen'
+
+    if rate != old_rate:
+        action = 'raised' if rate > old_rate else 'lowered'
+        news = NewsEntry(
+            player_id=player.id,
+            category='royal',
+            message=f"{title} {player.name} {action} the Royal Tax to {rate}% ({align_desc[alignment]})."
+        )
+        db.session.add(news)
+
+    return True, f"Tax set to {rate}% for {align_desc[alignment]}."
+
+
+def king_grant_tax_relief(king, target_name):
+    """Grant a player tax exemption."""
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
+    if not target:
+        return False, "Player not found."
+    if target.tax_relief:
+        return False, f"{target.name} already enjoys tax relief."
+    target.tax_relief = True
+
+    news = NewsEntry(
+        player_id=target.id,
+        category='royal',
+        message=f"{target.name} has been relieved from Royal Taxes!"
+    )
+    db.session.add(news)
+
+    mail = Mail(
+        sender_id=king.id,
+        receiver_id=target.id,
+        subject="Free from Royal Tax!",
+        message=f"{'King' if king.sex == 1 else 'Queen'} {king.name} has relieved you from Royal Taxes!"
+    )
+    db.session.add(mail)
+    return True, f"{target.name} has been granted tax relief."
+
+
+def king_revoke_tax_relief(king, target_name):
+    """Revoke a player's tax exemption."""
+    target = Player.query.filter(Player.name.ilike(target_name)).first()
+    if not target:
+        return False, "Player not found."
+    if not target.tax_relief:
+        return False, f"{target.name} does not have tax relief."
+    target.tax_relief = False
+
+    news = NewsEntry(
+        player_id=target.id,
+        category='royal',
+        message=f"{target.name}'s tax privileges have been revoked!"
+    )
+    db.session.add(news)
+    return True, f"{target.name}'s tax privileges have been revoked."
+
+
+def king_treasury_withdraw(king_record, amount):
+    """Withdraw gold from the royal treasury (considered an act of greed)."""
+    if amount <= 0:
+        return False, "Invalid amount."
+    if king_record.treasury < amount:
+        return False, f"Not enough gold in treasury. Have {king_record.treasury}."
+
+    king_record.treasury -= amount
+    king_record.player.gold += amount
+
+    # 50% chance the press finds out
+    if random.randint(0, 1) == 0:
+        title = 'King' if king_record.player.sex == 1 else 'Queen'
+        news = NewsEntry(
+            player_id=king_record.player.id,
+            category='royal',
+            message=f"{title} {king_record.player.name} used the Royal Treasury for personal use!"
+        )
+        db.session.add(news)
+
+    return True, f"Withdrew {amount} gold from the treasury."
+
+
+def king_toggle_establishment(king_record, shop_key):
+    """Open or close an establishment by royal decree."""
+    valid_shops = {
+        'shop_magic': 'Magic Shop',
+        'shop_healing': 'Healing Center',
+        'shop_general': 'General Store',
+        'shop_inn': 'Inn',
+        'shop_tavern': 'Tavern',
+        'shop_beauty_nest': 'Beauty Nest',
+    }
+    # Weapon and armor shops cannot be closed (people must be able to arm themselves)
+    if shop_key in ('shop_weapon', 'shop_armor'):
+        return False, "People must be able to buy their weapons and armor!"
+
+    if shop_key not in valid_shops:
+        return False, "Unknown establishment."
+
+    current = getattr(king_record, shop_key, True)
+    new_val = not current
+    setattr(king_record, shop_key, new_val)
+
+    action = 'opened' if new_val else 'closed'
+    shop_name = valid_shops[shop_key]
+    player = king_record.player
+    title = 'King' if player.sex == 1 else 'Queen'
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='royal',
+        message=f"{title} {player.name} {action} the {shop_name}!"
+    )
+    db.session.add(news)
+
+    return True, f"The {shop_name} has been {action}!"
+
+
+def king_send_proclamation(king, message_text):
+    """Send a royal proclamation to all subjects."""
+    if not message_text or len(message_text.strip()) < 3:
+        return False, "Proclamation must have content."
+
+    title = 'King' if king.sex == 1 else 'Queen'
+    subject = "Royal Proclamation"
+
+    # Send mail to all non-deleted, non-king players
+    players = Player.query.filter(Player.id != king.id, Player.name != '').all()
+    count = 0
+    for p in players:
+        mail = Mail(
+            sender_id=king.id,
+            receiver_id=p.id,
+            subject=subject,
+            message=f"From {title} {king.name}:\n\n{message_text}"
+        )
+        db.session.add(mail)
+        count += 1
+
+    news = NewsEntry(
+        player_id=king.id,
+        category='royal',
+        message=f"{title} {king.name} issued a Royal Proclamation to all subjects."
+    )
+    db.session.add(news)
+
+    return True, f"Proclamation sent to {count} subjects."
+
+
+def pay_royal_guard_salaries(king_record):
+    """Pay daily salaries to royal guards from the treasury. Called during maintenance."""
+    guards = RoyalGuard.query.filter_by(king_record_id=king_record.id).all()
+    sacked = []
+    for guard in guards:
+        if king_record.treasury >= guard.salary:
+            king_record.treasury -= guard.salary
+        else:
+            # Can't afford - sack the guard
+            sacked.append(guard)
+
+    for guard in sacked:
+        mail = Mail(
+            sender_id=king_record.player_id,
+            receiver_id=guard.player_id,
+            subject="SACKED - Unpaid",
+            message="The Royal Treasury could not afford your salary. You have been dismissed from the Royal Guard."
+        )
+        db.session.add(mail)
+        db.session.delete(guard)
+
+    return sacked
 
 
 def king_imprison(king, target_name):
