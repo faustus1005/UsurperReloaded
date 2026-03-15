@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Dark Deeds{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Dark Deeds</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">The shadows whisper of terrible things that can be done. Your soul darkens at the mere thought...</p>
+
+        <div class="panel-header" style="margin-top: 12px;">Kidnap a Child</div>
+        {% if children %}
+        <form method="POST" action="{{ url_for('dark_deeds') }}" class="inline-form mb-2">
+            <input type="hidden" name="action" value="kidnap">
+            <select name="child_id" class="form-control" style="width: auto;">
+                {% for child in children %}
+                <option value="{{ child.id }}">{{ child.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-danger btn-sm">Kidnap</button>
+        </form>
+        {% else %}
+        <p class="text-dim mb-2">No children available.</p>
+        {% endif %}
+
+        <div class="panel-header" style="margin-top: 12px;">Poison a Child</div>
+        {% if children %}
+        <form method="POST" action="{{ url_for('dark_deeds') }}" class="inline-form mb-2">
+            <input type="hidden" name="action" value="poison">
+            <select name="child_id" class="form-control" style="width: auto;">
+                {% for child in children %}
+                <option value="{{ child.id }}">{{ child.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-danger btn-sm">Poison</button>
+        </form>
+        {% else %}
+        <p class="text-dim mb-2">No children available.</p>
+        {% endif %}
+
+        <div class="panel-header" style="margin-top: 12px;">Murder a Player</div>
+        {% if players %}
+        <form method="POST" action="{{ url_for('dark_deeds') }}" class="inline-form mb-2">
+            <input type="hidden" name="action" value="murder">
+            <select name="target_id" class="form-control" style="width: auto;">
+                {% for p in players %}
+                <option value="{{ p.id }}">{{ p.name }} (Lv.{{ p.level }})</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-danger btn-sm">Attempt Murder</button>
+        </form>
+        {% else %}
+        <p class="text-dim mb-2">No targets available.</p>
+        {% endif %}
+
+        <div class="panel-header" style="margin-top: 12px;">Loot a Chest</div>
+        <form method="POST" action="{{ url_for('dark_deeds') }}" class="mb-2">
+            <input type="hidden" name="action" value="loot">
+            <button type="submit" class="btn btn-danger btn-sm">Search for Chests</button>
+        </form>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

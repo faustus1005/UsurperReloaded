@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Royal Orphanage{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Royal Orphanage</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">The Royal Orphanage houses children who have lost their parents or been abandoned. The matron watches over them with stern but caring eyes.</p>
+
+        {% if player_children %}
+        <div class="panel-header" style="margin-top: 12px;">Your Children</div>
+        {% for child in player_children %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ child.name }}</div>
+                <div class="item-type">Age: {{ child.age if child.age else 'Unknown' }}</div>
+            </div>
+            <div class="item-actions">
+                <form method="POST" action="{{ url_for('orphanage') }}">
+                    <input type="hidden" name="child_id" value="{{ child.id }}">
+                    <button type="submit" class="btn btn-sm btn-danger">Send to Orphanage</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <div class="panel-header" style="margin-top: 12px;">Orphans</div>
+        {% if children %}
+        {% for child in children %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ child.name }}</div>
+                <div class="item-type">Age: {{ child.age if child.age else 'Unknown' }}</div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-dim">The orphanage is empty. All children have found homes.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}
