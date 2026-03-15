@@ -77,15 +77,19 @@ db.init_app(app)
 # or via a WSGI server like Gunicorn (gunicorn app:app).
 with app.app_context():
     db.create_all()
-    # Add finger equipment columns if missing (for existing databases)
-    from sqlalchemy import inspect as _sa_inspect, text as _sa_text
-    _insp = _sa_inspect(db.engine)
-    _existing_cols = {c['name'] for c in _insp.get_columns('players')}
-    if 'equipped_finger1' not in _existing_cols:
-        db.session.execute(_sa_text('ALTER TABLE players ADD COLUMN equipped_finger1 INTEGER REFERENCES items(id)'))
-    if 'equipped_finger2' not in _existing_cols:
-        db.session.execute(_sa_text('ALTER TABLE players ADD COLUMN equipped_finger2 INTEGER REFERENCES items(id)'))
-    db.session.commit()
+    # Add finger equipment columns if missing (for existing databases).
+    # Wrapped in try/except so concurrent workers don't crash if another
+    # worker already added the column between the inspect and the ALTER.
+    from sqlalchemy import text as _sa_text
+    from sqlalchemy.exc import OperationalError as _SAOpError
+    for _col in ('equipped_finger1', 'equipped_finger2'):
+        try:
+            db.session.execute(_sa_text(
+                f'ALTER TABLE players ADD COLUMN {_col} INTEGER REFERENCES items(id)'
+            ))
+            db.session.commit()
+        except _SAOpError:
+            db.session.rollback()
     seed_all()
     # Load custom level XP table from admin config if set
     try:
@@ -239,6 +243,12 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    # Clear encounter state so it cannot leak to the next login
+    session.pop('combat_monster', None)
+    session.pop('combat_log', None)
+    session.pop('combat_result', None)
+    session.pop('dungeon_event', None)
+    session.pop('encounter_player_id', None)
     logout_user()
     flash('You have left the realm.', 'info')
     return redirect(url_for('index'))
@@ -306,6 +316,17 @@ def main_menu():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
+
+    # Only honour encounter state that belongs to the current player.
+    # Stale keys from a previous login (e.g. logout mid-fight, then
+    # log in as a different user in the same browser) are discarded.
+    _enc_owner = session.get('encounter_player_id')
+    if _enc_owner and _enc_owner != player.id:
+        session.pop('combat_monster', None)
+        session.pop('combat_log', None)
+        session.pop('combat_result', None)
+        session.pop('dungeon_event', None)
+        session.pop('encounter_player_id', None)
 
     if session.get('combat_monster'):
         flash("You cannot return to town while in combat!", 'error')
@@ -432,6 +453,7 @@ def dungeon_explore():
         if random.randint(1, 2) == 1:
             event = game_logic.get_random_dungeon_event()
             session['dungeon_event'] = event
+            session['encounter_player_id'] = player.id
             return redirect(url_for('dungeon_event'))
         else:
             event = game_logic.dungeon_event(player, dungeon_level)
@@ -451,6 +473,7 @@ def dungeon_explore():
         f"You encounter a {monster['name']}!",
         f'"{monster["phrase"]}"' if monster['phrase'] else '',
     ]
+    session['encounter_player_id'] = player.id
     db.session.commit()
 
     return redirect(url_for('combat'))
