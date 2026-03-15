@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "macros.html" import location_img with context %}
+{% block title_suffix %} - Wrestling Arena{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Wrestling Arena</div>
+    <div class="panel-body">
+        {{ location_img('wrestling') }}
+        <p class="text-secondary mb-2">
+            The roar of the crowd fills the dusty arena. Muscled fighters size each other up
+            under flickering torchlight. Three rounds: Grapple, Grind, and Finish. Win 2 of 3
+            to take the prize!
+        </p>
+        <p class="text-secondary mb-1">
+            Matches remaining: <span class="text-gold">{{ player.wrestling_matches }}</span>
+            &mdash; Record: <span class="text-green">{{ player.wrestling_wins }}W</span> /
+            <span class="text-red">{{ player.wrestling_losses }}L</span>
+            &mdash; Gold: <span class="text-gold">{{ player.gold }}</span>
+        </p>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Choose Your Opponent</div>
+    <div class="panel-body">
+        {% for opp in opponents %}
+        {% set fee = entry_base * opp.prize_mult %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ opp.name }} <span class="text-dim">(Lv.{{ opp.level }})</span></div>
+                <div class="text-dim" style="font-size: 0.85em;">{{ opp.desc }}</div>
+                <div class="item-stats">
+                    STR {{ opp.str }} / STA {{ opp.sta }} / AGI {{ opp.agi }}
+                    &mdash; Prize: {{ fee * 3 }}g
+                </div>
+            </div>
+            <div class="item-actions">
+                <span class="item-price">{{ fee }}g</span>
+                <form method="POST" action="{{ url_for('wrestling_fight', index=loop.index0) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-danger"
+                            {% if player.wrestling_matches <= 0 or player.gold < fee or player.hp < player.max_hp // 4 %}disabled{% endif %}>
+                        Fight!
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}
