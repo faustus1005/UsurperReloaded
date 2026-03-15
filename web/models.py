@@ -361,6 +361,14 @@ class Player(db.Model):
     quests_completed = db.Column(db.Integer, default=0)
     quests_failed = db.Column(db.Integer, default=0)
 
+    # Bank guard
+    is_bank_guard = db.Column(db.Boolean, default=False)  # employed as bank guard
+    bank_wage = db.Column(db.Integer, default=0)  # accumulated salary from bank
+
+    # Door guards (protect player when offline at inn)
+    door_guard_id = db.Column(db.Integer, db.ForeignKey('door_guards.id'), nullable=True)
+    door_guard_count = db.Column(db.Integer, default=0)  # number of door guards hired
+
     # God/religion
     god_name = db.Column(db.String(30), default='')  # name of deity worshipped
     is_god = db.Column(db.Boolean, default=False)  # has ascended to godhood
@@ -647,6 +655,20 @@ class TeamMember(db.Model):
     joined_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     player = db.relationship('Player', backref='team_membership')
+
+
+class DoorGuard(db.Model):
+    """Types of guards available to protect player rooms at the inn."""
+    __tablename__ = 'door_guards'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    cost = db.Column(db.Integer, nullable=False)  # cost per guard
+    hps = db.Column(db.Integer, nullable=False)  # hitpoints
+    attack = db.Column(db.Integer, nullable=False)  # base attack
+    armor = db.Column(db.Integer, default=0)  # base armor/defense
+    allow_multiple = db.Column(db.Boolean, default=False)  # can hire more than one?
+    description = db.Column(db.String(200), default='')
 
 
 class MoatCreature(db.Model):

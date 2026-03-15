@@ -6,7 +6,7 @@ from models import (
     db, Player, Monster, Item, InventoryItem, NewsEntry, Mail,
     Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem, GameConfig,
-    MoatCreature, RoyalGuard,
+    MoatCreature, RoyalGuard, DoorGuard,
     RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES
 )
 
@@ -1270,6 +1270,169 @@ def pay_royal_guard_salaries(king_record):
     return sacked
 
 
+# ==================== BANK GUARD SYSTEM ====================
+
+def bank_guard_apply(player):
+    """Apply for bank guard duty. Requires 0 darkness."""
+    if player.is_bank_guard:
+        return False, "You are already a bank guard."
+    if player.darkness > 0:
+        return False, "The bank manager eyes you suspiciously. 'We don't hire characters with a dark past. Come back when your record is clean.'"
+    if player.hp <= 0:
+        return False, "You must be alive to apply for guard duty."
+
+    salary = (player.level * 1500) + (player.strength * 9)
+    player.is_bank_guard = True
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='town',
+        message=f"{player.name} has been hired as a bank guard!"
+    )
+    db.session.add(news)
+
+    return True, f"Welcome to the bank guard force! Your daily salary will be {salary} gold, deposited to your account."
+
+
+def bank_guard_resign(player):
+    """Resign from bank guard duty."""
+    if not player.is_bank_guard:
+        return False, "You are not a bank guard."
+
+    player.is_bank_guard = False
+
+    news = NewsEntry(
+        player_id=player.id,
+        category='town',
+        message=f"{player.name} has resigned from bank guard duty."
+    )
+    db.session.add(news)
+
+    return True, "You are now free from your obligations at the bank. Good luck! (and don't try to rob us)."
+
+
+def accumulate_bank_wages(player):
+    """Accumulate daily bank guard salary. Called during maintenance."""
+    if not player.is_bank_guard or player.hp <= 0:
+        return 0
+    wage = (player.level * 1500) + (player.strength * 9)
+    player.bank_wage += wage
+    return wage
+
+
+def collect_bank_wages(player):
+    """Collect accumulated bank wages. Called on login/session start."""
+    if player.bank_wage <= 0:
+        return 0
+    amount = player.bank_wage
+    player.gold += amount
+    player.bank_wage = 0
+    return amount
+
+
+# ==================== DOOR GUARD SYSTEM ====================
+
+def get_available_door_guards():
+    """Get all available door guard types."""
+    return DoorGuard.query.all()
+
+
+def hire_door_guard(player, guard_id, count=1):
+    """Hire door guards when sleeping at the inn."""
+    guard = db.session.get(DoorGuard, guard_id)
+    if not guard:
+        return False, "Unknown guard type."
+
+    if count < 1:
+        return False, "Must hire at least 1 guard."
+
+    if not guard.allow_multiple and count > 1:
+        count = 1
+
+    max_guards = 10
+    if count > max_guards:
+        count = max_guards
+
+    total_cost = guard.cost * count
+    if player.gold < total_cost:
+        return False, f"Not enough gold. Need {total_cost}, you have {player.gold}."
+
+    player.gold -= total_cost
+    player.door_guard_id = guard_id
+    player.door_guard_count = count
+
+    return True, f"Hired {count} {guard.name}{'s' if count > 1 else ''} to guard your door."
+
+
+def dismiss_door_guards(player):
+    """Remove all door guards."""
+    if player.door_guard_count <= 0:
+        return False, "You have no door guards."
+    player.door_guard_id = None
+    player.door_guard_count = 0
+    return True, "Door guards dismissed."
+
+
+def fight_door_guards(attacker, defender):
+    """Attacker must fight through defender's door guards before PvP.
+
+    Returns (survived, combat_log, guards_killed).
+    - survived: True if attacker defeated all guards
+    - combat_log: list of combat messages
+    - guards_killed: how many guards were slain
+    """
+    combat_log = []
+
+    if defender.door_guard_count <= 0 or not defender.door_guard_id:
+        return True, combat_log, 0
+
+    guard = db.session.get(DoorGuard, defender.door_guard_id)
+    if not guard:
+        return True, combat_log, 0
+
+    guard_count = defender.door_guard_count
+    if guard_count == 1:
+        combat_log.append(f"An angry {guard.name} guards the door!")
+    else:
+        combat_log.append(f"{guard_count} {guard.name}s guard the door!")
+
+    guards_killed = 0
+
+    for i in range(guard_count):
+        combat_log.append(f"--- {guard.name} {i + 1} ---")
+        ghp = guard.hps
+        while ghp > 0 and attacker.hp > 0:
+            # Attacker strikes guard
+            atk = calculate_attack(attacker.strength, attacker.weapon_power, attacker.level)
+            dmg = max(1, atk - guard.armor)
+            ghp -= dmg
+            combat_log.append(f"You strike the {guard.name} for {dmg} damage.")
+
+            if ghp <= 0:
+                combat_log.append(f"The {guard.name} is slain!")
+                guards_killed += 1
+                break
+
+            # Guard strikes attacker
+            pdef = calculate_defense(attacker.defence, attacker.armor_power)
+            gdmg = max(1, guard.attack - pdef)
+            attacker.hp -= gdmg
+            combat_log.append(f"The {guard.name} strikes you for {gdmg} damage!")
+
+            if attacker.hp <= 0:
+                combat_log.append(f"You were killed by {defender.name}'s door guards!")
+                break
+
+    # Update defender's guard count
+    defender.door_guard_count -= guards_killed
+    if defender.door_guard_count <= 0:
+        defender.door_guard_count = 0
+        defender.door_guard_id = None
+
+    survived = attacker.hp > 0
+    return survived, combat_log, guards_killed
+
+
 def king_imprison(king, target_name):
     """Imprison a player by royal decree."""
     target = Player.query.filter(Player.name.ilike(target_name)).first()
@@ -1336,6 +1499,41 @@ def pvp_combat(attacker, defender):
     combat_log.append(f"{attacker.name} challenges {defender.name} to combat!")
     if attacker.battlecry:
         combat_log.append(f'{attacker.name} shouts: "{attacker.battlecry}"')
+
+    # Fight through door guards first (if defender has any)
+    if defender.door_guard_count > 0 and defender.door_guard_id:
+        survived, guard_log, guards_killed = fight_door_guards(attacker, defender)
+        combat_log.extend(guard_log)
+        if not survived:
+            # Attacker died to door guards
+            attacker.hp = max(1, attacker.max_hp // 4)
+            news = NewsEntry(
+                player_id=attacker.id,
+                category='pvp',
+                message=f"{attacker.name} was killed by {defender.name}'s door guards!"
+            )
+            db.session.add(news)
+            # Mail the defender
+            guard = db.session.get(DoorGuard, defender.door_guard_id) if defender.door_guard_id else None
+            guard_name = guard.name if guard else "door guards"
+            mail = Mail(
+                sender_id=attacker.id,
+                receiver_id=defender.id,
+                subject="Intruder Stopped",
+                message=f"{attacker.name} tried to attack you but was killed by your {guard_name}{'s' if guards_killed > 0 else ''}!"
+            )
+            db.session.add(mail)
+            return defender, attacker, combat_log
+        elif guards_killed > 0:
+            combat_log.append(f"You defeated the door guards! Now to face {defender.name}...")
+            # Mail defender about destroyed guards
+            mail = Mail(
+                sender_id=attacker.id,
+                receiver_id=defender.id,
+                subject="Door Guards Defeated",
+                message=f"{attacker.name} killed {guards_killed} of your door guards and attacked you!"
+            )
+            db.session.add(mail)
 
     # Use copies of HP so we don't permanently kill the defender
     atk_hp = attacker.hp

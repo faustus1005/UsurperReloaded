@@ -21,7 +21,7 @@ from models import (
     db, User, Player, Item, InventoryItem, Monster, Mail, NewsEntry,
     GameConfig, Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem,
-    MoatCreature, RoyalGuard,
+    MoatCreature, RoyalGuard, DoorGuard,
     RACES, CLASSES, RACE_BONUSES, CLASS_BONUSES,
     SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, ITEM_TYPES
 )
@@ -650,7 +650,10 @@ def inn():
 
     inn_name = GameConfig.get('inn_name', "The Dragon's Flagon")
     rest_cost = player.level * 5 + 10
-    return render_template('inn.html', inn_name=inn_name, rest_cost=rest_cost)
+    door_guards = DoorGuard.query.all()
+    current_guard = db.session.get(DoorGuard, player.door_guard_id) if player.door_guard_id else None
+    return render_template('inn.html', inn_name=inn_name, rest_cost=rest_cost,
+                           door_guards=door_guards, current_guard=current_guard)
 
 
 @app.route('/inn/rest', methods=['POST'])
@@ -666,13 +669,54 @@ def inn_rest():
     return redirect(url_for('inn'))
 
 
+@app.route('/inn/hire_guard', methods=['POST'])
+@login_required
+def inn_hire_guard():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    try:
+        guard_id = int(request.form.get('guard_id', 0))
+        count = int(request.form.get('count', 1))
+    except ValueError:
+        flash("Invalid input.", 'error')
+        return redirect(url_for('inn'))
+
+    success, msg = game_logic.hire_door_guard(player, guard_id, count)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('inn'))
+
+
+@app.route('/inn/dismiss_guards', methods=['POST'])
+@login_required
+def inn_dismiss_guards():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.dismiss_door_guards(player)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('inn'))
+
+
 @app.route('/bank')
 @login_required
 def bank():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    return render_template('bank.html')
+
+    # Collect accumulated bank wages on visit
+    wages_collected = game_logic.collect_bank_wages(player)
+    if wages_collected > 0:
+        db.session.commit()
+        flash(f"You collected {wages_collected} gold in bank guard salary!", 'success')
+
+    bank_salary = (player.level * 1500) + (player.strength * 9) if not player.is_bank_guard else (player.level * 1500) + (player.strength * 9)
+    return render_template('bank.html', bank_salary=bank_salary)
 
 
 @app.route('/bank/deposit', methods=['POST'])
@@ -708,6 +752,32 @@ def bank_withdraw():
         return redirect(url_for('bank'))
 
     success, msg = game_logic.bank_withdraw(player, amount)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('bank'))
+
+
+@app.route('/bank/apply_guard', methods=['POST'])
+@login_required
+def bank_guard_apply():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.bank_guard_apply(player)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('bank'))
+
+
+@app.route('/bank/resign_guard', methods=['POST'])
+@login_required
+def bank_guard_resign():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.bank_guard_resign(player)
     db.session.commit()
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('bank'))
