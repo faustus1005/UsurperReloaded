@@ -1,0 +1,55 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">{{ 'Create New Drink' if is_new is defined else 'Edit Drink: ' + drink.name }}</div>
+    <div class="panel-body">
+        <form method="POST" action="{{ url_for('admin_new_drink') if is_new is defined else url_for('admin_edit_drink', drink_id=drink.id) }}">
+            <fieldset class="admin-fieldset">
+                <legend>Identity</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="name">Drink Name</label>
+                        <input type="text" name="name" value="{{ drink.name }}" class="admin-input" required maxlength="30">
+                    </div>
+                    <div class="admin-field">
+                        <label for="creator_name">Creator</label>
+                        <input type="text" name="creator_name" value="{{ drink.creator_name }}" class="admin-input">
+                    </div>
+                </div>
+                <div class="admin-field">
+                    <label for="comment">Comment</label>
+                    <input type="text" name="comment" value="{{ drink.comment }}" class="admin-input" maxlength="70">
+                </div>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="times_ordered">Times Ordered</label>
+                        <input type="number" name="times_ordered" value="{{ drink.times_ordered }}" min="0" class="admin-input admin-input-sm">
+                    </div>
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="secret" {% if drink.secret %}checked{% endif %}> Secret Recipe</label>
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Ingredients (should total 100%)</legend>
+                <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px;">
+                    {% for ing_attr, ing_name in ingredients %}
+                    {% set ing_val = ingredient_values.get(ing_attr, 0) if ingredient_values else 0 %}
+                    <div class="admin-field" style="display:flex; align-items:center; gap:5px;">
+                        <label style="min-width:140px;">{{ ing_name }}</label>
+                        <input type="number" name="{{ ing_attr }}" value="{{ ing_val }}" min="0" max="100" class="admin-input admin-input-sm" style="width:80px;">
+                        <span class="text-dim">%</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </fieldset>
+
+            <div class="admin-form-actions">
+                <button type="submit" class="btn">{{ 'Create Drink' if is_new is defined else 'Save Changes' }}</button>
+                <a href="{{ url_for('admin_drinks') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Performance{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Performance Results</div>
+    <div class="panel-body">
+        <div class="combat-log">
+            {% for entry in log %}
+            <p{% if 'MASTERFUL' in entry or 'SUCCESS' in entry %} class="text-gold"{% elif 'boos' in entry or 'FAILED' in entry %} class="text-red"{% elif 'Gained' in entry or 'increased' in entry or 'tips' in entry %} class="text-green"{% elif entry.startswith('"') %} class="text-dim"{% endif %}>{{ entry }}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('bard_stage') }}" class="btn">Back to Stage</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

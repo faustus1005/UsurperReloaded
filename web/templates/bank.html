@@ -38,6 +38,50 @@
     </div>
 </div>
 
+<div class="panel">
+    <div class="panel-header">Bank Guard Employment</div>
+    <div class="panel-body">
+        {% if player.is_bank_guard %}
+        <p class="text-success mb-1">You are currently employed as a bank guard.</p>
+        <p class="text-dim mb-1">Daily salary: <span class="text-gold">{{ bank_salary }}</span> gold (paid to your account)</p>
+        <p class="text-dim mb-1">You will be called upon to defend the bank if it is robbed.</p>
+        <form method="POST" action="{{ url_for('bank_guard_resign') }}">
+            <button type="submit" class="btn btn-danger btn-sm"
+                    onclick="return confirm('Resign from bank guard duty?')">Resign from Guard Duty</button>
+        </form>
+        {% else %}
+        <p class="text-secondary mb-1">
+            The bank is always looking for brave souls to protect its vaults.
+            Guards are called to duty when robbers attack, and receive a daily salary.
+        </p>
+        <p class="text-dim mb-1">Estimated daily salary: <span class="text-gold">{{ bank_salary }}</span> gold</p>
+        {% if player.darkness > 0 %}
+        <p class="text-danger">The bank does not hire characters with a dark reputation. Your darkness must be 0 to apply.</p>
+        {% else %}
+        <form method="POST" action="{{ url_for('bank_guard_apply') }}">
+            <button type="submit" class="btn btn-primary btn-sm">Apply for Guard Duty</button>
+        </form>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% if player.darkness > 0 %}
+<div class="panel">
+    <div class="panel-header">Rob the Bank</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-1">
+            You eye the vault with criminal intent. The guards look distracted...
+        </p>
+        <p class="text-dim mb-1">Warning: Getting caught means prison time and a heavy fine!</p>
+        <form method="POST" action="{{ url_for('rob_bank') }}">
+            <button type="submit" class="btn btn-danger btn-sm"
+                    onclick="return confirm('Attempt to rob the bank? This is very risky!')">Attempt Robbery</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
 <div class="text-center mt-1">
     <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
 </div>

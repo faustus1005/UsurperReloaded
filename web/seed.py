@@ -1,6 +1,6 @@
 """Seed the database with monsters, items, default configuration, and NPCs."""
 
-from models import db, Monster, Item, GameConfig, Player, God
+from models import db, Monster, Item, GameConfig, Player, God, MoatCreature, DoorGuard, Drink
 
 
 def seed_config():
@@ -62,6 +62,13 @@ def seed_config():
         'love_corner_name': 'The Love Corner',
         # Scrolling text
         'scrolling_text': '',
+        # Orb's Bar
+        'drinks_per_day': '3',
+        'max_drinks': '50',
+        # Prison
+        'prison_escape_attempts': '2',
+        # Bank
+        'bank_robbery_attempts': '1',
     }
     for key, value in defaults.items():
         existing = GameConfig.query.filter_by(key=key).first()
@@ -949,6 +956,74 @@ def seed_gods():
     db.session.commit()
 
 
+def seed_moat_creatures():
+    """Seed the moat creature types available for castle defense."""
+    if MoatCreature.query.first():
+        return
+
+    creatures = [
+        MoatCreature(name='Crocodile', cost=150, hps=40, attack=12, armor=5,
+                     description='Large reptilian predators that lurk in murky waters.'),
+        MoatCreature(name='Giant Piranha', cost=80, hps=20, attack=15, armor=2,
+                     description='Vicious flesh-eating fish that attack in swarms.'),
+        MoatCreature(name='Water Serpent', cost=200, hps=55, attack=18, armor=8,
+                     description='Enormous snakes that constrict and drown intruders.'),
+        MoatCreature(name='Moat Troll', cost=350, hps=80, attack=22, armor=12,
+                     description='Brutish trolls adapted to aquatic life, regenerating wounds.'),
+        MoatCreature(name='Giant Leech', cost=60, hps=15, attack=8, armor=1,
+                     description='Bloodsucking parasites that drain the life from swimmers.'),
+        MoatCreature(name='Shark', cost=250, hps=65, attack=25, armor=6,
+                     description='Fearsome ocean predators released into the castle moat.'),
+        MoatCreature(name='Water Elemental', cost=500, hps=100, attack=30, armor=15,
+                     description='Magical beings of living water, nearly impossible to harm.'),
+        MoatCreature(name='Undead Sailor', cost=120, hps=35, attack=14, armor=7,
+                     description='Drowned sailors cursed to patrol the moat for eternity.'),
+        MoatCreature(name='Giant Crab', cost=180, hps=50, attack=16, armor=18,
+                     description='Massive crustaceans with crushing pincers and thick shells.'),
+        MoatCreature(name='Sea Drake', cost=800, hps=150, attack=40, armor=20,
+                     description='A lesser dragon species that dwells in water. Extremely dangerous.'),
+    ]
+    for c in creatures:
+        db.session.add(c)
+    db.session.commit()
+
+
+def seed_door_guards():
+    """Seed the door guard types available for player room protection."""
+    if DoorGuard.query.first():
+        return
+
+    guards = [
+        DoorGuard(name='Guard Dog', cost=50, hps=25, attack=8, armor=2,
+                  allow_multiple=True,
+                  description='A fierce guard dog that barks and bites intruders.'),
+        DoorGuard(name='Mercenary', cost=200, hps=60, attack=18, armor=10,
+                  allow_multiple=True,
+                  description='A hired sword willing to protect your room for the right price.'),
+        DoorGuard(name='Iron Golem', cost=500, hps=120, attack=25, armor=20,
+                  allow_multiple=False,
+                  description='A magically animated suit of armor. Tireless and fearless.'),
+        DoorGuard(name='Ogre Bouncer', cost=350, hps=90, attack=30, armor=8,
+                  allow_multiple=True,
+                  description='A dim-witted but incredibly strong ogre. Hits like a battering ram.'),
+        DoorGuard(name='Shadow Assassin', cost=800, hps=50, attack=45, armor=5,
+                  allow_multiple=False,
+                  description='A deadly assassin who lurks in the shadows. Strikes with lethal precision.'),
+        DoorGuard(name='War Troll', cost=600, hps=150, attack=22, armor=15,
+                  allow_multiple=True,
+                  description='A battle-hardened troll with regenerating flesh. Very difficult to kill.'),
+        DoorGuard(name='Trained Wolf', cost=120, hps=35, attack=14, armor=4,
+                  allow_multiple=True,
+                  description='A grey wolf trained for guard duty. Fast and ferocious.'),
+        DoorGuard(name='Enchanted Gargoyle', cost=1000, hps=200, attack=35, armor=25,
+                  allow_multiple=False,
+                  description='A stone gargoyle brought to life by powerful magic. Nearly indestructible.'),
+    ]
+    for g in guards:
+        db.session.add(g)
+    db.session.commit()
+
+
 def seed_all():
     """Run all seed functions."""
     seed_config()
@@ -958,3 +1033,5 @@ def seed_all():
     seed_gods()
     seed_npc_config()
     seed_npcs()
+    seed_moat_creatures()
+    seed_door_guards()

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% from "macros.html" import location_img with context %}
+{% block title_suffix %} - Player Market{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Ugly Joe's Player Market</div>
+    <div class="panel-body">
+        {{ location_img('player_market') }}
+        <p class="text-secondary mb-2">
+            "Welcome to my market!" growls Ugly Joe, picking his teeth with a dagger.
+            "List yer items, buy from others. I take a {{ tax_percent }}% cut on all sales.
+            Fair? Don't care."
+        </p>
+        <p class="text-secondary mb-1">Gold: <span class="text-gold">{{ player.gold }}</span></p>
+    </div>
+</div>
+
+{# === LIST AN ITEM === #}
+<div class="panel">
+    <div class="panel-header">List an Item for Sale</div>
+    <div class="panel-body">
+        {% if inv_items %}
+        <form method="POST" action="{{ url_for('market_list_item') }}" class="inline-form">
+            <select name="inv_id" class="form-control" style="width:auto;">
+                {% for entry in inv_items %}
+                <option value="{{ entry.inv_id }}">{{ entry.item.name }} (val: {{ entry.item.value }}g)</option>
+                {% endfor %}
+            </select>
+            <input type="number" name="price" min="1" max="10000000" placeholder="Price" class="form-control" style="width:120px;" required>
+            <button type="submit" class="btn btn-primary btn-sm">List Item</button>
+        </form>
+        <p class="text-dim mt-1">Max {{ max_listings }} active listings. Ugly Joe takes {{ tax_percent }}% of each sale.</p>
+        {% else %}
+        <p class="text-dim">You have no items in your inventory to sell.</p>
+        {% endif %}
+    </div>
+</div>
+
+{# === MY LISTINGS === #}
+{% if my_listings %}
+<div class="panel">
+    <div class="panel-header">Your Listings</div>
+    <div class="panel-body">
+        {% for listing in my_listings %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ listing.item_name }}</div>
+                <div class="item-type text-gold">{{ listing.price }}g</div>
+            </div>
+            <div class="item-actions">
+                <form method="POST" action="{{ url_for('market_cancel_listing', listing_id=listing.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{# === BROWSE LISTINGS === #}
+<div class="panel">
+    <div class="panel-header">Items for Sale</div>
+    <div class="panel-body">
+        {% set other_listings = listings|rejectattr('seller_id', 'equalto', player.id)|list %}
+        {% if other_listings %}
+        {% for listing in other_listings %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ listing.item_name }}</div>
+                <div class="item-type">Seller: {{ listing.seller_name }}</div>
+                {% if listing.item %}
+                <div class="item-stats">
+                    {% if listing.item.attack_bonus > 0 %}ATK +{{ listing.item.attack_bonus }} {% endif %}
+                    {% if listing.item.armor_bonus > 0 %}DEF +{{ listing.item.armor_bonus }} {% endif %}
+                    {% if listing.item.strength_bonus != 0 %}STR {{ '%+d'|format(listing.item.strength_bonus) }} {% endif %}
+                    {% if listing.item.hp_bonus != 0 %}HP {{ '%+d'|format(listing.item.hp_bonus) }} {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="item-actions">
+                <span class="item-price">{{ listing.price }}g</span>
+                <form method="POST" action="{{ url_for('market_buy_item', listing_id=listing.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-success"
+                            {% if player.gold < listing.price %}disabled{% endif %}>Buy</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-dim">No items for sale right now. Check back later!</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "admin/base_admin.html" %}
+{% block admin_content %}
+<div class="panel">
+    <div class="panel-header">{{ 'Create New Door Guard' if is_new is defined else 'Edit Door Guard: ' + guard.name }}</div>
+    <div class="panel-body">
+        <form method="POST" action="{{ url_for('admin_new_door_guard') if is_new is defined else url_for('admin_edit_door_guard', guard_id=guard.id) }}">
+            <fieldset class="admin-fieldset">
+                <legend>Identity</legend>
+                <div class="admin-field">
+                    <label for="name">Name</label>
+                    <input type="text" name="name" value="{{ guard.name }}" class="admin-input" required>
+                </div>
+                <div class="admin-field">
+                    <label for="description">Description</label>
+                    <input type="text" name="description" value="{{ guard.description }}" class="admin-input" placeholder="Brief description of this guard type">
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Stats</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label for="cost">Cost (gold)</label>
+                        <input type="number" name="cost" value="{{ guard.cost }}" min="1" class="admin-input admin-input-sm" required>
+                    </div>
+                    <div class="admin-field">
+                        <label for="hps">Hit Points</label>
+                        <input type="number" name="hps" value="{{ guard.hps }}" min="1" class="admin-input admin-input-sm" required>
+                    </div>
+                    <div class="admin-field">
+                        <label for="attack">Attack</label>
+                        <input type="number" name="attack" value="{{ guard.attack }}" min="0" class="admin-input admin-input-sm" required>
+                    </div>
+                    <div class="admin-field">
+                        <label for="armor">Armor</label>
+                        <input type="number" name="armor" value="{{ guard.armor }}" min="0" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Properties</legend>
+                <div class="admin-field">
+                    <label><input type="checkbox" name="allow_multiple" {% if guard.allow_multiple %}checked{% endif %}> Allow Multiple (players can hire more than one)</label>
+                </div>
+            </fieldset>
+
+            <div class="admin-form-actions">
+                <button type="submit" class="btn">{{ 'Create Guard' if is_new is defined else 'Save Changes' }}</button>
+                <a href="{{ url_for('admin_door_guards') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
