@@ -3979,7 +3979,11 @@ def admin_edit_team(team_id):
         team.name = request.form.get('name', team.name).strip()
         leader_id = request.form.get('leader_id')
         if leader_id:
-            team.leader_id = int(leader_id)
+            new_leader_id = int(leader_id)
+            if not TeamMember.query.filter_by(team_id=team.id, player_id=new_leader_id).first():
+                flash('Leader must be an existing member of this team.', 'error')
+                return redirect(url_for('admin_edit_team', team_id=team_id))
+            team.leader_id = new_leader_id
         team.wins = int(request.form.get('wins', team.wins))
         team.losses = int(request.form.get('losses', team.losses))
         team.treasury = int(request.form.get('treasury', team.treasury))
@@ -4017,6 +4021,11 @@ def admin_new_team():
 
         if Team.query.filter_by(name=name).first():
             flash('A team with that name already exists.', 'error')
+            players = Player.query.order_by(Player.name).all()
+            return render_template('admin/edit_team.html', team=None, players=players)
+
+        if TeamMember.query.filter_by(player_id=leader.id).first():
+            flash(f'{leader.name} is already on another team.', 'error')
             players = Player.query.order_by(Player.name).all()
             return render_template('admin/edit_team.html', team=None, players=players)
 

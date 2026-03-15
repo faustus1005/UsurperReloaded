@@ -15,9 +15,15 @@
                         <label>Leader</label>
                         <select name="leader_id" class="admin-input" required>
                             <option value="">-- Select Leader --</option>
-                            {% for p in players %}
-                            <option value="{{ p.id }}" {% if team and team.leader_id == p.id %}selected{% endif %}>{{ p.name }} (Lvl {{ p.level }})</option>
-                            {% endfor %}
+                            {% if team %}
+                                {% for member in team.members %}
+                                <option value="{{ member.player.id }}" {% if team.leader_id == member.player.id %}selected{% endif %}>{{ member.player.name }} (Lvl {{ member.player.level }})</option>
+                                {% endfor %}
+                            {% else %}
+                                {% for p in players %}
+                                <option value="{{ p.id }}">{{ p.name }} (Lvl {{ p.level }})</option>
+                                {% endfor %}
+                            {% endif %}
                         </select>
                     </div>
                 </div>
