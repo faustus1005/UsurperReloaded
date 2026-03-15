@@ -22,9 +22,13 @@ from models import (
     GameConfig, Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem,
     MoatCreature, RoyalGuard, DoorGuard, Drink, MarketListing,
+    InnChat, BarrelLiftRecord, EquipmentSwapOffer,
     RACES, CLASSES, RACE_BONUSES, CLASS_BONUSES,
     SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, EQUIPMENT_SLOT_LABELS,
-    ITEM_TYPES, DRINK_INGREDIENTS
+    ITEM_TYPES, DRINK_INGREDIENTS,
+    CLOSE_COMBAT_MOVES, COMBAT_SKILL_RANKS, HIT_INTENSITY,
+    GIGOLOS, POISON_LEVELS, DISEASES, FATAL_DRINK_COMBOS,
+    DRINK_STAT_EFFECTS, MONSTER_SPELLS
 )
 import game as game_logic
 from seed import seed_all
@@ -82,10 +86,39 @@ with app.app_context():
     # worker already added the column between the inspect and the ALTER.
     from sqlalchemy import text as _sa_text
     from sqlalchemy.exc import OperationalError as _SAOpError
-    for _col in ('equipped_finger1', 'equipped_finger2'):
+    # Add new columns for existing databases
+    _new_player_cols = [
+        ('equipped_finger1', 'INTEGER REFERENCES items(id)'),
+        ('equipped_finger2', 'INTEGER REFERENCES items(id)'),
+        ('equipped_weapon2', 'INTEGER REFERENCES items(id)'),
+        ('equipped_neck2', 'INTEGER REFERENCES items(id)'),
+        ('has_smallpox', 'BOOLEAN DEFAULT 0'),
+        ('has_measles', 'BOOLEAN DEFAULT 0'),
+        ('has_leprosy', 'BOOLEAN DEFAULT 0'),
+        ('is_haunted', 'INTEGER DEFAULT 0'),
+        ('dark_deeds_remaining', 'INTEGER DEFAULT 3'),
+        ('good_deeds_remaining', 'INTEGER DEFAULT 3'),
+        ('gym_sessions', 'INTEGER DEFAULT 4'),
+        ('massage_visits', 'INTEGER DEFAULT 3'),
+        ('barrel_lift_record', 'INTEGER DEFAULT 0'),
+        ('close_combat_skills', 'TEXT DEFAULT "{}"'),
+        ('poison_level', 'INTEGER DEFAULT 0'),
+    ]
+    for _col, _type in _new_player_cols:
         try:
             db.session.execute(_sa_text(
-                f'ALTER TABLE players ADD COLUMN {_col} INTEGER REFERENCES items(id)'
+                f'ALTER TABLE players ADD COLUMN {_col} {_type}'
+            ))
+            db.session.commit()
+        except _SAOpError:
+            db.session.rollback()
+    # Add new monster columns
+    for _col, _type in [('mana', 'INTEGER DEFAULT 0'), ('max_mana', 'INTEGER DEFAULT 0'),
+                         ('spells_known', 'VARCHAR(30) DEFAULT ""'),
+                         ('dungeon_area', 'VARCHAR(20) DEFAULT "dungeon"')]:
+        try:
+            db.session.execute(_sa_text(
+                f'ALTER TABLE monsters ADD COLUMN {_col} {_type}'
             ))
             db.session.commit()
         except _SAOpError:
@@ -1753,9 +1786,23 @@ def order_drink(drink_id):
     if not player:
         return redirect(url_for('create_character'))
     success, msg, log = game_logic.order_drink(player, drink_id)
-    if success and log:
-        session['drink_effect_log'] = log
-        return redirect(url_for('drink_effect_result'))
+    if success:
+        # Apply stat effects from the drink
+        drink = db.session.get(Drink, drink_id)
+        if drink:
+            effect_msg = game_logic.apply_drink_effects(player, drink)
+            if effect_msg:
+                log = log or []
+                log.append(effect_msg)
+            # Check for fatal drink combinations
+            is_fatal, fatal_msg = game_logic.check_fatal_combo(player, drink_id)
+            if is_fatal:
+                log = log or []
+                log.append(fatal_msg)
+        db.session.commit()
+        if log:
+            session['drink_effect_log'] = log
+            return redirect(url_for('drink_effect_result'))
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('orbs_bar'))
 
@@ -1779,6 +1826,9 @@ def send_drink():
     drink_id = int(request.form.get('drink_id', 0))
     receiver_id = int(request.form.get('receiver_id', 0))
     success, msg = game_logic.send_drink(player, receiver_id, drink_id)
+    if success:
+        game_logic.send_drink_mail(player, receiver_id, drink_id)
+        db.session.commit()
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('orbs_bar'))
 
@@ -4102,6 +4152,458 @@ def admin_delete_team(team_id):
         db.session.commit()
         flash(f'Team "{name}" deleted.', 'success')
     return redirect(url_for('admin_teams'))
+
+
+# ==================== BEER STEALING ====================
+
+@app.route('/beer_stealing', methods=['GET', 'POST'])
+@login_required
+def beer_stealing():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot steal beer while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    if request.method == 'POST':
+        success, msg, log = game_logic.beer_stealing(player)
+        db.session.commit()
+        if log:
+            session['beer_stealing_log'] = log
+        flash(msg, 'success' if success else 'error')
+        return redirect(url_for('beer_stealing'))
+    log = session.pop('beer_stealing_log', [])
+    return render_template('beer_stealing.html', player=player, log=log)
+
+
+# ==================== DORMITORY ====================
+
+@app.route('/dormitory')
+@login_required
+def dormitory():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot visit the dormitory while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    guests = Player.query.filter(
+        Player.id != player.id, Player.hp > 0
+    ).order_by(Player.level.desc()).all()
+    return render_template('dormitory.html', player=player, guests=guests)
+
+
+@app.route('/dormitory/fight', methods=['POST'])
+@login_required
+def dormitory_fight():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    target_id = int(request.form.get('target_id', 0))
+    success, msg, log = game_logic.dormitory_fistfight(player, target_id)
+    db.session.commit()
+    if log:
+        session['fistfight_log'] = log
+        return redirect(url_for('fistfight_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('dormitory'))
+
+
+@app.route('/dormitory/fight/result')
+@login_required
+def fistfight_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('fistfight_log', [])
+    return render_template('fistfight_result.html', player=player, combat_log=log)
+
+
+# ==================== GYM ====================
+
+@app.route('/gym', methods=['GET', 'POST'])
+@login_required
+def gym():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot visit the gym while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+        if action == 'barrel_lift':
+            success, msg = game_logic.gym_barrel_lift(player)
+            db.session.commit()
+            flash(msg, 'success' if success else 'error')
+        elif action == 'massage':
+            success, msg = game_logic.gym_massage(player)
+            db.session.commit()
+            flash(msg, 'success' if success else 'error')
+        return redirect(url_for('gym'))
+    records = BarrelLiftRecord.query.order_by(
+        BarrelLiftRecord.weight.desc()).limit(10).all()
+    return render_template('gym.html', player=player, records=records)
+
+
+# ==================== GROGGO'S MAD MAGE ====================
+
+@app.route('/groggo', methods=['GET', 'POST'])
+@login_required
+def groggo():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot visit Groggo while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+        if action == 'disease':
+            success, msg = game_logic.groggo_disease(player)
+        elif action == 'summon_demon':
+            success, msg = game_logic.groggo_summon_demon(player)
+        else:
+            success, msg = False, "Unknown action."
+        db.session.commit()
+        flash(msg, 'success' if success else 'error')
+        return redirect(url_for('groggo'))
+    return render_template('groggo.html', player=player, diseases=DISEASES)
+
+
+# ==================== GIGOLO HALL OF DREAMS ====================
+
+@app.route('/gigolo', methods=['GET', 'POST'])
+@login_required
+def gigolo():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot visit the Hall of Dreams while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    if request.method == 'POST':
+        gigolo_id = int(request.form.get('gigolo_id', 0))
+        success, msg = game_logic.visit_gigolo(player, gigolo_id)
+        db.session.commit()
+        flash(msg, 'success' if success else 'error')
+        return redirect(url_for('gigolo'))
+    return render_template('gigolo.html', player=player, gigolos=GIGOLOS)
+
+
+# ==================== GOOD DEEDS ====================
+
+@app.route('/good_deeds', methods=['GET', 'POST'])
+@login_required
+def good_deeds():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+        if action == 'poor':
+            amount = int(request.form.get('amount', 0))
+            success, msg = game_logic.good_deed_poor(player, amount)
+        elif action == 'church':
+            success, msg = game_logic.good_deed_church(player)
+        elif action == 'blessing':
+            success, msg = game_logic.good_deed_blessing(player)
+        else:
+            success, msg = False, "Unknown deed."
+        db.session.commit()
+        flash(msg, 'success' if success else 'error')
+        return redirect(url_for('good_deeds'))
+    return render_template('good_deeds.html', player=player)
+
+
+# ==================== DARK DEEDS ====================
+
+@app.route('/dark_deeds', methods=['GET', 'POST'])
+@login_required
+def dark_deeds():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot perform dark deeds while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    players = Player.query.filter(Player.id != player.id).order_by(Player.name).all()
+    children = Child.query.all()
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+        if action == 'kidnap':
+            child_id = int(request.form.get('child_id', 0))
+            success, msg = game_logic.kidnap_child(player, child_id)
+        elif action == 'poison':
+            child_id = int(request.form.get('child_id', 0))
+            success, msg = game_logic.poison_child(player, child_id)
+        elif action == 'murder':
+            target_id = int(request.form.get('target_id', 0))
+            success, msg = game_logic.murder_player(player, target_id)
+        elif action == 'loot':
+            success, msg = game_logic.loot_chest(player)
+        else:
+            success, msg = False, "Unknown action."
+        db.session.commit()
+        flash(msg, 'success' if success else 'error')
+        return redirect(url_for('dark_deeds'))
+    return render_template('dark_deeds.html', player=player,
+                           players=players, children=children)
+
+
+# ==================== DEATH MAZE ====================
+
+@app.route('/death_maze', methods=['GET', 'POST'])
+@login_required
+def death_maze():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot enter the Death Maze while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    if request.method == 'POST':
+        direction = request.form.get('direction', 'north')
+        success, msg, event = game_logic.haunting_check(player, 'death_maze', direction)
+        db.session.commit()
+        flash(msg, 'success' if success else 'warning')
+        return redirect(url_for('death_maze'))
+    return render_template('death_maze.html', player=player)
+
+
+# ==================== ICE CAVES ====================
+
+@app.route('/ice_caves', methods=['GET', 'POST'])
+@login_required
+def ice_caves():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot enter the Ice Caves while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    if request.method == 'POST':
+        direction = request.form.get('direction', 'north')
+        success, msg, event = game_logic.haunting_check(player, 'ice_caves', direction)
+        db.session.commit()
+        flash(msg, 'success' if success else 'warning')
+        return redirect(url_for('ice_caves'))
+    return render_template('ice_caves.html', player=player)
+
+
+# ==================== GODWORLD ====================
+
+@app.route('/godworld')
+@login_required
+def godworld():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if not getattr(player, 'is_immortal', False):
+        flash("Only immortal players may enter Godworld.", 'error')
+        return redirect(url_for('main_menu'))
+    gods = God.query.all()
+    return render_template('godworld.html', player=player, gods=gods)
+
+
+# ==================== INN CHAT ====================
+
+@app.route('/inn/chat', methods=['GET', 'POST'])
+@login_required
+def inn_chat():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if request.method == 'POST':
+        message = request.form.get('message', '').strip()
+        if message:
+            success, msg = game_logic.inn_chat_send(player, message)
+            db.session.commit()
+            if not success:
+                flash(msg, 'error')
+        return redirect(url_for('inn_chat'))
+    messages = game_logic.inn_chat_get()
+    return render_template('inn_chat.html', player=player, messages=messages)
+
+
+# ==================== COMBAT TRAINING ====================
+
+@app.route('/combat/train', methods=['GET', 'POST'])
+@login_required
+def combat_train():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if request.method == 'POST':
+        move = request.form.get('move', '')
+        success, msg = game_logic.train_combat_move(player, move)
+        db.session.commit()
+        flash(msg, 'success' if success else 'error')
+        return redirect(url_for('combat_train'))
+    return render_template('combat_training.html', player=player,
+                           moves=CLOSE_COMBAT_MOVES, ranks=COMBAT_SKILL_RANKS)
+
+
+# ==================== EQUIPMENT SWAP ====================
+
+@app.route('/equipment/swap', methods=['GET', 'POST'])
+@login_required
+def equipment_swap():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+        if action == 'offer':
+            item_id = int(request.form.get('item_id', 0))
+            target_id = int(request.form.get('target_id', 0))
+            wanted_id = int(request.form.get('wanted_id', 0))
+            success, msg = game_logic.equipment_swap_offer(
+                player, item_id, target_id, wanted_id)
+        elif action == 'respond':
+            offer_id = int(request.form.get('offer_id', 0))
+            accept = request.form.get('accept') == 'yes'
+            success, msg = game_logic.equipment_swap_respond(
+                player, offer_id, accept)
+        else:
+            success, msg = False, "Unknown action."
+        db.session.commit()
+        flash(msg, 'success' if success else 'error')
+        return redirect(url_for('equipment_swap'))
+    offers = EquipmentSwapOffer.query.filter(
+        (EquipmentSwapOffer.target_id == player.id) |
+        (EquipmentSwapOffer.offerer_id == player.id)
+    ).all()
+    inventory = InventoryItem.query.filter_by(player_id=player.id).all()
+    players = Player.query.filter(Player.id != player.id).order_by(Player.name).all()
+    return render_template('equipment_swap.html', player=player,
+                           offers=offers, inventory=inventory, players=players)
+
+
+# ==================== PRISON TORTURE ====================
+
+@app.route('/prison/torture')
+@login_required
+def prison_torture():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if not player.is_imprisoned:
+        flash("You are not in prison.", 'error')
+        return redirect(url_for('main_menu'))
+    return render_template('prison_torture.html', player=player)
+
+
+# ==================== ORPHANAGE ====================
+
+@app.route('/orphanage', methods=['GET', 'POST'])
+@login_required
+def orphanage():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if request.method == 'POST':
+        child_id = int(request.form.get('child_id', 0))
+        success, msg = game_logic.send_to_orphanage(player, child_id)
+        db.session.commit()
+        flash(msg, 'success' if success else 'error')
+        return redirect(url_for('orphanage'))
+    children = Child.query.filter_by(parent_id=None).all()
+    player_children = Child.query.filter_by(parent_id=player.id).all()
+    return render_template('orphanage.html', player=player,
+                           children=children, player_children=player_children)
+
+
+# ==================== SUPREME BEING ====================
+
+@app.route('/supreme_being', methods=['GET', 'POST'])
+@login_required
+def supreme_being():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if request.method == 'POST':
+        door = request.form.get('door', '')
+        success, msg = game_logic.supreme_being_encounter(player, door)
+        db.session.commit()
+        flash(msg, 'success' if success else 'error')
+        return redirect(url_for('supreme_being'))
+    return render_template('supreme_being.html', player=player)
+
+
+# ==================== SHOP HAGGLE ====================
+
+@app.route('/shop/haggle/<int:item_id>', methods=['POST'])
+@login_required
+def shop_haggle(item_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg = game_logic.haggle_price(player, item_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('weapon_shop'))
+
+
+# ==================== KING SPELLS ====================
+
+@app.route('/king/angel/<int:target_id>', methods=['POST'])
+@login_required
+def king_angel(target_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg = game_logic.royal_angel_spell(player, target_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('main_menu'))
+
+
+@app.route('/king/avenger/<int:target_id>', methods=['POST'])
+@login_required
+def king_avenger(target_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg = game_logic.royal_avenger_spell(player, target_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('main_menu'))
+
+
+# ==================== ALCHEMIST CRAFT ====================
+
+@app.route('/alchemist/craft', methods=['GET', 'POST'])
+@login_required
+def alchemist_craft():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.player_class != 'Alchemist':
+        flash("Only Alchemists can craft poisons.", 'error')
+        return redirect(url_for('main_menu'))
+    if request.method == 'POST':
+        poison_level = int(request.form.get('poison_level', 0))
+        success, msg = game_logic.craft_poison(player, poison_level)
+        db.session.commit()
+        flash(msg, 'success' if success else 'error')
+        return redirect(url_for('alchemist_craft'))
+    return render_template('alchemist_craft.html', player=player,
+                           poison_levels=POISON_LEVELS)
+
+
+# ==================== NPC RECRUITMENT ====================
+
+@app.route('/npc/recruit/<int:npc_id>', methods=['POST'])
+@login_required
+def npc_recruit(npc_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg = game_logic.recruit_npc(player, npc_id)
+    db.session.commit()
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('main_menu'))
 
 
 # ==================== INIT ====================

@@ -1,6 +1,7 @@
 """Seed the database with monsters, items, default configuration, and NPCs."""
 
-from models import db, Monster, Item, GameConfig, Player, God, MoatCreature, DoorGuard, Drink
+from models import (db, Monster, Item, GameConfig, Player, God, MoatCreature, DoorGuard, Drink,
+                    InnChat, BarrelLiftRecord, EquipmentSwapOffer)
 
 
 def seed_config():
@@ -69,6 +70,28 @@ def seed_config():
         'prison_escape_attempts': '2',
         # Bank
         'bank_robbery_attempts': '1',
+        # New locations
+        'groggo_name': "Groggo's Mad Mage Services",
+        'gigolo_name': 'Hall of Dreams',
+        'gym_name': 'The Gym',
+        'dormitory_name': 'The Dormitory',
+        'death_maze_name': 'The Death Maze',
+        'ice_caves_name': 'The Ice Caves',
+        'godworld_name': 'Godworld',
+        'orphanage_name': 'The Royal Orphanage',
+        'beer_hut_name': "Bob's Beer Hut",
+        # Daily limits
+        'dark_deeds_per_day': '3',
+        'good_deeds_per_day': '3',
+        'gym_sessions_per_day': '4',
+        'massage_visits_per_day': '3',
+        # Haggle
+        'haggle_enabled': 'true',
+        # Gigolo
+        'gigolo_enabled': 'true',
+        'gigolo_death_chance': '3',
+        # Groggo
+        'groggo_enabled': 'true',
     }
     for key, value in defaults.items():
         existing = GameConfig.query.filter_by(key=key).first()
@@ -353,6 +376,60 @@ def seed_monsters():
                 hp=6000, strength=280, defence=180, weapon_power=140, armor_power=100,
                 experience=15000, gold=12000, phrase='I CLAIMED THIS REALM BEFORE TIME BEGAN!', weapon_name='world-ender',
                 magic_level=10, magic_resistance=90, aggression=3),
+
+        # === DEATH MAZE MONSTERS ===
+        Monster(name='Maze Wraith', min_dungeon_level=5, max_dungeon_level=20,
+                hp=80, strength=20, defence=18, weapon_power=10, armor_power=12,
+                experience=60, gold=40, phrase='Lost... forever lost...', weapon_name='spectral claws',
+                magic_level=2, magic_resistance=15, aggression=2, dungeon_area='death_maze'),
+        Monster(name='Minotaur Guardian', min_dungeon_level=10, max_dungeon_level=30,
+                hp=200, strength=45, defence=30, weapon_power=22, armor_power=18,
+                experience=150, gold=100, phrase='THIS MAZE IS MINE!', weapon_name='labyrinth axe',
+                aggression=3, dungeon_area='death_maze'),
+        Monster(name='Living Wall', min_dungeon_level=15, max_dungeon_level=40,
+                hp=400, strength=35, defence=60, weapon_power=15, armor_power=45,
+                experience=200, gold=50, phrase='*stones shift and groan*', weapon_name='crushing walls',
+                magic_resistance=20, aggression=1, dungeon_area='death_maze'),
+        Monster(name='Phantom Navigator', min_dungeon_level=20, max_dungeon_level=50,
+                hp=150, strength=30, defence=35, weapon_power=20, armor_power=25,
+                experience=250, gold=200, phrase='Follow me... to your doom!', weapon_name='phantom blade',
+                magic_level=4, magic_resistance=30, aggression=2, dungeon_area='death_maze'),
+        Monster(name='Maze Lord', min_dungeon_level=40, max_dungeon_level=80,
+                hp=800, strength=100, defence=80, weapon_power=50, armor_power=45,
+                experience=1000, gold=800, phrase='No one escapes my labyrinth!', weapon_name='dimension-splitting sword',
+                magic_level=6, magic_resistance=40, aggression=3, dungeon_area='death_maze'),
+
+        # === ICE CAVES MONSTERS ===
+        Monster(name='Frost Spider', min_dungeon_level=3, max_dungeon_level=15,
+                hp=40, strength=12, defence=8, weapon_power=5, armor_power=6,
+                experience=25, gold=15, phrase='*icy hiss*', weapon_name='frozen fangs',
+                is_poisonous=True, aggression=2, dungeon_area='ice_caves'),
+        Monster(name='Ice Golem', min_dungeon_level=10, max_dungeon_level=30,
+                hp=300, strength=50, defence=45, weapon_power=20, armor_power=35,
+                experience=180, gold=80, phrase='*crackling ice*', weapon_name='frozen fists',
+                magic_resistance=25, aggression=1, dungeon_area='ice_caves'),
+        Monster(name='Frost Wyrm', min_dungeon_level=20, max_dungeon_level=50,
+                hp=500, strength=70, defence=45, weapon_power=35, armor_power=30,
+                experience=400, gold=300, phrase='The cold shall claim you!', weapon_name='ice breath',
+                magic_level=5, magic_resistance=35, aggression=3, dungeon_area='ice_caves'),
+        Monster(name='Yeti King', min_dungeon_level=15, max_dungeon_level=40,
+                hp=350, strength=60, defence=35, weapon_power=30, armor_power=20,
+                experience=300, gold=200, phrase='ROAAARR!', weapon_name='icy claws',
+                aggression=3, dungeon_area='ice_caves'),
+        Monster(name='Crystal Elemental', min_dungeon_level=30, max_dungeon_level=70,
+                hp=600, strength=80, defence=70, weapon_power=40, armor_power=50,
+                experience=700, gold=500, phrase='*crystalline chime*', weapon_name='prismatic shards',
+                magic_level=5, magic_resistance=50, aggression=2, dungeon_area='ice_caves'),
+        Monster(name='Ancient Ice Dragon', min_dungeon_level=50, max_dungeon_level=90,
+                hp=2000, strength=150, defence=100, weapon_power=75, armor_power=60,
+                experience=3000, gold=2500, phrase='WINTER ETERNAL!', weapon_name='absolute zero breath',
+                magic_level=8, magic_resistance=60, aggression=3, dungeon_area='ice_caves'),
+
+        # === SUPREME BEING (Endgame Boss) ===
+        Monster(name='The Supreme Being', min_dungeon_level=100, max_dungeon_level=100,
+                hp=10000, strength=350, defence=250, weapon_power=180, armor_power=150,
+                experience=50000, gold=25000, phrase='I AM THE BEGINNING AND THE END!', weapon_name='cosmic annihilation',
+                magic_level=10, magic_resistance=95, aggression=3, dungeon_area='endgame'),
     ]
 
     for m in monsters:

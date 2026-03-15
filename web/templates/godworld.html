@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Godworld{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Godworld</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">You have transcended mortality and entered the realm of the gods. Golden light bathes everything in eternal warmth. The gods themselves acknowledge your presence.</p>
+
+        {% if gods %}
+        <div class="panel-header" style="margin-top: 12px;">The Pantheon</div>
+        <div class="menu-grid">
+            {% for god in gods %}
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-gold">&#9733;</span>
+                <span class="label">{{ god.name }}</span>
+                <span class="sublabel">{{ god.domain if god.domain else 'Deity' }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-dim">The pantheon is empty. You are the first to ascend.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Return to the Mortal Realm</a>
+</div>
+{% endblock %}

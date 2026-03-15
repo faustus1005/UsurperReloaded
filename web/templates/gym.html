@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Gym{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Gym</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">A place to build your strength and recover from battle wounds. The smell of sweat hangs heavy in the air.</p>
+
+        <div class="menu-grid">
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-red">&#9955;</span>
+                <span class="label">Barrel Lift</span>
+                <span class="sublabel">Test your strength</span>
+                <form method="POST" action="{{ url_for('gym') }}" class="mt-1">
+                    <input type="hidden" name="action" value="barrel_lift">
+                    <button type="submit" class="btn btn-primary btn-sm btn-block">Lift Barrel</button>
+                </form>
+            </div>
+
+            <div class="menu-item" style="cursor: default;">
+                <span class="icon text-green">&#9829;</span>
+                <span class="label">Massage</span>
+                <span class="sublabel">Restore HP</span>
+                <form method="POST" action="{{ url_for('gym') }}" class="mt-1">
+                    <input type="hidden" name="action" value="massage">
+                    <button type="submit" class="btn btn-success btn-sm btn-block">Get Massage</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if records %}
+<div class="panel">
+    <div class="panel-header">Barrel Lift Records</div>
+    <div class="panel-body">
+        <table class="table">
+            <thead>
+                <tr><th>#</th><th>Player</th><th>Weight</th></tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ record.player.name if record.player else 'Unknown' }}</td>
+                    <td>{{ record.weight }} lbs</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

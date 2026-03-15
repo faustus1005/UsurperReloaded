@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Fist Fight{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Fist Fight Results</div>
+    <div class="panel-body">
+        {% if combat_log %}
+        <div class="combat-log">
+            {% for entry in combat_log %}
+            <div class="log-entry">{{ entry }}</div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-dim">Nothing happened.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('dormitory') }}" class="btn">Back to Dormitory</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

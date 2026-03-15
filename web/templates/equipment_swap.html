@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Equipment Swap{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Equipment Swap</div>
+    <div class="panel-body">
+        <p class="text-dim mb-2">Trade equipment with other adventurers. Make an offer or respond to incoming swap requests.</p>
+
+        <div class="panel-header" style="margin-top: 12px;">Make a Swap Offer</div>
+        {% if inventory %}
+        <form method="POST" action="{{ url_for('equipment_swap') }}" class="mb-2">
+            <input type="hidden" name="action" value="offer">
+            <div class="mb-1">
+                <label class="text-secondary">Your item:</label>
+                <select name="item_id" class="form-control" style="width: auto;">
+                    {% for inv in inventory %}
+                    <option value="{{ inv.item.id if inv.item else 0 }}">{{ inv.item.name if inv.item else 'Unknown' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-1">
+                <label class="text-secondary">Trade with:</label>
+                <select name="target_id" class="form-control" style="width: auto;">
+                    {% for p in players %}
+                    <option value="{{ p.id }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-1">
+                <label class="text-secondary">Wanted item ID:</label>
+                <input type="number" name="wanted_id" min="1" class="form-control" style="width: 80px;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Send Offer</button>
+        </form>
+        {% else %}
+        <p class="text-dim mb-2">You have no items to trade.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if offers %}
+<div class="panel">
+    <div class="panel-header">Swap Offers</div>
+    <div class="panel-body">
+        {% for offer in offers %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">
+                    {% if offer.offerer_id == player.id %}
+                    <span class="text-dim">You offered</span> &rarr; {{ offer.target.name if offer.target else 'Unknown' }}
+                    {% else %}
+                    {{ offer.offerer.name if offer.offerer else 'Unknown' }} <span class="text-dim">&rarr; You</span>
+                    {% endif %}
+                </div>
+                <div class="item-type">
+                    Offering: {{ offer.offered_item.name if offer.offered_item else 'Unknown' }}
+                    | Wants: {{ offer.wanted_item.name if offer.wanted_item else 'Unknown' }}
+                </div>
+            </div>
+            {% if offer.target_id == player.id %}
+            <div class="item-actions">
+                <form method="POST" action="{{ url_for('equipment_swap') }}" style="display: inline;">
+                    <input type="hidden" name="action" value="respond">
+                    <input type="hidden" name="offer_id" value="{{ offer.id }}">
+                    <input type="hidden" name="accept" value="yes">
+                    <button type="submit" class="btn btn-sm btn-success">Accept</button>
+                </form>
+                <form method="POST" action="{{ url_for('equipment_swap') }}" style="display: inline;">
+                    <input type="hidden" name="action" value="respond">
+                    <input type="hidden" name="offer_id" value="{{ offer.id }}">
+                    <input type="hidden" name="accept" value="no">
+                    <button type="submit" class="btn btn-sm btn-danger">Decline</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}
