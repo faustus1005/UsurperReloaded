@@ -77,6 +77,16 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
     seed_all()
+    # Load custom level XP table from admin config if set
+    try:
+        import json as _json
+        _custom_xp = GameConfig.get('level_xp_table')
+        if _custom_xp:
+            _data = _json.loads(_custom_xp)
+            for _k, _v in _data.items():
+                LEVEL_XP[int(_k)] = int(_v)
+    except Exception:
+        pass
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -2661,6 +2671,8 @@ def admin_dashboard():
         'total_news': NewsEntry.query.count(),
         'total_bounties': Bounty.query.filter_by(claimed=False).count(),
         'total_gods': God.query.count(),
+        'total_door_guards': DoorGuard.query.count(),
+        'total_moat_creatures': MoatCreature.query.count(),
     }
     king = Player.query.filter_by(is_king=True).first()
     return render_template('admin/dashboard.html', stats=stats, king=king)
@@ -3239,13 +3251,199 @@ def admin_run_maintenance():
     return redirect(url_for('admin_dashboard'))
 
 
+# ==================== ADMIN: DOOR GUARDS ====================
+
+@app.route('/admin/door-guards')
+@admin_required
+def admin_door_guards():
+    """List all door guard types for editing."""
+    guards = DoorGuard.query.order_by(DoorGuard.cost).all()
+    return render_template('admin/door_guards.html', guards=guards)
+
+
+@app.route('/admin/door-guards/<int:guard_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_door_guard(guard_id):
+    """Edit a door guard type."""
+    guard = db.session.get(DoorGuard, guard_id)
+    if not guard:
+        flash('Door guard not found.', 'error')
+        return redirect(url_for('admin_door_guards'))
+
+    if request.method == 'POST':
+        guard.name = request.form.get('name', guard.name).strip()
+        guard.cost = int(request.form.get('cost', guard.cost))
+        guard.hps = int(request.form.get('hps', guard.hps))
+        guard.attack = int(request.form.get('attack', guard.attack))
+        guard.armor = int(request.form.get('armor', guard.armor))
+        guard.allow_multiple = request.form.get('allow_multiple') == 'on'
+        guard.description = request.form.get('description', guard.description).strip()
+        db.session.commit()
+        flash(f'Door guard "{guard.name}" updated.', 'success')
+        return redirect(url_for('admin_door_guards'))
+
+    return render_template('admin/edit_door_guard.html', guard=guard)
+
+
+@app.route('/admin/door-guards/new', methods=['GET', 'POST'])
+@admin_required
+def admin_new_door_guard():
+    """Create a new door guard type."""
+    if request.method == 'POST':
+        guard = DoorGuard(
+            name=request.form.get('name', 'New Guard').strip(),
+            cost=int(request.form.get('cost', 100)),
+            hps=int(request.form.get('hps', 50)),
+            attack=int(request.form.get('attack', 10)),
+            armor=int(request.form.get('armor', 0)),
+            allow_multiple=request.form.get('allow_multiple') == 'on',
+            description=request.form.get('description', '').strip(),
+        )
+        db.session.add(guard)
+        db.session.commit()
+        flash(f'Door guard "{guard.name}" created.', 'success')
+        return redirect(url_for('admin_door_guards'))
+
+    guard = DoorGuard(name='', cost=100, hps=50, attack=10, armor=0, allow_multiple=False, description='')
+    return render_template('admin/edit_door_guard.html', guard=guard, is_new=True)
+
+
+@app.route('/admin/door-guards/<int:guard_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_door_guard(guard_id):
+    """Delete a door guard type."""
+    guard = db.session.get(DoorGuard, guard_id)
+    if guard:
+        # Clear references from players using this guard type
+        Player.query.filter_by(door_guard_id=guard_id).update(
+            {'door_guard_id': None, 'door_guard_count': 0})
+        db.session.delete(guard)
+        db.session.commit()
+        flash(f'Door guard "{guard.name}" deleted.', 'success')
+    return redirect(url_for('admin_door_guards'))
+
+
+# ==================== ADMIN: MOAT CREATURES ====================
+
+@app.route('/admin/moat-creatures')
+@admin_required
+def admin_moat_creatures():
+    """List all moat creature types for editing."""
+    creatures = MoatCreature.query.order_by(MoatCreature.cost).all()
+    return render_template('admin/moat_creatures.html', creatures=creatures)
+
+
+@app.route('/admin/moat-creatures/<int:creature_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_moat_creature(creature_id):
+    """Edit a moat creature type."""
+    creature = db.session.get(MoatCreature, creature_id)
+    if not creature:
+        flash('Moat creature not found.', 'error')
+        return redirect(url_for('admin_moat_creatures'))
+
+    if request.method == 'POST':
+        creature.name = request.form.get('name', creature.name).strip()
+        creature.cost = int(request.form.get('cost', creature.cost))
+        creature.hps = int(request.form.get('hps', creature.hps))
+        creature.attack = int(request.form.get('attack', creature.attack))
+        creature.armor = int(request.form.get('armor', creature.armor))
+        creature.description = request.form.get('description', creature.description).strip()
+        db.session.commit()
+        flash(f'Moat creature "{creature.name}" updated.', 'success')
+        return redirect(url_for('admin_moat_creatures'))
+
+    return render_template('admin/edit_moat_creature.html', creature=creature)
+
+
+@app.route('/admin/moat-creatures/new', methods=['GET', 'POST'])
+@admin_required
+def admin_new_moat_creature():
+    """Create a new moat creature type."""
+    if request.method == 'POST':
+        creature = MoatCreature(
+            name=request.form.get('name', 'New Creature').strip(),
+            cost=int(request.form.get('cost', 1000)),
+            hps=int(request.form.get('hps', 50)),
+            attack=int(request.form.get('attack', 15)),
+            armor=int(request.form.get('armor', 10)),
+            description=request.form.get('description', '').strip(),
+        )
+        db.session.add(creature)
+        db.session.commit()
+        flash(f'Moat creature "{creature.name}" created.', 'success')
+        return redirect(url_for('admin_moat_creatures'))
+
+    creature = MoatCreature(name='', cost=1000, hps=50, attack=15, armor=10, description='')
+    return render_template('admin/edit_moat_creature.html', creature=creature, is_new=True)
+
+
+@app.route('/admin/moat-creatures/<int:creature_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_moat_creature(creature_id):
+    """Delete a moat creature type."""
+    creature = db.session.get(MoatCreature, creature_id)
+    if creature:
+        # Clear references from king records using this creature type
+        KingRecord.query.filter_by(moat_creature_id=creature_id).update(
+            {'moat_creature_id': None, 'moat_guards': 0})
+        db.session.delete(creature)
+        db.session.commit()
+        flash(f'Moat creature "{creature.name}" deleted.', 'success')
+    return redirect(url_for('admin_moat_creatures'))
+
+
+# ==================== ADMIN: LEVELS ====================
+
+@app.route('/admin/levels', methods=['GET', 'POST'])
+@admin_required
+def admin_levels():
+    """Edit level XP requirements."""
+    from models import LEVEL_XP
+
+    if request.method == 'POST':
+        changes = 0
+        for lvl in range(1, 101):
+            form_val = request.form.get(f'level_{lvl}')
+            if form_val is not None:
+                new_xp = int(form_val)
+                if LEVEL_XP.get(lvl) != new_xp:
+                    LEVEL_XP[lvl] = new_xp
+                    changes += 1
+        if changes:
+            # Persist to game config for survival across restarts
+            import json
+            GameConfig.set('level_xp_table', json.dumps(LEVEL_XP))
+            flash(f'Level XP table updated ({changes} level(s) changed).', 'success')
+        else:
+            flash('No changes detected.', 'info')
+        return redirect(url_for('admin_levels'))
+
+    return render_template('admin/levels.html', levels=LEVEL_XP, level_count=100)
+
+
 # ==================== INIT ====================
+
+def load_custom_level_xp():
+    """Load custom level XP table from config if it exists."""
+    try:
+        import json
+        from models import LEVEL_XP
+        custom = GameConfig.get('level_xp_table')
+        if custom:
+            data = json.loads(custom)
+            for k, v in data.items():
+                LEVEL_XP[int(k)] = int(v)
+    except Exception:
+        pass
+
 
 def init_db():
     """Initialize the database and seed data."""
     with app.app_context():
         db.create_all()
         seed_all()
+        load_custom_level_xp()
 
 
 def start_npc_scheduler():
