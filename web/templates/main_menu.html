@@ -80,6 +80,11 @@
                 <span class="label">Bank</span>
                 <span class="sublabel">{{ player.bank_gold }}g saved</span>
             </a>
+            <a href="{{ url_for('player_market') }}" class="menu-item">
+                <span class="icon text-gold">&#9873;</span>
+                <span class="label">Player Market</span>
+                <span class="sublabel">Buy & sell items</span>
+            </a>
         </div>
 
         {# === SOCIAL === #}
@@ -114,6 +119,21 @@
                 <span class="icon text-blue">&#9734;</span>
                 <span class="label">Teams</span>
                 <span class="sublabel">{% if player.team_name %}{{ player.team_name }}{% else %}Join a team{% endif %}</span>
+            </a>
+            <a href="{{ url_for('bard_stage') }}" class="menu-item">
+                <span class="icon text-purple">&#9835;</span>
+                <span class="label">Bard Stage</span>
+                <span class="sublabel">{{ player.performances_remaining }} songs left</span>
+            </a>
+            <a href="{{ url_for('wrestling_arena') }}" class="menu-item">
+                <span class="icon text-red">&#9889;</span>
+                <span class="label">Wrestling</span>
+                <span class="sublabel">{{ player.wrestling_wins }}W / {{ player.wrestling_losses }}L</span>
+            </a>
+            <a href="{{ url_for('uman_cave') }}" class="menu-item">
+                <span class="icon text-green">&#128059;</span>
+                <span class="label">Uman Cave</span>
+                <span class="sublabel">{% if player.has_tamed_bear %}{{ player.bear_name }}{% else %}Bear taming{% endif %}</span>
             </a>
         </div>
 

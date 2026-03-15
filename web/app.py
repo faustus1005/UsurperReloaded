@@ -21,7 +21,7 @@ from models import (
     db, User, Player, Item, InventoryItem, Monster, Mail, NewsEntry,
     GameConfig, Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem,
-    MoatCreature, RoyalGuard, DoorGuard, Drink,
+    MoatCreature, RoyalGuard, DoorGuard, Drink, MarketListing,
     RACES, CLASSES, RACE_BONUSES, CLASS_BONUSES,
     SPELLCASTER_CLASSES, SPELLS, LEVEL_XP, EQUIPMENT_SLOTS, ITEM_TYPES,
     DRINK_INGREDIENTS
@@ -2710,6 +2710,199 @@ def buy_steroid(index):
     else:
         flash(msg, 'error' if not success else 'info')
     return redirect(url_for('steroid_shop'))
+
+
+# ==================== PLAYER MARKET ====================
+
+@app.route('/market')
+@login_required
+def player_market():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot visit the market while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+
+    listings = MarketListing.query.order_by(MarketListing.listed_at.desc()).all()
+    my_listings = MarketListing.query.filter_by(seller_id=player.id).all()
+    inventory = InventoryItem.query.filter_by(player_id=player.id).all()
+    # Enrich inventory with item data
+    inv_items = []
+    for inv in inventory:
+        item = db.session.get(Item, inv.item_id)
+        if item:
+            inv_items.append({'inv_id': inv.id, 'item': item})
+    return render_template('player_market.html', listings=listings,
+                           my_listings=my_listings, inv_items=inv_items,
+                           max_listings=game_logic.MAX_LISTINGS_PER_PLAYER,
+                           tax_percent=game_logic.MARKET_TAX_PERCENT)
+
+
+@app.route('/market/list', methods=['POST'])
+@login_required
+def market_list_item():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    inv_id = int(request.form.get('inv_id', 0))
+    price = int(request.form.get('price', 0))
+    success, msg = game_logic.list_item_on_market(player, inv_id, price)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('player_market'))
+
+
+@app.route('/market/buy/<int:listing_id>', methods=['POST'])
+@login_required
+def market_buy_item(listing_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg = game_logic.buy_market_item(player, listing_id)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('player_market'))
+
+
+@app.route('/market/cancel/<int:listing_id>', methods=['POST'])
+@login_required
+def market_cancel_listing(listing_id):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg = game_logic.cancel_market_listing(player, listing_id)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('player_market'))
+
+
+# ==================== BARD SONGS ====================
+
+@app.route('/bard')
+@login_required
+def bard_stage():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot perform while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    return render_template('bard_stage.html', songs=game_logic.BARD_SONGS,
+                           is_bard=player.player_class == 'Bard')
+
+
+@app.route('/bard/perform/<int:index>', methods=['POST'])
+@login_required
+def bard_perform(index):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.perform_bard_song(player, index)
+    db.session.commit()
+    if log:
+        session['bard_log'] = log
+        return redirect(url_for('bard_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('bard_stage'))
+
+
+@app.route('/bard/result')
+@login_required
+def bard_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('bard_log', [])
+    return render_template('bard_result.html', log=log)
+
+
+# ==================== WRESTLING MATCHES ====================
+
+@app.route('/wrestling')
+@login_required
+def wrestling_arena():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot wrestle while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    return render_template('wrestling.html',
+                           opponents=game_logic.WRESTLING_OPPONENTS,
+                           entry_base=game_logic.WRESTLING_ENTRY_FEE)
+
+
+@app.route('/wrestling/fight/<int:index>', methods=['POST'])
+@login_required
+def wrestling_fight(index):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.wrestle(player, index)
+    db.session.commit()
+    if log:
+        session['wrestling_log'] = log
+        return redirect(url_for('wrestling_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('wrestling_arena'))
+
+
+@app.route('/wrestling/result')
+@login_required
+def wrestling_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('wrestling_log', [])
+    return render_template('wrestling_result.html', log=log)
+
+
+# ==================== BEAR TAMING (UMAN CAVE) ====================
+
+@app.route('/cave')
+@login_required
+def uman_cave():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    if player.is_imprisoned:
+        flash("You cannot visit the cave while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+    return render_template('uman_cave.html', bears=game_logic.BEAR_TYPES)
+
+
+@app.route('/cave/tame/<int:index>', methods=['POST'])
+@login_required
+def tame_bear(index):
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg, log = game_logic.attempt_bear_taming(player, index)
+    db.session.commit()
+    if log:
+        session['cave_log'] = log
+        return redirect(url_for('cave_result'))
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('uman_cave'))
+
+
+@app.route('/cave/result')
+@login_required
+def cave_result():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    log = session.pop('cave_log', [])
+    return render_template('cave_result.html', log=log)
+
+
+@app.route('/cave/release', methods=['POST'])
+@login_required
+def release_bear():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+    success, msg = game_logic.release_bear(player)
+    flash(msg, 'success' if success else 'error')
+    return redirect(url_for('uman_cave'))
 
 
 # ==================== DUNGEON EVENTS ====================

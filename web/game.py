@@ -6,7 +6,7 @@ from models import (
     db, Player, Monster, Item, InventoryItem, NewsEntry, Mail,
     Team, TeamMember, KingRecord, Bounty, Relationship,
     Child, RoyalQuest, God, TeamRecord, HomeChestItem, GameConfig,
-    MoatCreature, RoyalGuard, DoorGuard, Drink,
+    MoatCreature, RoyalGuard, DoorGuard, Drink, MarketListing,
     RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES,
     DRINK_INGREDIENTS
 )
@@ -84,6 +84,8 @@ def create_character(player, name, race, player_class, sex):
     player.brawls_remaining = 2
     player.intimacy_acts = 5
     player.beauty_nest_visits = int(GameConfig.get('beauty_nest_visits_per_day', '3') or '3')
+    player.wrestling_matches = 2
+    player.performances_remaining = 3
     player.dungeon_level = 1
 
     # Starting spells for spellcasters
@@ -601,6 +603,8 @@ def daily_maintenance(player):
     player.beauty_nest_visits = int(GameConfig.get('beauty_nest_visits_per_day', '3') or '3')
     player.drinks_remaining = int(GameConfig.get('drinks_per_day', '3') or '3')
     player.escape_attempts = 0
+    player.wrestling_matches = 2
+    player.performances_remaining = 3
     player.hp = player.max_hp
     player.mana = player.max_mana
     player.last_maintenance = now
@@ -5912,3 +5916,465 @@ def escape_prison(player):
         log.append(f"FAILED! The guards add another day to your sentence. ({player.prison_days} days left)")
         db.session.commit()
         return True, "Escape failed!", log
+
+
+def add_news(message, player_id=None, category='social'):
+    """Helper to add a news entry."""
+    entry = NewsEntry(player_id=player_id, category=category, message=message)
+    db.session.add(entry)
+
+
+# ==================== PLAYER MARKET ====================
+
+MAX_LISTINGS_PER_PLAYER = 5
+MARKET_TAX_PERCENT = 10  # Ugly Joe takes a 10% cut
+
+
+def list_item_on_market(player, inventory_item_id, price):
+    """List an inventory item for sale on the player market. Returns (success, msg)."""
+    if player.is_imprisoned:
+        return False, "You cannot trade while imprisoned."
+
+    active = MarketListing.query.filter_by(seller_id=player.id).count()
+    if active >= MAX_LISTINGS_PER_PLAYER:
+        return False, f"You can only have {MAX_LISTINGS_PER_PLAYER} active listings."
+
+    inv_item = InventoryItem.query.filter_by(id=inventory_item_id, player_id=player.id).first()
+    if not inv_item:
+        return False, "You don't have that item."
+
+    item = db.session.get(Item, inv_item.item_id)
+    if not item:
+        return False, "Item not found."
+
+    if price < 1:
+        return False, "Price must be at least 1 gold."
+    if price > 10000000:
+        return False, "Price cannot exceed 10,000,000 gold."
+
+    # Remove from player inventory
+    db.session.delete(inv_item)
+
+    listing = MarketListing(
+        seller_id=player.id,
+        seller_name=player.name,
+        item_id=item.id,
+        item_name=item.name,
+        price=price,
+    )
+    db.session.add(listing)
+    add_news(f"{player.name} listed '{item.name}' for sale at the Player Market for {price}g.")
+    db.session.commit()
+    return True, f"Listed '{item.name}' for {price} gold."
+
+
+def buy_market_item(buyer, listing_id):
+    """Buy an item from the player market. Returns (success, msg)."""
+    if buyer.is_imprisoned:
+        return False, "You cannot trade while imprisoned."
+
+    listing = db.session.get(MarketListing, listing_id)
+    if not listing:
+        return False, "That listing no longer exists."
+
+    if listing.seller_id == buyer.id:
+        return False, "You can't buy your own listing."
+
+    if buyer.gold < listing.price:
+        return False, f"You need {listing.price} gold to buy '{listing.item_name}'."
+
+    # Transfer gold (minus tax)
+    tax = max(1, listing.price * MARKET_TAX_PERCENT // 100)
+    seller_gets = listing.price - tax
+
+    buyer.gold -= listing.price
+    seller = db.session.get(Player, listing.seller_id)
+    if seller:
+        seller.gold += seller_gets
+        # Notify seller
+        mail = Mail(
+            sender_id=buyer.id,
+            receiver_id=seller.id,
+            subject="Item sold!",
+            message=f"Your '{listing.item_name}' was bought by {buyer.name} for {listing.price}g. "
+                    f"After Ugly Joe's {MARKET_TAX_PERCENT}% cut, you received {seller_gets}g."
+        )
+        db.session.add(mail)
+
+    # Give item to buyer
+    inv = InventoryItem(player_id=buyer.id, item_id=listing.item_id)
+    db.session.add(inv)
+
+    item_name = listing.item_name
+    db.session.delete(listing)
+    add_news(f"{buyer.name} bought '{item_name}' from the Player Market.")
+    db.session.commit()
+    return True, f"You bought '{item_name}' for {listing.price} gold!"
+
+
+def cancel_market_listing(player, listing_id):
+    """Cancel your own listing and return the item. Returns (success, msg)."""
+    listing = db.session.get(MarketListing, listing_id)
+    if not listing:
+        return False, "Listing not found."
+    if listing.seller_id != player.id:
+        return False, "That's not your listing."
+
+    # Return item to player
+    inv = InventoryItem(player_id=player.id, item_id=listing.item_id)
+    db.session.add(inv)
+    item_name = listing.item_name
+    db.session.delete(listing)
+    db.session.commit()
+    return True, f"Listing cancelled. '{item_name}' returned to your inventory."
+
+
+# ==================== BARD SONGS ====================
+
+BARD_SONGS = [
+    {'name': 'Ballad of the Brave', 'type': 'courage',
+     'desc': 'An inspiring tale of heroism that bolsters the spirit.',
+     'stat': 'strength', 'bonus_min': 1, 'bonus_max': 3, 'xp_min': 50, 'xp_max': 150,
+     'cost': 0, 'min_level': 1},
+    {'name': 'Lullaby of Healing', 'type': 'healing',
+     'desc': 'A soothing melody that mends wounds.',
+     'stat': 'hp', 'bonus_min': 10, 'bonus_max': 30, 'xp_min': 30, 'xp_max': 100,
+     'cost': 50, 'min_level': 1},
+    {'name': 'March of the Ironclad', 'type': 'defense',
+     'desc': 'A rhythmic war march that hardens resolve.',
+     'stat': 'defence', 'bonus_min': 1, 'bonus_max': 3, 'xp_min': 50, 'xp_max': 150,
+     'cost': 100, 'min_level': 3},
+    {'name': 'Trickster\'s Jig', 'type': 'agility',
+     'desc': 'A lively dance tune that quickens reflexes.',
+     'stat': 'agility', 'bonus_min': 1, 'bonus_max': 3, 'xp_min': 50, 'xp_max': 150,
+     'cost': 100, 'min_level': 3},
+    {'name': 'Hymn of Wisdom', 'type': 'wisdom',
+     'desc': 'An ancient chant that opens the third eye.',
+     'stat': 'wisdom', 'bonus_min': 1, 'bonus_max': 4, 'xp_min': 80, 'xp_max': 200,
+     'cost': 200, 'min_level': 5},
+    {'name': 'Serenade of Charm', 'type': 'charisma',
+     'desc': 'A beautiful love song that enchants all who hear.',
+     'stat': 'charisma', 'bonus_min': 2, 'bonus_max': 5, 'xp_min': 80, 'xp_max': 200,
+     'cost': 200, 'min_level': 5},
+    {'name': 'Dirge of Darkness', 'type': 'dark',
+     'desc': 'A haunting funeral dirge that drains the life from foes.',
+     'stat': 'strength', 'bonus_min': 3, 'bonus_max': 7, 'xp_min': 150, 'xp_max': 400,
+     'cost': 500, 'min_level': 8},
+    {'name': 'Epic of the Ancients', 'type': 'epic',
+     'desc': 'A legendary tale passed down through millennia. Grants all-round power.',
+     'stat': 'all', 'bonus_min': 1, 'bonus_max': 2, 'xp_min': 200, 'xp_max': 500,
+     'cost': 1000, 'min_level': 12},
+]
+
+
+def perform_bard_song(player, song_index):
+    """Perform a bard song. Bard class gets bonuses. Returns (success, msg, log)."""
+    if song_index < 0 or song_index >= len(BARD_SONGS):
+        return False, "Invalid song.", []
+
+    song = BARD_SONGS[song_index]
+
+    if player.level < song['min_level']:
+        return False, f"You must be level {song['min_level']} to perform '{song['name']}'.", []
+
+    if player.performances_remaining <= 0:
+        return False, "You have no performances remaining today.", []
+
+    if player.gold < song['cost']:
+        return False, f"You need {song['cost']} gold for the audience fee.", []
+
+    player.performances_remaining -= 1
+    player.gold -= song['cost']
+    log = []
+
+    is_bard = player.player_class == 'Bard'
+    # Bards get double stat bonuses and 50% more XP
+    multiplier = 2 if is_bard else 1
+    xp_mult = 1.5 if is_bard else 1.0
+
+    log.append(f"You perform '{song['name']}'...")
+    log.append(f'"{song["desc"]}"')
+
+    # Performance quality check
+    quality_roll = random.randint(1, 100) + (player.charisma // 2)
+    if is_bard:
+        quality_roll += 25  # Bards are natural performers
+
+    if quality_roll < 30:
+        log.append("The crowd boos and throws rotten vegetables!")
+        player.charisma = max(1, player.charisma - 1)
+        return True, "Terrible performance!", log
+
+    if quality_roll > 90:
+        log.append("MASTERFUL PERFORMANCE! The crowd goes wild!")
+        multiplier += 1
+    elif quality_roll > 60:
+        log.append("The audience is captivated by your performance!")
+    else:
+        log.append("A decent performance. The crowd politely applauds.")
+
+    # Apply stat bonuses
+    bonus = random.randint(song['bonus_min'], song['bonus_max']) * multiplier
+    if song['stat'] == 'all':
+        for stat in ['strength', 'defence', 'stamina', 'agility', 'charisma', 'dexterity', 'wisdom']:
+            current = getattr(player, stat)
+            setattr(player, stat, current + bonus)
+        log.append(f"All stats increased by {bonus}!")
+    elif song['stat'] == 'hp':
+        healed = min(bonus * multiplier, player.max_hp - player.hp)
+        player.hp += healed
+        log.append(f"You recovered {healed} HP!")
+    else:
+        current = getattr(player, song['stat'])
+        setattr(player, song['stat'], current + bonus)
+        log.append(f"{song['stat'].capitalize()} increased by {bonus}!")
+
+    # XP gain
+    xp = int(random.randint(song['xp_min'], song['xp_max']) * xp_mult * player.level)
+    player.experience += xp
+    log.append(f"Gained {xp} experience!")
+
+    # Charisma bonus for good performance
+    if quality_roll > 70:
+        gold_tip = random.randint(10, 50) * player.level
+        player.gold += gold_tip
+        log.append(f"The crowd tips you {gold_tip} gold!")
+
+    # Dark songs increase darkness
+    if song['type'] == 'dark':
+        player.darkness += random.randint(5, 15)
+        log.append("The dark melody resonates with evil forces...")
+    else:
+        player.chivalry += random.randint(1, 3)
+
+    add_news(f"{player.name} performed '{song['name']}' "
+             f"{'brilliantly' if quality_roll > 80 else 'at the town square'}.")
+    db.session.commit()
+    return True, f"Performance complete!", log
+
+
+# ==================== WRESTLING MATCHES ====================
+
+WRESTLING_OPPONENTS = [
+    {'name': 'Scrawny Steve', 'str': 8, 'sta': 6, 'agi': 10, 'level': 1,
+     'prize_mult': 1, 'desc': 'A skinny fellow who looks like he\'d blow over in a breeze.'},
+    {'name': 'Bruiser Bill', 'str': 15, 'sta': 12, 'agi': 8, 'level': 3,
+     'prize_mult': 2, 'desc': 'A burly dockworker with arms like tree trunks.'},
+    {'name': 'Iron Ilsa', 'str': 22, 'sta': 18, 'agi': 14, 'level': 5,
+     'prize_mult': 3, 'desc': 'A massive woman who once wrestled a troll.'},
+    {'name': 'The Masked Goblin', 'str': 18, 'sta': 15, 'agi': 25, 'level': 7,
+     'prize_mult': 4, 'desc': 'Lightning fast and impossibly slippery.'},
+    {'name': 'Grok the Crusher', 'str': 35, 'sta': 28, 'agi': 10, 'level': 10,
+     'prize_mult': 5, 'desc': 'A half-orc champion who has never been pinned.'},
+    {'name': 'Mountain Magnus', 'str': 50, 'sta': 40, 'agi': 15, 'level': 15,
+     'prize_mult': 7, 'desc': 'Standing 7 feet tall, this giant towers over all.'},
+    {'name': 'The Dragon', 'str': 70, 'sta': 55, 'agi': 30, 'level': 20,
+     'prize_mult': 10, 'desc': 'The legendary undefeated champion of the ring.'},
+]
+
+WRESTLING_ENTRY_FEE = 50
+
+
+def wrestle(player, opponent_index):
+    """Wrestling match against an NPC opponent. Returns (success, msg, log)."""
+    if opponent_index < 0 or opponent_index >= len(WRESTLING_OPPONENTS):
+        return False, "Invalid opponent.", []
+
+    if player.wrestling_matches <= 0:
+        return False, "You've had enough wrestling for today.", []
+
+    opp = WRESTLING_OPPONENTS[opponent_index]
+    entry_fee = WRESTLING_ENTRY_FEE * opp['prize_mult']
+
+    if player.gold < entry_fee:
+        return False, f"Entry fee is {entry_fee} gold.", []
+
+    if player.hp < player.max_hp // 4:
+        return False, "You're too wounded to wrestle.", []
+
+    player.gold -= entry_fee
+    player.wrestling_matches -= 1
+    log = []
+
+    log.append(f"=== WRESTLING MATCH ===")
+    log.append(f"You step into the ring against {opp['name']}!")
+    log.append(f'"{opp["desc"]}"')
+    log.append(f"Entry fee: {entry_fee} gold")
+
+    # Wrestling is a 3-round contest of strength, stamina, and agility
+    player_score = 0
+    opp_score = 0
+
+    # Round 1: Grapple (strength based)
+    log.append("")
+    log.append("Round 1 - The Grapple:")
+    p_roll = player.strength + random.randint(0, player.strength // 2)
+    o_roll = opp['str'] + random.randint(0, opp['str'] // 2)
+    if p_roll > o_roll:
+        player_score += 1
+        log.append(f"You overpower {opp['name']} with a crushing grip! (1-0)")
+    elif o_roll > p_roll:
+        opp_score += 1
+        log.append(f"{opp['name']} forces you down! (0-1)")
+    else:
+        log.append("Neither can gain the advantage! (0-0)")
+
+    # Round 2: Endurance (stamina based)
+    log.append("")
+    log.append("Round 2 - The Grind:")
+    p_roll = player.stamina + random.randint(0, player.stamina // 2)
+    o_roll = opp['sta'] + random.randint(0, opp['sta'] // 2)
+    if p_roll > o_roll:
+        player_score += 1
+        log.append(f"You outlast {opp['name']}, wearing them down! ({player_score}-{opp_score})")
+    elif o_roll > p_roll:
+        opp_score += 1
+        log.append(f"{opp['name']} wears you out! ({player_score}-{opp_score})")
+    else:
+        log.append(f"Both fighters are evenly matched! ({player_score}-{opp_score})")
+
+    # Round 3: Finishing Move (agility based)
+    log.append("")
+    log.append("Round 3 - The Finish:")
+    p_roll = player.agility + random.randint(0, player.agility // 2)
+    o_roll = opp['agi'] + random.randint(0, opp['agi'] // 2)
+    if p_roll > o_roll:
+        player_score += 1
+        log.append(f"You execute a perfect takedown! ({player_score}-{opp_score})")
+    elif o_roll > p_roll:
+        opp_score += 1
+        log.append(f"{opp['name']} reverses your hold and pins you! ({player_score}-{opp_score})")
+    else:
+        log.append(f"Both scramble but neither lands the finishing move! ({player_score}-{opp_score})")
+
+    log.append("")
+
+    if player_score > opp_score:
+        # Victory!
+        prize = entry_fee * 3
+        xp = random.randint(50, 150) * opp['prize_mult'] * player.level
+        player.gold += prize
+        player.experience += xp
+        player.wrestling_wins += 1
+        player.strength += random.randint(0, 1)
+        player.stamina += random.randint(0, 1)
+        log.append(f"VICTORY! You defeated {opp['name']}!")
+        log.append(f"Prize: {prize} gold, {xp} XP")
+        add_news(f"{player.name} defeated {opp['name']} in a wrestling match!")
+    elif opp_score > player_score:
+        # Defeat
+        dmg = random.randint(5, 15) * opp['prize_mult']
+        player.hp = max(1, player.hp - dmg)
+        player.wrestling_losses += 1
+        log.append(f"DEFEAT! {opp['name']} wins the match!")
+        log.append(f"You took {dmg} damage from the beating.")
+        add_news(f"{player.name} was defeated by {opp['name']} in the wrestling ring!")
+    else:
+        # Draw - refund half
+        refund = entry_fee // 2
+        player.gold += refund
+        xp = random.randint(20, 50) * player.level
+        player.experience += xp
+        log.append(f"DRAW! The match is declared a tie.")
+        log.append(f"Partial refund: {refund} gold, {xp} XP")
+
+    db.session.commit()
+    return True, f"Match vs {opp['name']} complete!", log
+
+
+# ==================== BEAR TAMING (UMAN CAVE) ====================
+
+BEAR_TYPES = [
+    {'name': 'Small Brown Bear', 'str': 5, 'difficulty': 20,
+     'desc': 'A young bear, curious but wary.'},
+    {'name': 'Grey Mountain Bear', 'str': 10, 'difficulty': 40,
+     'desc': 'A sturdy mountain dweller with thick fur.'},
+    {'name': 'Black Forest Bear', 'str': 15, 'difficulty': 55,
+     'desc': 'A fierce predator from the deep woods.'},
+    {'name': 'Armored Cave Bear', 'str': 22, 'difficulty': 70,
+     'desc': 'An ancient species with hide like stone.'},
+    {'name': 'Great White Bear', 'str': 30, 'difficulty': 85,
+     'desc': 'The legendary king of bears, massive and untamed.'},
+]
+
+
+def attempt_bear_taming(player, bear_index):
+    """Attempt to tame a bear in Uman Cave. Returns (success, msg, log)."""
+    if bear_index < 0 or bear_index >= len(BEAR_TYPES):
+        return False, "Invalid bear.", []
+
+    if player.is_imprisoned:
+        return False, "You cannot visit the cave while imprisoned.", []
+
+    bear = BEAR_TYPES[bear_index]
+    log = []
+
+    cost = 100 + bear['difficulty'] * 10
+    if player.gold < cost:
+        return False, f"You need {cost} gold to buy bait and supplies.", []
+
+    if player.hp < player.max_hp // 3:
+        return False, "You're too wounded for this dangerous expedition.", []
+
+    player.gold -= cost
+    log.append(f"You venture deep into Uman Cave with supplies ({cost} gold)...")
+    log.append(f'You spot a {bear["name"]}! "{bear["desc"]}"')
+
+    # Taming check: charisma + wisdom + dexterity vs difficulty
+    skill = player.charisma + player.wisdom + player.dexterity + random.randint(0, 50)
+    # Bards and Rangers get bonuses
+    if player.player_class in ('Ranger', 'Bard'):
+        skill += 30
+    elif player.player_class == 'Barbarian':
+        skill += 15
+
+    threshold = bear['difficulty'] * 2 + random.randint(0, 30)
+
+    if skill > threshold:
+        # Success!
+        if player.has_tamed_bear:
+            # Release old bear
+            log.append(f"You release your old companion {player.bear_name} into the wild.")
+        player.has_tamed_bear = True
+        # Generate bear name
+        prefixes = ['Grim', 'Shadow', 'Thunder', 'Honey', 'Iron', 'Storm', 'Frost', 'Ember']
+        suffixes = ['paw', 'claw', 'fang', 'heart', 'hide', 'roar', 'fury', 'tooth']
+        bear_name = random.choice(prefixes) + random.choice(suffixes)
+        player.bear_name = bear_name
+        player.bear_strength = bear['str']
+        xp = random.randint(100, 300) * (bear_index + 1)
+        player.experience += xp
+        player.chivalry += random.randint(3, 10)
+        log.append(f"SUCCESS! The {bear['name']} accepts you as its master!")
+        log.append(f"You name your new companion '{bear_name}'.")
+        log.append(f"Bear strength bonus: +{bear['str']} to attack")
+        log.append(f"Gained {xp} XP!")
+        add_news(f"{player.name} tamed a {bear['name']} in Uman Cave! Named it '{bear_name}'.")
+    else:
+        # Failed - bear attacks
+        dmg = random.randint(10, 25) + bear['difficulty'] // 3
+        player.hp = max(1, player.hp - dmg)
+        log.append(f"FAILED! The {bear['name']} swipes at you angrily!")
+        log.append(f"You take {dmg} damage fleeing the cave!")
+        # Small chance of losing current bear
+        if player.has_tamed_bear and random.randint(1, 5) == 1:
+            log.append(f"In the chaos, your companion {player.bear_name} runs away!")
+            player.has_tamed_bear = False
+            player.bear_name = ''
+            player.bear_strength = 0
+
+    db.session.commit()
+    return True, "Cave expedition complete.", log
+
+
+def release_bear(player):
+    """Release your tamed bear. Returns (success, msg)."""
+    if not player.has_tamed_bear:
+        return False, "You don't have a tamed bear."
+
+    name = player.bear_name
+    player.has_tamed_bear = False
+    player.bear_name = ''
+    player.bear_strength = 0
+    db.session.commit()
+    return True, f"You released {name} back into the wild."

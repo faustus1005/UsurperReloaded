@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "macros.html" import location_img with context %}
+{% block title_suffix %} - Bard Stage{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Bard's Stage</div>
+    <div class="panel-body">
+        {{ location_img('bard_stage') }}
+        <p class="text-secondary mb-2">
+            A raised wooden stage sits at the center of the town square, surrounded by
+            eager spectators. Anyone may perform, but only true Bards can unlock the
+            music's full power.
+        </p>
+        {% if is_bard %}
+        <p class="text-gold mb-1">As a Bard, you receive double stat bonuses and 50% more XP!</p>
+        {% endif %}
+        <p class="text-secondary mb-1">
+            Performances remaining: <span class="text-gold">{{ player.performances_remaining }}</span>
+            &mdash; Gold: <span class="text-gold">{{ player.gold }}</span>
+        </p>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Choose a Song</div>
+    <div class="panel-body">
+        {% for song in songs %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ song.name }}</div>
+                <div class="text-dim" style="font-size: 0.85em;">{{ song.desc }}</div>
+                <div class="item-stats">
+                    {% if song.stat == 'all' %}All Stats{% elif song.stat == 'hp' %}Healing{% else %}{{ song.stat|capitalize }}{% endif %}
+                    &mdash; Req: Level {{ song.min_level }}
+                </div>
+            </div>
+            <div class="item-actions">
+                {% if song.cost > 0 %}
+                <span class="item-price">{{ song.cost }}g</span>
+                {% else %}
+                <span class="text-green">Free</span>
+                {% endif %}
+                <form method="POST" action="{{ url_for('bard_perform', index=loop.index0) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-primary"
+                            {% if player.performances_remaining <= 0 or player.gold < song.cost or player.level < song.min_level %}disabled{% endif %}>
+                        Perform
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

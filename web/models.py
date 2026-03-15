@@ -397,6 +397,22 @@ class Player(db.Model):
     prison_days = db.Column(db.Integer, default=0)  # days left in prison
     escape_attempts = db.Column(db.Integer, default=0)  # escape attempts used today
 
+    # Player Market
+    market_listings = db.Column(db.Integer, default=0)  # active listing count
+
+    # Wrestling
+    wrestling_wins = db.Column(db.Integer, default=0)
+    wrestling_losses = db.Column(db.Integer, default=0)
+    wrestling_matches = db.Column(db.Integer, default=2)  # daily limit
+
+    # Bear Taming (Uman Cave)
+    has_tamed_bear = db.Column(db.Boolean, default=False)
+    bear_name = db.Column(db.String(30), default='')
+    bear_strength = db.Column(db.Integer, default=0)  # bonus attack from bear
+
+    # Bard performances
+    performances_remaining = db.Column(db.Integer, default=3)  # daily bard performance limit
+
     # God/religion
     god_name = db.Column(db.String(30), default='')  # name of deity worshipped
     is_god = db.Column(db.Boolean, default=False)  # has ascended to godhood
@@ -444,8 +460,8 @@ class Player(db.Model):
     news_entries = db.relationship('NewsEntry', backref='player', lazy=True)
 
     def get_total_attack(self):
-        """Calculate total attack power including equipment."""
-        base = self.strength + self.weapon_power
+        """Calculate total attack power including equipment and bear companion."""
+        base = self.strength + self.weapon_power + self.bear_strength
         return max(1, base)
 
     def get_total_defense(self):
@@ -957,6 +973,22 @@ class TeamRecord(db.Model):
     team_name = db.Column(db.String(30), nullable=False)
     days_held = db.Column(db.Integer, default=0)
     recorded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class MarketListing(db.Model):
+    """Player-to-player item marketplace listing."""
+    __tablename__ = 'market_listings'
+
+    id = db.Column(db.Integer, primary_key=True)
+    seller_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    seller_name = db.Column(db.String(30), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    item_name = db.Column(db.String(70), nullable=False)
+    price = db.Column(db.Integer, nullable=False)
+    listed_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    seller = db.relationship('Player', foreign_keys=[seller_id])
+    item = db.relationship('Item', foreign_keys=[item_id])
 
 
 class GameConfig(db.Model):
