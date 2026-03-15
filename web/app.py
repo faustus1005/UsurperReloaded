@@ -47,6 +47,14 @@ if SSL_CERT or SSL_ADHOC:
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 db.init_app(app)
+
+# Initialize database tables and seed data on first load.
+# This ensures tables exist whether the app is run directly (python app.py)
+# or via a WSGI server like Gunicorn (gunicorn app:app).
+with app.app_context():
+    db.create_all()
+    seed_all()
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -2948,7 +2956,6 @@ def start_npc_scheduler():
 
 
 if __name__ == '__main__':
-    init_db()
     npc_scheduler = start_npc_scheduler()
 
     ssl_context = None
