@@ -8,41 +8,137 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body{% if current_user.is_authenticated and player and (scrolling_text or recent_scroll_news) %} class="has-scroll-window"{% endif %}>
-    {% if current_user.is_authenticated and player %}
+
     <header class="game-header">
         <div class="container header-content">
-            {% set in_active_event = session.get('combat_monster') or session.get('dungeon_event') %}
-            <a href="{{ url_for('main_menu') }}" class="game-title">USURPER</a>
-            <div class="player-bar">
-                <span class="stat">
-                    <span class="stat-label">{{ player.name }}</span>
-                    <span class="text-dim">Lv{{ player.level }}</span>
-                </span>
-                <span class="stat hp">
-                    HP: {{ player.hp }}/{{ player.max_hp }}
-                </span>
-                {% if player.max_mana > 0 %}
-                <span class="stat mana">
-                    MP: {{ player.mana }}/{{ player.max_mana }}
-                </span>
-                {% endif %}
-                <span class="stat gold-display">
-                    {{ player.gold }}g
-                </span>
-                {% if in_active_event %}
-                <span class="return-to-town disabled" title="Cannot return to town during combat or events">Return to Town</span>
+            <div>
+                <a href="{% if current_user.is_authenticated and player %}{{ url_for('main_menu') }}{% else %}{{ url_for('index') }}{% endif %}" class="game-title">&#9876; Usurper ReLoaded</a>
+                <span class="header-tagline">&nbsp;&mdash; The Classic BBS RPG</span>
+            </div>
+            <div class="header-nav">
+                {% if current_user.is_authenticated and player %}
+                    {% set in_active_event = session.get('combat_monster') or session.get('dungeon_event') %}
+                    {% if in_active_event %}
+                    <span class="return-to-town disabled" title="Cannot return to town during combat or events">Town</span>
+                    {% else %}
+                    <a href="{{ url_for('main_menu') }}" class="return-to-town">Town</a>
+                    {% endif %}
+                    {% if is_admin %}<a href="{{ url_for('admin_dashboard') }}" class="nav-link admin-link">Admin</a>{% endif %}
+                    <a href="{{ url_for('logout') }}" class="nav-link">Quit</a>
                 {% else %}
-                <a href="{{ url_for('main_menu') }}" class="return-to-town">Return to Town</a>
+                    <a href="{{ url_for('login') }}" class="nav-link">Login</a>
+                    <a href="{{ url_for('register') }}" class="nav-link">Register</a>
                 {% endif %}
-                {% if is_admin %}<a href="{{ url_for('admin_dashboard') }}" class="nav-link admin-link">Admin</a>{% endif %}
-                <a href="{{ url_for('logout') }}" class="nav-link">Quit</a>
             </div>
         </div>
     </header>
-    {% endif %}
 
-    <main class="main-content">
-        <div class="container">
+    <div class="page-layout">
+
+        {% if current_user.is_authenticated and player %}
+        <aside class="sidebar">
+
+            {# --- Player Stats Box --- #}
+            <div class="sidebar-box">
+                <div class="sidebar-box-header">[ {{ player.name }} ]</div>
+                <div class="sidebar-box-body">
+                    <div style="color: var(--text-secondary); font-size:0.88em; margin-bottom:3px;">
+                        Lv{{ player.level }} {{ player.race }}<br>{{ player.player_class }}
+                    </div>
+                    <div class="sidebar-stat"><span>HP:</span> <span class="text-green">{{ player.hp }}/{{ player.max_hp }}</span></div>
+                    {% if player.max_mana > 0 %}
+                    <div class="sidebar-stat"><span>MP:</span> <span class="text-blue">{{ player.mana }}/{{ player.max_mana }}</span></div>
+                    {% endif %}
+                    <div class="sidebar-stat"><span>Gold:</span> <span class="text-gold">{{ player.gold }}</span></div>
+                    <div class="sidebar-stat"><span>Fights:</span> <span>{{ player.fights_remaining }}</span></div>
+                    <div class="sidebar-stat"><span>PvP:</span> <span>{{ player.player_fights }}</span></div>
+                    {% if player.can_level_up() %}
+                    <div style="color: var(--gold); font-size:0.8em; margin-top:4px;">* Level up ready! *</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# --- Adventure Nav --- #}
+            <div class="sidebar-nav-section">
+                <div class="sidebar-nav-header">[ Adventure ]</div>
+                <a href="{{ url_for('dungeon') }}" class="sidebar-link">Dungeons ({{ player.fights_remaining }})</a>
+                <a href="{{ url_for('pvp') }}" class="sidebar-link">PvP / Dormitory</a>
+                <a href="{{ url_for('castle') }}" class="sidebar-link">Castle</a>
+                <a href="{{ url_for('bounty_board') }}" class="sidebar-link">Bounty Board</a>
+                <a href="{{ url_for('death_maze') }}" class="sidebar-link">Death Maze</a>
+                <a href="{{ url_for('ice_caves') }}" class="sidebar-link">Ice Caves</a>
+                <a href="{{ url_for('godworld') }}" class="sidebar-link">God World</a>
+                {% if player.level >= 15 %}
+                <a href="{{ url_for('supreme_being') }}" class="sidebar-link highlight">Supreme Being</a>
+                {% endif %}
+            </div>
+
+            {# --- Shops Nav --- #}
+            <div class="sidebar-nav-section">
+                <div class="sidebar-nav-header">[ Shops ]</div>
+                <a href="{{ url_for('weapon_shop') }}" class="sidebar-link">Weapons</a>
+                <a href="{{ url_for('armor_shop') }}" class="sidebar-link">Armor</a>
+                <a href="{{ url_for('magic_shop') }}" class="sidebar-link">Magic Shop</a>
+                <a href="{{ url_for('healing_shop') }}" class="sidebar-link">Healing Hut</a>
+                <a href="{{ url_for('general_store') }}" class="sidebar-link">General Store</a>
+                <a href="{{ url_for('shady_dealer') }}" class="sidebar-link">Dark Alley</a>
+                <a href="{{ url_for('bank') }}" class="sidebar-link">Bank</a>
+                <a href="{{ url_for('player_market') }}" class="sidebar-link">Player Market</a>
+                <a href="{{ url_for('alchemist_craft') }}" class="sidebar-link">Alchemist</a>
+            </div>
+
+            {# --- Social Nav --- #}
+            <div class="sidebar-nav-section">
+                <div class="sidebar-nav-header">[ Social ]</div>
+                <a href="{{ url_for('tavern') }}" class="sidebar-link">Tavern</a>
+                <a href="{{ url_for('orbs_bar') }}" class="sidebar-link">Orb's Bar</a>
+                <a href="{{ url_for('inn') }}" class="sidebar-link">Inn</a>
+                <a href="{{ url_for('inn_chat') }}" class="sidebar-link">Inn Chat</a>
+                <a href="{{ url_for('love_corner') }}" class="sidebar-link">Love Corner</a>
+                <a href="{{ url_for('beauty_nest') }}" class="sidebar-link">Beauty Nest</a>
+                <a href="{{ url_for('teams') }}" class="sidebar-link">Teams</a>
+                <a href="{{ url_for('bard_stage') }}" class="sidebar-link">Bard Stage</a>
+                <a href="{{ url_for('wrestling_arena') }}" class="sidebar-link">Wrestling</a>
+                <a href="{{ url_for('uman_cave') }}" class="sidebar-link">Uman Cave</a>
+                <a href="{{ url_for('gym') }}" class="sidebar-link">Gym</a>
+                <a href="{{ url_for('beer_stealing') }}" class="sidebar-link">Beer Stealing</a>
+                <a href="{{ url_for('dormitory') }}" class="sidebar-link">Dormitory</a>
+                <a href="{{ url_for('equipment_swap') }}" class="sidebar-link">Equipment Swap</a>
+                <a href="{{ url_for('combat_train') }}" class="sidebar-link">Combat Training</a>
+                <a href="{{ url_for('groggo') }}" class="sidebar-link">Groggo</a>
+                <a href="{{ url_for('gigolo') }}" class="sidebar-link">Gigolo</a>
+            </div>
+
+            {# --- Character Nav --- #}
+            <div class="sidebar-nav-section">
+                <div class="sidebar-nav-header">[ Character ]</div>
+                <a href="{{ url_for('status') }}" class="sidebar-link">Status</a>
+                <a href="{{ url_for('inventory') }}" class="sidebar-link">Inventory</a>
+                <a href="{{ url_for('level_master') }}" class="sidebar-link{% if player.can_level_up() %} highlight{% endif %}">Level Master{% if player.can_level_up() %} *{% endif %}</a>
+                <a href="{{ url_for('home') }}" class="sidebar-link">Home</a>
+                <a href="{{ url_for('temple') }}" class="sidebar-link">Temple</a>
+                <a href="{{ url_for('good_deeds') }}" class="sidebar-link">Good Deeds</a>
+                <a href="{{ url_for('dark_deeds') }}" class="sidebar-link">Dark Deeds</a>
+                <a href="{{ url_for('orphanage') }}" class="sidebar-link">Orphanage</a>
+            </div>
+
+            {# --- Info Nav --- #}
+            <div class="sidebar-nav-section">
+                <div class="sidebar-nav-header">[ Info ]</div>
+                <a href="{{ url_for('rankings') }}" class="sidebar-link">Rankings</a>
+                <a href="{{ url_for('player_list') }}" class="sidebar-link">Players</a>
+                <a href="{{ url_for('npc_list') }}" class="sidebar-link">NPCs</a>
+                <a href="{{ url_for('mail_inbox') }}" class="sidebar-link">Mail{% if unread_mail > 0 %} <span class="badge">{{ unread_mail }}</span>{% endif %}</a>
+                <a href="{{ url_for('news') }}" class="sidebar-link">News</a>
+                {% if is_admin %}
+                <a href="{{ url_for('admin_dashboard') }}" class="sidebar-link admin-link">Admin Panel</a>
+                {% endif %}
+            </div>
+
+        </aside>
+        {% endif %}
+
+        <main class="main-content">
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
             <div class="flash-messages">
@@ -54,8 +150,9 @@
             {% endwith %}
 
             {% block content %}{% endblock %}
-        </div>
-    </main>
+        </main>
+
+    </div>
 
     <footer class="game-footer">
         <div class="container">
@@ -66,13 +163,13 @@
     {% if current_user.is_authenticated and player and (scrolling_text or recent_scroll_news) %}
     <div class="scroll-window" id="scrollWindow">
         <div class="scroll-window-header" onclick="toggleScrollWindow()">
-            <span>TOWN CRIER</span>
+            <span>&#9658; Town Crier</span>
             <button class="scroll-window-toggle" id="scrollToggleBtn" title="Collapse/Expand">[_]</button>
         </div>
         <div class="scroll-window-body" id="scrollWindowBody">
             {% if scrolling_text %}
             <div class="scroll-text-content">{{ scrolling_text }}</div>
-            <hr class="separator" style="margin: 8px 0;">
+            <hr class="separator" style="margin: 5px 0;">
             {% endif %}
             {% if recent_scroll_news %}
             {% for entry in recent_scroll_news %}
@@ -122,7 +219,6 @@
             localStorage.setItem('scrollWindowCollapsed', 'true');
         }
     }
-    // Restore collapsed state on load
     (function() {
         if (localStorage.getItem('scrollWindowCollapsed') === 'true') {
             var sw = document.getElementById('scrollWindow');

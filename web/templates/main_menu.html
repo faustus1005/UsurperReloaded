@@ -2,287 +2,46 @@
 {% from "macros.html" import location_img with context %}
 {% block title_suffix %} - {{ town_name }}{% endblock %}
 {% block content %}
+
 <div class="panel">
-    <div class="panel-header">Welcome to {{ town_name }}, {{ player.name }}</div>
+    <div class="panel-header">Welcome to {{ town_name }}</div>
     <div class="panel-body">
         {{ location_img('main_menu') }}
-        <p class="text-secondary">
-            Level {{ player.level }} {{ player.race }} {{ player.player_class }}
-            &mdash;
+        <p>
+            Hail, <strong class="text-gold">{{ player.name }}</strong>!
+            You are a Level {{ player.level }}
             <span class="alignment-{% if player.chivalry > player.darkness %}good{% elif player.darkness > player.chivalry %}evil{% else %}neutral{% endif %}">
                 {{ player.alignment_string() }}
             </span>
-            {% if player.can_level_up() %}
-            &mdash; <span class="text-gold">{{ '(you are eligible for a level raise!)' }}</span>
-            {% endif %}
+            {{ player.race }} {{ player.player_class }}.
         </p>
+        {% if player.can_level_up() %}
+        <p class="text-gold mt-1">&#9733; You are eligible for a level raise! Visit the Level Master.</p>
+        {% endif %}
+    </div>
+</div>
 
-        {# === ADVENTURE === #}
-        <div class="menu-section-header">Adventure</div>
-        <div class="menu-grid">
-            <a href="{{ url_for('dungeon') }}" class="menu-item">
-                <span class="icon text-red">&#9876;</span>
-                <span class="label">Dungeons</span>
-                <span class="sublabel">{{ player.fights_remaining }} fights left</span>
-            </a>
-            <a href="{{ url_for('pvp') }}" class="menu-item">
-                <span class="icon text-red">&#9876;</span>
-                <span class="label">Dormitory</span>
-                <span class="sublabel">{{ player.player_fights }} fights left</span>
-            </a>
-            <a href="{{ url_for('castle') }}" class="menu-item">
-                <span class="icon text-gold">&#9813;</span>
-                <span class="label">Castle</span>
-                <span class="sublabel">The Throne</span>
-            </a>
-            <a href="{{ url_for('bounty_board') }}" class="menu-item">
-                <span class="icon text-red">&#10006;</span>
-                <span class="label">Bounty Board</span>
-                <span class="sublabel">Most wanted</span>
-            </a>
-            <a href="{{ url_for('death_maze') }}" class="menu-item">
-                <span class="icon text-dim">&#9776;</span>
-                <span class="label">Death Maze</span>
-                <span class="sublabel">Labyrinth horrors</span>
-            </a>
-            <a href="{{ url_for('ice_caves') }}" class="menu-item">
-                <span class="icon text-blue">&#10052;</span>
-                <span class="label">Ice Caves</span>
-                <span class="sublabel">Frozen depths</span>
-            </a>
-            {% if player.level >= 15 %}
-            <a href="{{ url_for('supreme_being') }}" class="menu-item">
-                <span class="icon text-gold">&#9812;</span>
-                <span class="label">Supreme Being</span>
-                <span class="sublabel">Endgame boss</span>
-            </a>
+<div class="panel">
+    <div class="panel-header">Character Summary</div>
+    <div class="panel-body">
+        <div class="stats-grid">
+            <div class="stat-item"><span class="label">Hit Points</span> <span class="value text-green">{{ player.hp }} / {{ player.max_hp }}</span></div>
+            {% if player.max_mana > 0 %}
+            <div class="stat-item"><span class="label">Mana</span> <span class="value text-blue">{{ player.mana }} / {{ player.max_mana }}</span></div>
             {% endif %}
-            <a href="{{ url_for('godworld') }}" class="menu-item">
-                <span class="icon text-gold">&#9728;</span>
-                <span class="label">God World</span>
-                <span class="sublabel">Divine realm</span>
-            </a>
-        </div>
-
-        {# === SHOPS & SERVICES === #}
-        <div class="menu-section-header">Shops & Services</div>
-        <div class="menu-grid">
-            <a href="{{ url_for('weapon_shop') }}" class="menu-item">
-                <span class="icon text-secondary">&#9874;</span>
-                <span class="label">Weapon Shop</span>
-                <span class="sublabel">Buy weapons</span>
-            </a>
-            <a href="{{ url_for('armor_shop') }}" class="menu-item">
-                <span class="icon text-secondary">&#9781;</span>
-                <span class="label">Armor Shop</span>
-                <span class="sublabel">Buy armor</span>
-            </a>
-            <a href="{{ url_for('magic_shop') }}" class="menu-item">
-                <span class="icon text-blue">&#10023;</span>
-                <span class="label">Magic Shop</span>
-                <span class="sublabel">Spells & enchantments</span>
-            </a>
-            <a href="{{ url_for('healing_shop') }}" class="menu-item">
-                <span class="icon text-green">&#10010;</span>
-                <span class="label">Healing Hut</span>
-                <span class="sublabel">Cures & potions</span>
-            </a>
-            <a href="{{ url_for('general_store') }}" class="menu-item">
-                <span class="icon text-secondary">&#9879;</span>
-                <span class="label">General Store</span>
-                <span class="sublabel">Supplies</span>
-            </a>
-            <a href="{{ url_for('shady_dealer') }}" class="menu-item">
-                <span class="icon text-dim">&#9760;</span>
-                <span class="label">Dark Alley</span>
-                <span class="sublabel">Shady deals</span>
-            </a>
-            <a href="{{ url_for('bank') }}" class="menu-item">
-                <span class="icon text-gold">&#9878;</span>
-                <span class="label">Bank</span>
-                <span class="sublabel">{{ player.bank_gold }}g saved</span>
-            </a>
-            <a href="{{ url_for('player_market') }}" class="menu-item">
-                <span class="icon text-gold">&#9873;</span>
-                <span class="label">Player Market</span>
-                <span class="sublabel">Buy & sell items</span>
-            </a>
-            <a href="{{ url_for('alchemist_craft') }}" class="menu-item">
-                <span class="icon text-green">&#9879;</span>
-                <span class="label">Alchemist</span>
-                <span class="sublabel">Craft poisons</span>
-            </a>
-        </div>
-
-        {# === SOCIAL === #}
-        <div class="menu-section-header">Social & Leisure</div>
-        <div class="menu-grid">
-            <a href="{{ url_for('tavern') }}" class="menu-item">
-                <span class="icon text-gold">&#127866;</span>
-                <span class="label">Tavern</span>
-                <span class="sublabel">Brawls & drinks</span>
-            </a>
-            <a href="{{ url_for('orbs_bar') }}" class="menu-item">
-                <span class="icon text-purple">&#127864;</span>
-                <span class="label">Orb's Bar</span>
-                <span class="sublabel">Cocktails</span>
-            </a>
-            <a href="{{ url_for('inn') }}" class="menu-item">
-                <span class="icon text-green">&#9752;</span>
-                <span class="label">Inn</span>
-                <span class="sublabel">Rest & recover</span>
-            </a>
-            <a href="{{ url_for('love_corner') }}" class="menu-item">
-                <span class="icon text-red">&#9829;</span>
-                <span class="label">Love Corner</span>
-                <span class="sublabel">{% if player.married %}Married{% else %}Romance{% endif %}</span>
-            </a>
-            <a href="{{ url_for('beauty_nest') }}" class="menu-item">
-                <span class="icon text-red">&#9826;</span>
-                <span class="label">Beauty Nest</span>
-                <span class="sublabel">{{ player.beauty_nest_visits }} visits left</span>
-            </a>
-            <a href="{{ url_for('teams') }}" class="menu-item">
-                <span class="icon text-blue">&#9734;</span>
-                <span class="label">Teams</span>
-                <span class="sublabel">{% if player.team_name %}{{ player.team_name }}{% else %}Join a team{% endif %}</span>
-            </a>
-            <a href="{{ url_for('bard_stage') }}" class="menu-item">
-                <span class="icon text-purple">&#9835;</span>
-                <span class="label">Bard Stage</span>
-                <span class="sublabel">{{ player.performances_remaining }} songs left</span>
-            </a>
-            <a href="{{ url_for('wrestling_arena') }}" class="menu-item">
-                <span class="icon text-red">&#9889;</span>
-                <span class="label">Wrestling</span>
-                <span class="sublabel">{{ player.wrestling_wins }}W / {{ player.wrestling_losses }}L</span>
-            </a>
-            <a href="{{ url_for('uman_cave') }}" class="menu-item">
-                <span class="icon text-green">&#128059;</span>
-                <span class="label">Uman Cave</span>
-                <span class="sublabel">{% if player.has_tamed_bear %}{{ player.bear_name }}{% else %}Bear taming{% endif %}</span>
-            </a>
-            <a href="{{ url_for('gym') }}" class="menu-item">
-                <span class="icon text-red">&#9889;</span>
-                <span class="label">Gym</span>
-                <span class="sublabel">Barrel lift & massage</span>
-            </a>
-            <a href="{{ url_for('groggo') }}" class="menu-item">
-                <span class="icon text-dim">&#9760;</span>
-                <span class="label">Groggo</span>
-                <span class="sublabel">Disease & demons</span>
-            </a>
-            <a href="{{ url_for('gigolo') }}" class="menu-item">
-                <span class="icon text-red">&#9829;</span>
-                <span class="label">Gigolo</span>
-                <span class="sublabel">Romance for hire</span>
-            </a>
-            <a href="{{ url_for('beer_stealing') }}" class="menu-item">
-                <span class="icon text-gold">&#127866;</span>
-                <span class="label">Beer Stealing</span>
-                <span class="sublabel">Tavern heist</span>
-            </a>
-            <a href="{{ url_for('dormitory') }}" class="menu-item">
-                <span class="icon text-red">&#9876;</span>
-                <span class="label">Dormitory Fights</span>
-                <span class="sublabel">Fistfights</span>
-            </a>
-            <a href="{{ url_for('inn_chat') }}" class="menu-item">
-                <span class="icon text-blue">&#9993;</span>
-                <span class="label">Inn Chat</span>
-                <span class="sublabel">Chat board</span>
-            </a>
-            <a href="{{ url_for('equipment_swap') }}" class="menu-item">
-                <span class="icon text-secondary">&#8644;</span>
-                <span class="label">Equipment Swap</span>
-                <span class="sublabel">Trade with players</span>
-            </a>
-            <a href="{{ url_for('combat_train') }}" class="menu-item">
-                <span class="icon text-red">&#9876;</span>
-                <span class="label">Combat Training</span>
-                <span class="sublabel">Close combat moves</span>
-            </a>
-        </div>
-
-        {# === CHARACTER === #}
-        <div class="menu-section-header">Character</div>
-        <div class="menu-grid">
-            <a href="{{ url_for('status') }}" class="menu-item">
-                <span class="icon text-gold">&#9733;</span>
-                <span class="label">Status</span>
-                <span class="sublabel">View your character</span>
-            </a>
-            <a href="{{ url_for('inventory') }}" class="menu-item">
-                <span class="icon text-blue">&#9883;</span>
-                <span class="label">Inventory</span>
-                <span class="sublabel">Equipment & items</span>
-            </a>
-            <a href="{{ url_for('level_master') }}" class="menu-item">
-                <span class="icon text-gold">&#10026;</span>
-                <span class="label">Level Master</span>
-                <span class="sublabel">{% if player.can_level_up() %}Ready to train!{% else %}Train to level up{% endif %}</span>
-            </a>
-            <a href="{{ url_for('home') }}" class="menu-item">
-                <span class="icon text-green">&#9962;</span>
-                <span class="label">Home</span>
-                <span class="sublabel">{% if player.married %}Family{% else %}Your place{% endif %}</span>
-            </a>
-            <a href="{{ url_for('temple') }}" class="menu-item">
-                <span class="icon text-blue">&#9764;</span>
-                <span class="label">Temple</span>
-                <span class="sublabel">{% if player.god_name %}{{ player.god_name }}{% else %}Worship a deity{% endif %}</span>
-            </a>
-            <a href="{{ url_for('good_deeds') }}" class="menu-item">
-                <span class="icon text-green">&#10003;</span>
-                <span class="label">Good Deeds</span>
-                <span class="sublabel">Help the poor</span>
-            </a>
-            <a href="{{ url_for('dark_deeds') }}" class="menu-item">
-                <span class="icon text-red">&#9760;</span>
-                <span class="label">Dark Deeds</span>
-                <span class="sublabel">Evil actions</span>
-            </a>
-            <a href="{{ url_for('orphanage') }}" class="menu-item">
-                <span class="icon text-blue">&#9751;</span>
-                <span class="label">Orphanage</span>
-                <span class="sublabel">Adopt children</span>
-            </a>
-        </div>
-
-        {# === INFORMATION === #}
-        <div class="menu-section-header">Information</div>
-        <div class="menu-grid">
-            <a href="{{ url_for('rankings') }}" class="menu-item">
-                <span class="icon text-gold">&#9733;</span>
-                <span class="label">Rankings</span>
-                <span class="sublabel">Top adventurers</span>
-            </a>
-            <a href="{{ url_for('player_list') }}" class="menu-item">
-                <span class="icon text-secondary">&#9824;</span>
-                <span class="label">Players</span>
-                <span class="sublabel">List characters</span>
-            </a>
-            <a href="{{ url_for('npc_list') }}" class="menu-item">
-                <span class="icon text-secondary">&#9820;</span>
-                <span class="label">NPCs</span>
-                <span class="sublabel">Town inhabitants</span>
-            </a>
-            <a href="{{ url_for('mail_inbox') }}" class="menu-item">
-                <span class="icon text-blue">&#9993;</span>
-                <span class="label">Mail{% if unread_mail > 0 %}<span class="badge">{{ unread_mail }}</span>{% endif %}</span>
-                <span class="sublabel">Messages</span>
-            </a>
-            <a href="{{ url_for('news') }}" class="menu-item">
-                <span class="icon text-secondary">&#9998;</span>
-                <span class="label">News</span>
-                <span class="sublabel">Recent events</span>
-            </a>
-            {% if is_admin %}
-            <a href="{{ url_for('admin_dashboard') }}" class="menu-item admin-item">
-                <span class="icon text-red">&#9881;</span>
-                <span class="label">Admin Panel</span>
-                <span class="sublabel">Game editor</span>
-            </a>
+            <div class="stat-item"><span class="label">Gold</span> <span class="value text-gold">{{ player.gold }}</span></div>
+            <div class="stat-item"><span class="label">Bank Gold</span> <span class="value text-gold">{{ player.bank_gold }}</span></div>
+            <div class="stat-item"><span class="label">Experience</span> <span class="value">{{ player.experience }}</span></div>
+            <div class="stat-item"><span class="label">Dungeon Fights</span> <span class="value">{{ player.fights_remaining }}</span></div>
+            <div class="stat-item"><span class="label">PvP Fights</span> <span class="value">{{ player.player_fights }}</span></div>
+            <div class="stat-item"><span class="label">Strength</span> <span class="value">{{ player.strength }}</span></div>
+            <div class="stat-item"><span class="label">Defense</span> <span class="value">{{ player.defense }}</span></div>
+            <div class="stat-item"><span class="label">Agility</span> <span class="value">{{ player.agility }}</span></div>
+            {% if player.god_name %}
+            <div class="stat-item"><span class="label">Deity</span> <span class="value">{{ player.god_name }}</span></div>
+            {% endif %}
+            {% if player.team_name %}
+            <div class="stat-item"><span class="label">Team</span> <span class="value">{{ player.team_name }}</span></div>
             {% endif %}
         </div>
     </div>
@@ -290,9 +49,9 @@
 
 {% if player.is_imprisoned %}
 <div class="panel">
-    <div class="panel-header" style="background: #442222;">Prison</div>
+    <div class="panel-header" style="background: #300000; border-color: var(--hp-red); color: var(--hp-red);">&#9760; Prison</div>
     <div class="panel-body">
-        <p class="text-danger mb-1">You are imprisoned! {{ player.prison_days }} day(s) remaining.</p>
+        <p class="text-red mb-1">You are imprisoned! {{ player.prison_days }} day(s) remaining.</p>
         <p class="text-dim mb-1">Most town locations are off-limits while imprisoned.</p>
         {% set max_escapes = config.get('prison_escape_attempts', '2')|int %}
         {% if player.escape_attempts < max_escapes %}
@@ -311,7 +70,7 @@
 
 {% if recent_news %}
 <div class="panel">
-    <div class="panel-header">Latest News</div>
+    <div class="panel-header">&#9998; Latest News</div>
     <div class="panel-body">
         {% for entry in recent_news %}
         <div class="news-entry">
@@ -323,4 +82,5 @@
     </div>
 </div>
 {% endif %}
+
 {% endblock %}
