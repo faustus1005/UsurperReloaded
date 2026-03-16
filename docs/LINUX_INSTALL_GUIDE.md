@@ -76,6 +76,8 @@ python app.py
 
 The game will be available at `http://localhost:5000`.
 
+> **Tip**: Keep this `web/venv` as your permanent virtual environment for updates and service commands. Reuse it instead of creating a new venv each time.
+
 ---
 
 ## Detailed Installation
@@ -268,7 +270,15 @@ sudo useradd -r -s /bin/false usurper
 sudo chown -R usurper:usurper /opt/UsurperReloaded
 ```
 
-2. Create the service file:
+2. Install Gunicorn into your permanent virtual environment:
+
+```bash
+cd /opt/UsurperReloaded/web
+source venv/bin/activate
+pip install gunicorn
+```
+
+3. Create the service file:
 
 ```bash
 sudo tee /etc/systemd/system/usurper.service > /dev/null << 'EOF'
@@ -282,7 +292,7 @@ User=usurper
 Group=usurper
 WorkingDirectory=/opt/UsurperReloaded/web
 Environment=PATH=/opt/UsurperReloaded/web/venv/bin:/usr/bin
-ExecStart=/opt/UsurperReloaded/web/venv/bin/python app.py
+ExecStart=/opt/UsurperReloaded/web/venv/bin/gunicorn --preload -w 4 -b 0.0.0.0:5000 app:app
 Restart=on-failure
 RestartSec=5
 
@@ -293,7 +303,7 @@ EOF
 
 > **Note**: Adjust `WorkingDirectory` and `ExecStart` paths to match your installation location.
 
-3. Enable and start the service:
+4. Enable and start the service:
 
 ```bash
 sudo systemctl daemon-reload
@@ -301,13 +311,13 @@ sudo systemctl enable usurper
 sudo systemctl start usurper
 ```
 
-4. Check status:
+5. Check status:
 
 ```bash
 sudo systemctl status usurper
 ```
 
-5. View logs:
+6. View logs:
 
 ```bash
 sudo journalctl -u usurper -f
@@ -320,20 +330,13 @@ sudo journalctl -u usurper -f
 For production use, serve with Gunicorn instead of the built-in Flask development server:
 
 ```bash
-# Install Gunicorn inside your virtual environment
-source venv/bin/activate
-pip install gunicorn
-
 # Run with Gunicorn (4 workers) from the web directory
 cd /path/to/UsurperReloaded/web
+source venv/bin/activate
 gunicorn --preload -w 4 -b 0.0.0.0:5000 app:app
 ```
 
-Update the systemd service `ExecStart` line for Gunicorn:
-
-```ini
-ExecStart=/opt/UsurperReloaded/web/venv/bin/gunicorn --preload -w 4 -b 0.0.0.0:5000 app:app
-```
+> **Note**: The systemd service example above already uses Gunicorn and the permanent `web/venv` environment.
 
 ---
 

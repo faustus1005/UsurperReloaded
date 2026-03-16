@@ -138,9 +138,9 @@ cd UsurperReloaded
 cd C:\Games\UsurperReloaded
 ```
 
-### Setting Up a Virtual Environment
+### Setting Up a Permanent Virtual Environment
 
-A virtual environment keeps the game's Python dependencies isolated from other Python projects. This is recommended but optional.
+A virtual environment keeps the game's Python dependencies isolated from other Python projects. On Windows, you should create it once in the `web` folder and keep it as the **permanent** runtime for updates, Task Scheduler, and NSSM service commands.
 
 #### Command Prompt
 
@@ -166,6 +166,8 @@ python -m venv venv
 > ```
 
 To deactivate the virtual environment later, simply type `deactivate`.
+
+> **Important**: Do **not** create a new virtual environment every time you start the game. Keep using `C:\Games\UsurperReloaded\web\venv` (or your chosen install path) so service and startup commands always point to the same Python and installed packages.
 
 ### Installing Dependencies
 
@@ -317,10 +319,18 @@ To keep Usurper running in the background and auto-start on boot, you have two m
 choco install nssm
 ```
 
-2. Install the service (run as Administrator):
+2. Install Waitress into your permanent virtual environment:
 
 ```cmd
-nssm install UsurperReloaded "C:\Games\UsurperReloaded\web\venv\Scripts\python.exe" "app.py"
+cd C:\Games\UsurperReloaded\web
+venv\Scripts\activate
+pip install waitress
+```
+
+3. Install the service (run as Administrator) and point NSSM to Waitress:
+
+```cmd
+nssm install UsurperReloaded "C:\Games\UsurperReloaded\web\venv\Scripts\python.exe" "-m waitress --host=0.0.0.0 --port=5000 --threads=4 app:app"
 nssm set UsurperReloaded AppDirectory "C:\Games\UsurperReloaded\web"
 nssm set UsurperReloaded DisplayName "Usurper ReLoaded Web Game"
 nssm set UsurperReloaded Description "Usurper ReLoaded - Web Edition fantasy RPG game server"
@@ -329,19 +339,19 @@ nssm set UsurperReloaded Start SERVICE_AUTO_START
 
 > **Note**: Adjust the paths above to match your actual installation location.
 
-3. Optionally set environment variables:
+4. Optionally set environment variables:
 
 ```cmd
 nssm set UsurperReloaded AppEnvironmentExtra PORT=5000
 ```
 
-4. Start the service:
+5. Start the service:
 
 ```cmd
 nssm start UsurperReloaded
 ```
 
-5. Manage the service:
+6. Manage the service:
 
 ```cmd
 nssm status UsurperReloaded
@@ -350,7 +360,7 @@ nssm restart UsurperReloaded
 nssm remove UsurperReloaded confirm
 ```
 
-6. View logs -- configure NSSM to write stdout/stderr to log files:
+7. View logs -- configure NSSM to write stdout/stderr to log files:
 
 ```cmd
 nssm set UsurperReloaded AppStdout "C:\Games\UsurperReloaded\web\logs\service.log"
@@ -377,7 +387,7 @@ Windows Task Scheduler can start the game at boot without installing third-party
    - Click **New**
    - Action: **"Start a program"**
    - Program/script: `C:\Games\UsurperReloaded\web\venv\Scripts\python.exe`
-   - Add arguments: `app.py`
+   - Add arguments: `-m waitress --host=0.0.0.0 --port=5000 --threads=4 app:app`
    - Start in: `C:\Games\UsurperReloaded\web`
    - Click OK.
 6. **Settings** tab:
@@ -417,6 +427,8 @@ python -m waitress --host=0.0.0.0 --port=5000 --threads=4 app:app
 > nssm set UsurperReloaded Application "C:\Games\UsurperReloaded\web\venv\Scripts\python.exe"
 > nssm set UsurperReloaded AppParameters "-m waitress --host=0.0.0.0 --port=5000 --threads=4 app:app"
 > ```
+>
+> If you followed the NSSM steps in this guide, these values are already configured.
 
 ---
 
