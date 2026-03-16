@@ -701,6 +701,7 @@ class Player(db.Model):
     gym_sessions = db.Column(db.Integer, default=4)  # daily gym sessions
     massage_visits = db.Column(db.Integer, default=3)  # daily massage visits
     barrel_lift_record = db.Column(db.Integer, default=0)  # best barrel lift count
+    prayers_remaining = db.Column(db.Integer, default=3)  # daily prayer limit
 
     # Close combat skills (JSON string: {"Tackle": 5, "Kick": 3, ...})
     close_combat_skills = db.Column(db.Text, default='{}')

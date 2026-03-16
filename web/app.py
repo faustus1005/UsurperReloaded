@@ -105,6 +105,7 @@ with app.app_context():
         ('barrel_lift_record', 'INTEGER DEFAULT 0'),
         ('close_combat_skills', 'TEXT DEFAULT "{}"'),
         ('poison_level', 'INTEGER DEFAULT 0'),
+        ('prayers_remaining', 'INTEGER DEFAULT 3'),
     ]
     for _col, _type in _new_player_cols:
         try:
