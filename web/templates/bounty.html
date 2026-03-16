@@ -21,9 +21,9 @@
                 {% for w in wanted %}
                 <tr>
                     <td>{{ loop.index }}</td>
-                    <td class="text-red">{{ w.player.name }}</td>
-                    <td>{{ w.player.player_class }}</td>
-                    <td>{{ w.player.level }}</td>
+                    <td class="text-red">{{ w.player.name if w.player else 'Unknown' }}</td>
+                    <td>{{ w.player.player_class if w.player else '?' }}</td>
+                    <td>{{ w.player.level if w.player else '?' }}</td>
                     <td class="text-gold">{{ w.total_bounty }}g</td>
                 </tr>
                 {% endfor %}
@@ -64,7 +64,7 @@
         {% for b in my_bounties %}
         <div class="item-card">
             <div class="item-info">
-                <span class="text-red">{{ b.target.name }}</span> -
+                <span class="text-red">{{ b.target.name if b.target else 'Unknown' }}</span> -
                 <span class="text-gold">{{ b.amount }}g</span> -
                 <span class="text-dim">{{ b.reason }}</span>
             </div>

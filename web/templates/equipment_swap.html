@@ -14,7 +14,7 @@
                 <label class="text-secondary">Your item:</label>
                 <select name="item_id" class="form-control" style="width: auto;">
                     {% for inv in inventory %}
-                    <option value="{{ inv.item.id if inv.item else 0 }}">{{ inv.item.name if inv.item else 'Unknown' }}</option>
+                    <option value="{{ inv.id }}">{{ inv.item.name if inv.item else 'Unknown' }}</option>
                     {% endfor %}
                 </select>
             </div>

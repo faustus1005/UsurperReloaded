@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Usurper ReLoaded{% block title_suffix %}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body{% if current_user.is_authenticated and player and (scrolling_text or recent_scroll_news) %} class="has-scroll-window"{% endif %}>
     {% if current_user.is_authenticated and player %}
@@ -87,6 +88,23 @@
     {% endif %}
 
     <script src="{{ url_for('static', filename='js/player-search.js') }}"></script>
+    <script>
+    // Auto-inject CSRF token into all POST forms
+    (function() {
+        var token = document.querySelector('meta[name="csrf-token"]');
+        if (!token) return;
+        var csrfToken = token.getAttribute('content');
+        document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(function(form) {
+            if (!form.querySelector('input[name="csrf_token"]')) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'csrf_token';
+                input.value = csrfToken;
+                form.appendChild(input);
+            }
+        });
+    })();
+    </script>
     <script>
     function toggleScrollWindow() {
         var sw = document.getElementById('scrollWindow');

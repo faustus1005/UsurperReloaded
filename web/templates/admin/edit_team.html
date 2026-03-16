@@ -94,7 +94,7 @@
                     <td class="text-dim">{{ member.joined_at.strftime('%Y-%m-%d') if member.joined_at else '-' }}</td>
                     <td>
                         {% if member.player_id != team.leader_id %}
-                        <form method="POST" class="inline-form" onsubmit="return confirm('Remove {{ member.player.name }} from team?')">
+                        <form method="POST" class="inline-form" onsubmit="return confirm('Remove ' + {{ member.player.name|tojson }} + ' from team?')">
                             <input type="hidden" name="action" value="remove_member">
                             <input type="hidden" name="member_id" value="{{ member.id }}">
                             <button type="submit" class="btn btn-sm btn-danger">Remove</button>
