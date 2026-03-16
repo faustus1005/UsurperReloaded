@@ -4,7 +4,7 @@ A web-based reimplementation of the classic BBS door game **Usurper** by Jakob D
 
 ## About
 
-Usurper was originally a multi-player BBS door game known for its deep fantasy RPG mechanics, social systems, and chaotic player interactions. This web edition faithfully recreates the game as a modern Flask web application with a dark fantasy theme, while preserving the spirit of the original.
+Usurper was originally a multi-player BBS door game created by Jakob Dangarden, known for its deep fantasy RPG mechanics, social systems, and chaotic player interactions. Players explore a vast dungeon, fight monsters and each other, join teams, get married, run for king, and even ascend to godhood. This web edition faithfully recreates the full game as a modern Flask web application with a dark fantasy theme, bringing the classic BBS experience to the browser while preserving the spirit and depth of the original.
 
 ## Features
 
@@ -149,152 +149,12 @@ A comprehensive admin panel inspired by the original Usurper editor, accessible 
 
 ## Getting Started
 
-### Requirements
-- Python 3.8+
-- pip
+For detailed installation instructions, see the platform-specific guides:
 
-### Installation
+- **[Linux / macOS Install Guide](docs/LINUX_INSTALL_GUIDE.md)**
+- **[Windows Install Guide](docs/WINDOWS_INSTALL_GUIDE.md)**
 
-#### Linux / macOS
-
-```bash
-cd web
-pip install -r requirements.txt
-python app.py
-```
-
-#### Windows (Command Prompt)
-
-```cmd
-cd web
-pip install -r requirements.txt
-python app.py
-```
-
-#### Windows (PowerShell)
-
-```powershell
-cd web
-pip install -r requirements.txt
-python app.py
-```
-
-The game will be available at `http://localhost:5000`.
-
-The database is automatically created and seeded with monsters, items, NPCs, gods, and default configuration on first run.
-
-### Proxmox VE (LXC Community Script)
-
-This repository includes a host-side script that creates and provisions an LXC container on a Proxmox VE node:
-
-```bash
-scripts/proxmox-community-install.sh
-```
-
-Example usage:
-
-```bash
-chmod +x scripts/proxmox-community-install.sh
-CTID=120 HOSTNAME=usurper \
-REPO_URL=https://github.com/<your-org>/UsurperReloaded.git \
-PASSWORD='use-a-strong-root-password' \
-bash scripts/proxmox-community-install.sh
-```
-
-Notes:
-- Run it on the **Proxmox host** as root (not inside a container).
-- Update `REPO_URL` to your actual Git repository before running.
-- Override defaults via environment variables (`CTID`, `MEMORY`, `DISK`, `BRIDGE`, `APP_PORT`, etc.).
-
-### Enabling SSL (HTTPS)
-
-To protect passwords in transit, you can enable SSL in one of two ways:
-
-**Option 1 -- Your own certificate** (recommended for production):
-
-Linux / macOS:
-```bash
-SSL_CERT=/path/to/cert.pem SSL_KEY=/path/to/privkey.pem python app.py
-```
-
-Windows (Command Prompt):
-```cmd
-set SSL_CERT=C:\path\to\cert.pem
-set SSL_KEY=C:\path\to\privkey.pem
-python app.py
-```
-
-Windows (PowerShell):
-```powershell
-$env:SSL_CERT = "C:\path\to\cert.pem"
-$env:SSL_KEY = "C:\path\to\privkey.pem"
-python app.py
-```
-
-**Option 2 -- Quick self-signed certificate** (for development/testing):
-
-Linux / macOS:
-```bash
-pip install pyopenssl
-SSL_ADHOC=1 python app.py
-```
-
-Windows (Command Prompt):
-```cmd
-pip install pyopenssl
-set SSL_ADHOC=1
-python app.py
-```
-
-Windows (PowerShell):
-```powershell
-pip install pyopenssl
-$env:SSL_ADHOC = "1"
-python app.py
-```
-
-**Option 3 -- Generate a self-signed certificate with OpenSSL** (works on all platforms):
-
-If you have OpenSSL installed (comes with Git for Windows, or install via `choco install openssl`):
-
-```bash
-openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
-```
-
-Then run with the generated files:
-
-Linux / macOS:
-```bash
-SSL_CERT=cert.pem SSL_KEY=key.pem python app.py
-```
-
-Windows (Command Prompt):
-```cmd
-set SSL_CERT=cert.pem
-set SSL_KEY=key.pem
-python app.py
-```
-
-Windows (PowerShell):
-```powershell
-$env:SSL_CERT = "cert.pem"
-$env:SSL_KEY = "key.pem"
-python app.py
-```
-
-When SSL is active the server listens on `https://localhost:5000` and session cookies are automatically marked `Secure` + `HttpOnly`.
-
-You can also set the `PORT` environment variable to change the listening port (default `5000`).
-
-Windows (Command Prompt): `set PORT=8443` | Windows (PowerShell): `$env:PORT = "8443"` | Linux/macOS: `PORT=8443 python app.py`
-
-### First-Time Setup
-
-1. Navigate to the game in your browser
-2. Register a new account -- the first account automatically becomes the admin
-3. Create your character (choose name, race, class, and sex)
-4. Access the admin panel from the main menu or the "Admin" link in the header
-5. Configure game settings to your liking via the Configuration editor
+The database is automatically created and seeded with monsters, items, NPCs, gods, and default configuration on first run. The first user to register automatically becomes the admin.
 
 ## Project Structure
 
