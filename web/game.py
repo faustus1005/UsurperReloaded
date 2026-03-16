@@ -7571,8 +7571,12 @@ def recruit_npc(player, npc_id):
     }
 
 
-def equipment_swap_offer(player, target_id, offered_item_id, wanted_item_id):
-    """Create a swap offer using EquipmentSwapOffer model."""
+def equipment_swap_offer(player, target_id, offered_inv_id, wanted_item_id):
+    """Create a swap offer using EquipmentSwapOffer model.
+
+    offered_inv_id is an InventoryItem row ID (from the player's inventory).
+    wanted_item_id is an Item definition ID (from the target's inventory display).
+    """
     target = db.session.get(Player, target_id)
     if not target:
         return {'success': False, 'message': 'Target player not found.'}
@@ -7580,10 +7584,12 @@ def equipment_swap_offer(player, target_id, offered_item_id, wanted_item_id):
     if target.id == player.id:
         return {'success': False, 'message': 'You cannot swap with yourself.'}
 
-    # Verify player owns offered item
-    offered_inv = InventoryItem.query.filter_by(player_id=player.id, item_id=offered_item_id).first()
+    # Verify player owns offered item via inventory row ID
+    offered_inv = InventoryItem.query.filter_by(id=offered_inv_id, player_id=player.id).first()
     if not offered_inv:
         return {'success': False, 'message': 'You do not own the offered item.'}
+
+    offered_item_id = offered_inv.item_id
 
     # Verify target owns wanted item (if specified)
     if wanted_item_id:
