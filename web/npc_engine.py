@@ -570,7 +570,8 @@ def npc_challenge_throne(npc):
         killed = min(guards, random.randint(1, max(1, guards // 2)))
         king_record.moat_guards -= killed
         # Take damage from surviving moat creatures
-        moat_damage = killed * random.randint(10, 30)
+        surviving = guards - killed
+        moat_damage = surviving * random.randint(10, 30)
         npc_hp -= moat_damage
 
     if npc_hp <= 0:
