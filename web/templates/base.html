@@ -128,7 +128,7 @@
                 <a href="{{ url_for('rankings') }}" class="sidebar-link">Rankings</a>
                 <a href="{{ url_for('player_list') }}" class="sidebar-link">Players</a>
                 <a href="{{ url_for('npc_list') }}" class="sidebar-link">NPCs</a>
-                <a href="{{ url_for('mail_inbox') }}" class="sidebar-link">Mail{% if unread_mail > 0 %} <span class="badge">{{ unread_mail }}</span>{% endif %}</a>
+                <a href="{{ url_for('mail_inbox') }}" class="sidebar-link">Mail{% if unread_mail|default(0) > 0 %} <span class="badge">{{ unread_mail }}</span>{% endif %}</a>
                 <a href="{{ url_for('news') }}" class="sidebar-link">News</a>
                 {% if is_admin %}
                 <a href="{{ url_for('admin_dashboard') }}" class="sidebar-link admin-link">Admin Panel</a>
