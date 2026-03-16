@@ -94,6 +94,7 @@ def create_character(player, name, race, player_class, sex):
     player.good_deeds_remaining = 3
     player.gym_sessions = 4
     player.massage_visits = 3
+    player.prayers_remaining = 3
     player.dungeon_level = 1
 
     # Starting spells for spellcasters
@@ -627,6 +628,7 @@ def daily_maintenance(player):
     player.good_deeds_remaining = int(GameConfig.get('good_deeds_per_day', '3') or '3')
     player.gym_sessions = int(GameConfig.get('gym_sessions_per_day', '4') or '4')
     player.massage_visits = int(GameConfig.get('massage_visits_per_day', '3') or '3')
+    player.prayers_remaining = int(GameConfig.get('prayers_per_day', '3') or '3')
     player.hp = player.max_hp
     player.mana = player.max_mana
     player.last_maintenance = now
@@ -5326,6 +5328,11 @@ def pray_to_god(player):
     """Player prays to their god for a blessing."""
     if not player.god_name:
         return False, "You don't worship any deity."
+
+    if player.prayers_remaining <= 0:
+        return False, "You have already prayed enough today. The gods need rest too."
+
+    player.prayers_remaining -= 1
 
     god = God.query.filter_by(name=player.god_name, is_active=True).first()
     if not god:
