@@ -31,7 +31,7 @@
         {% for m in received %}
         <a href="{{ url_for('read_mail', mail_id=m.id) }}" class="mail-item{% if not m.is_read %} unread{% endif %}" style="text-decoration: none; display: flex;">
             <div>
-                <span class="mail-from">{{ m.sender.name }}</span>
+                <span class="mail-from">{{ m.sender.name if m.sender else 'Deleted' }}</span>
                 {% if m.subject %}<span class="text-secondary"> - {{ m.subject }}</span>{% endif %}
             </div>
             <span class="mail-date">{{ m.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
@@ -51,7 +51,7 @@
         <div class="mail-item">
             <div>
                 <span class="text-secondary">To:</span>
-                <span class="mail-from">{{ m.receiver.name }}</span>
+                <span class="mail-from">{{ m.receiver.name if m.receiver else 'Deleted' }}</span>
                 {% if m.subject %}<span class="text-secondary"> - {{ m.subject }}</span>{% endif %}
             </div>
             <span class="mail-date">{{ m.created_at.strftime('%Y-%m-%d %H:%M') }}</span>

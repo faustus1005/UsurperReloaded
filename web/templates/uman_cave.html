@@ -19,7 +19,7 @@
             </div>
             <div class="item-actions">
                 <form method="POST" action="{{ url_for('release_bear') }}" style="display:inline"
-                      onsubmit="return confirm('Release {{ player.bear_name }}? This cannot be undone!')">
+                      onsubmit="return confirm('Release ' + {{ player.bear_name|tojson }} + '? This cannot be undone!')">
                     <button type="submit" class="btn btn-sm btn-danger">Release</button>
                 </form>
             </div>

@@ -89,7 +89,7 @@
                 {% if child.ransom_amount > 0 %}
                 <form method="POST" action="{{ url_for('pay_ransom', child_id=child.id) }}">
                     <button type="submit" class="btn btn-primary btn-sm"
-                            onclick="return confirm('Pay {{ child.ransom_amount }} gold ransom?')">
+                            onclick="return confirm('Pay ' + {{ child.ransom_amount|tojson }} + ' gold ransom?')">
                         Pay Ransom
                     </button>
                 </form>
