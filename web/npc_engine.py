@@ -130,7 +130,7 @@ def create_npc(level=None):
 
     # Set NPC phrases
     npc.battlecry = random.choice(NPC_BATTLECRIES)
-    npc.phrase_attacked = random.choice(NPC_DEFEAT_PHRASES)
+    npc.phrase_attacked = random.choice(NPC_BATTLECRIES)
     npc.phrase_victory = random.choice(NPC_VICTORY_PHRASES)
     npc.phrase_defeat = random.choice(NPC_DEFEAT_PHRASES)
 
@@ -158,14 +158,14 @@ def create_npc(level=None):
 def equip_npc_for_level(npc):
     """Give an NPC appropriate equipment for their level."""
     # Find best affordable items for each slot
-    for slot in ['weapon', 'body', 'shield', 'head', 'hands', 'feet', 'arms',
-                 'legs', 'waist', 'neck', 'face', 'around_body',
+    for slot in ['weapon', 'weapon2', 'body', 'shield', 'head', 'hands', 'feet', 'arms',
+                 'legs', 'waist', 'neck', 'neck2', 'face', 'around_body',
                  'finger1', 'finger2']:
         item_type_map = {
-            'weapon': 'Weapon', 'body': 'Body', 'shield': 'Shield',
+            'weapon': 'Weapon', 'weapon2': 'Weapon', 'body': 'Body', 'shield': 'Shield',
             'head': 'Head', 'hands': 'Hands', 'feet': 'Feet',
             'arms': 'Arms', 'legs': 'Legs', 'waist': 'Waist',
-            'neck': 'Neck', 'face': 'Face', 'around_body': 'Around Body',
+            'neck': 'Neck', 'neck2': 'Neck', 'face': 'Face', 'around_body': 'Around Body',
             'finger1': 'Fingers', 'finger2': 'Fingers',
         }
         item_type = item_type_map.get(slot)
@@ -234,8 +234,8 @@ def npc_buy_equipment(npc):
         return False
 
     bought_something = False
-    slot_order = ['weapon', 'body', 'shield', 'head', 'hands', 'feet',
-                  'arms', 'legs', 'waist', 'neck', 'face', 'around_body',
+    slot_order = ['weapon', 'weapon2', 'body', 'shield', 'head', 'hands', 'feet',
+                  'arms', 'legs', 'waist', 'neck', 'neck2', 'face', 'around_body',
                   'finger1', 'finger2']
 
     for slot in slot_order:
@@ -243,10 +243,10 @@ def npc_buy_equipment(npc):
             continue
 
         item_type_map = {
-            'weapon': 'Weapon', 'body': 'Body', 'shield': 'Shield',
+            'weapon': 'Weapon', 'weapon2': 'Weapon', 'body': 'Body', 'shield': 'Shield',
             'head': 'Head', 'hands': 'Hands', 'feet': 'Feet',
             'arms': 'Arms', 'legs': 'Legs', 'waist': 'Waist',
-            'neck': 'Neck', 'face': 'Face', 'around_body': 'Around Body',
+            'neck': 'Neck', 'neck2': 'Neck', 'face': 'Face', 'around_body': 'Around Body',
             'finger1': 'Fingers', 'finger2': 'Fingers',
         }
         item_type = item_type_map.get(slot)
@@ -403,6 +403,7 @@ def npc_hunt_bounty(npc):
             total_bounty += b.amount
 
         npc.bank_gold += total_bounty
+        target.hp = max(1, target.max_hp // 4)
 
         news = NewsEntry(
             player_id=npc.id,
@@ -568,13 +569,17 @@ def npc_challenge_throne(npc):
         # NPC made it across - reduce moat creatures killed
         killed = min(guards, random.randint(1, max(1, guards // 2)))
         king_record.moat_guards -= killed
+        # Take damage from surviving moat creatures
+        surviving = guards - killed
+        moat_damage = surviving * random.randint(10, 30)
+        npc_hp -= moat_damage
 
     if npc_hp <= 0:
         npc.hp = max(1, npc.max_hp // 4)
         return False
 
     # Fight the king
-    king_hp = king.max_hp
+    king_hp = king.hp
     rounds = 0
     while king_hp > 0 and npc_hp > 0 and rounds < 20:
         rounds += 1
@@ -797,6 +802,7 @@ def npc_initiate_pvp(npc):
         winner.experience += xp_gain
         winner.player_kills += 1
         loser.player_defeats += 1
+        loser.hp = max(1, loser.max_hp // 4)
 
         news = NewsEntry(
             player_id=winner.id,

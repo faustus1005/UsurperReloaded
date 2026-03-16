@@ -54,20 +54,20 @@
                         {% if not (child.mother_access and child.father_access) %}
                         <form method="POST" action="{{ url_for('custody_share', child_id=child.id) }}" style="display:inline;">
                             <button type="submit" class="btn btn-sm btn-success"
-                                    onclick="return confirm('Share custody of {{ child.name }}?')">
+                                    onclick="return confirm('Share custody of ' + {{ child.name|tojson }} + '?')">
                                 Share
                             </button>
                         </form>
                         {% endif %}
                         <form method="POST" action="{{ url_for('custody_abandon', child_id=child.id) }}" style="display:inline;">
                             <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('Abandon {{ child.name }}? This is a bad deed!')">
+                                    onclick="return confirm('Abandon ' + {{ child.name|tojson }} + '? This is a bad deed!')">
                                 Abandon
                             </button>
                         </form>
                         <form method="POST" action="{{ url_for('custody_orphanage', child_id=child.id) }}" style="display:inline;">
                             <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('Send {{ child.name }} to the Royal Orphanage? This is very bad!')">
+                                    onclick="return confirm('Send ' + {{ child.name|tojson }} + ' to the Royal Orphanage? This is very bad!')">
                                 Orphanage
                             </button>
                         </form>

@@ -12,7 +12,7 @@
                         <span class="text-secondary">HP:</span>
                         <span class="hp">{{ player.hp }} / {{ player.max_hp }}</span>
                         <div class="health-bar">
-                            <div class="health-bar-fill hp" style="width: {{ (player.hp / player.max_hp * 100)|int }}%"></div>
+                            <div class="health-bar-fill hp" style="width: {{ (player.hp / player.max_hp * 100)|int if player.max_hp > 0 else 0 }}%"></div>
                         </div>
                     </div>
                     {% if player.max_mana > 0 %}
@@ -20,7 +20,7 @@
                         <span class="text-secondary">Mana:</span>
                         <span class="mana">{{ player.mana }} / {{ player.max_mana }}</span>
                         <div class="health-bar">
-                            <div class="health-bar-fill mana" style="width: {{ (player.mana / player.max_mana * 100)|int }}%"></div>
+                            <div class="health-bar-fill mana" style="width: {{ (player.mana / player.max_mana * 100)|int if player.max_mana > 0 else 0 }}%"></div>
                         </div>
                     </div>
                     {% endif %}
@@ -32,7 +32,7 @@
                         <span class="text-secondary">HP:</span>
                         <span class="text-red">{{ monster.hp }} / {{ monster.max_hp }}</span>
                         <div class="health-bar">
-                            <div class="health-bar-fill hp" style="width: {{ (monster.hp / monster.max_hp * 100)|int }}%"></div>
+                            <div class="health-bar-fill hp" style="width: {{ (monster.hp / monster.max_hp * 100)|int if monster.max_hp > 0 else 0 }}%"></div>
                         </div>
                     </div>
                     <div class="text-dim mt-1">Wielding: {{ monster.weapon_name }}</div>

@@ -317,7 +317,7 @@
             <tbody>
                 {% for h in history %}
                 <tr>
-                    <td class="text-gold">{{ h.player.name }}</td>
+                    <td class="text-gold">{{ h.player.name if h.player else 'Unknown' }}</td>
                     <td>{{ h.crowned_at.strftime('%Y-%m-%d') }}</td>
                     <td>{{ h.dethroned_at.strftime('%Y-%m-%d') if h.dethroned_at else 'N/A' }}</td>
                 </tr>

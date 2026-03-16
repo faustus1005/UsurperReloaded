@@ -580,7 +580,7 @@ class Player(db.Model):
 
     # Identity
     name = db.Column(db.String(30), unique=True, nullable=False)  # game alias (name2)
-    race = db.Column(db.String(10), nullable=False)
+    race = db.Column(db.String(15), nullable=False)
     player_class = db.Column(db.String(12), nullable=False)
     sex = db.Column(db.Integer, default=1)  # 1=male, 2=female
     age = db.Column(db.Integer, default=18)
@@ -701,6 +701,7 @@ class Player(db.Model):
     gym_sessions = db.Column(db.Integer, default=4)  # daily gym sessions
     massage_visits = db.Column(db.Integer, default=3)  # daily massage visits
     barrel_lift_record = db.Column(db.Integer, default=0)  # best barrel lift count
+    prayers_remaining = db.Column(db.Integer, default=3)  # daily prayer limit
 
     # Close combat skills (JSON string: {"Tackle": 5, "Kick": 3, ...})
     close_combat_skills = db.Column(db.Text, default='{}')
@@ -867,7 +868,7 @@ class Player(db.Model):
 
     def xp_for_next_level(self):
         next_level = self.level + 1
-        return LEVEL_XP.get(next_level, 0)
+        return LEVEL_XP.get(next_level, float('inf'))
 
     def get_known_spells(self):
         if not self.spells_known:
@@ -1249,7 +1250,7 @@ class Child(db.Model):
     father_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
     sex = db.Column(db.Integer, default=1)  # 1=male, 2=female
     age = db.Column(db.Integer, default=0)
-    race = db.Column(db.String(10), default='Human')
+    race = db.Column(db.String(15), default='Human')
     description = db.Column(db.String(100), default='')
     born_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     is_orphan = db.Column(db.Boolean, default=False)
@@ -1344,7 +1345,7 @@ class God(db.Model):
         thresholds = [0, 5000, 15000, 50000, 70000, 90000, 110000, 550000, 1000500]
         new_level = 1
         for i, threshold in enumerate(thresholds):
-            if self.experience > threshold:
+            if self.experience >= threshold:
                 new_level = i + 1
         return new_level
 
