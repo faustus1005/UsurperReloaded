@@ -9,8 +9,8 @@ Usurper was originally a multi-player BBS door game created by Jakob Dangarden, 
 ## Features
 
 ### Character System
-- **10 Races**: Human, Hobbit, Elf, Half-Elf, Dwarf, Troll, Orc, Gnome, Gnoll, Mutant -- each with unique stat bonuses
-- **11 Classes**: Alchemist, Assassin, Barbarian, Bard, Cleric, Jester, Magician, Paladin, Ranger, Sage, Warrior
+- **13 Races**: Human, Hobbit, Elf, Half-Elf, Dwarf, Troll, Orc, Gnome, Gnoll, Mutant, Tiefling, Dragonborn, Fae -- each with unique stat bonuses
+- **14 Classes**: Alchemist, Assassin, Barbarian, Bard, Cleric, Jester, Magician, Monk, Necromancer, Paladin, Ranger, Sage, Warrior, Witch Hunter
 - **7 Core Stats**: Strength, Defence, Stamina, Agility, Charisma, Dexterity, Wisdom
 - **100 Levels** of character progression with scaling XP requirements
 - **Alignment System**: Chivalry vs Darkness -- your actions shape your path (Good, Neutral, or Evil)
@@ -22,7 +22,7 @@ Usurper was originally a multi-player BBS door game created by Jakob Dangarden, 
 - **Player vs Player (PvP)**: Challenge other players in the Dormitory
 - **Tavern Brawls**: Bar fights for fun and gold
 - **Drinking Contests**: Compete against opponents in a drinking competition at Bob's Tavern
-- **Spell System**: 48 spells across attack, heal, buff, and cure types for spellcasting classes (Alchemist, Cleric, Magician, Paladin, Sage)
+- **Spell System**: 99 spells across attack, heal, buff, cure, and freeze types for spellcasting classes (Alchemist, Cleric, Magician, Monk, Necromancer, Paladin, Sage, Witch Hunter)
 - **Poisonous and diseased enemies** that inflict status effects
 
 ### Dungeon Events
@@ -35,7 +35,7 @@ Usurper was originally a multi-player BBS door game created by Jakob Dangarden, 
   - **The Underground Arena**: Fight gladiatorial challengers, face an undefeated minotaur champion, bet on fights, or sneak backstage
 
 ### Equipment & Economy
-- **15 Equipment Slots**: Weapon, Shield, Head, Body, Arms, Hands, Fingers, Legs, Feet, Waist, Neck, Face, Around Body, plus consumables
+- **16 Equipment Slots**: Weapon (Right), Weapon (Left), Shield, Head, Body, Arms, Hands, Legs, Feet, Waist, Neck 1, Neck 2, Face, Around Body, Ring 1, Ring 2
 - **100+ Items**: Weapons, armor, accessories, potions, class-specific gear, and unique dungeon-only treasures
 - **Multiple Shops**: Weapon Shop, Armor Shop, Magic Shop, Healing Hut, General Store, and specialized shops
 - **The Dark Alley**: A hub of illicit commerce including the Shady Dealer, Drug Palace, Steroid Shop, and Alchemist's Heaven
