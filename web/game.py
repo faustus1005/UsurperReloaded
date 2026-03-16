@@ -8,7 +8,7 @@ from models import (
     Child, RoyalQuest, God, TeamRecord, HomeChestItem, GameConfig,
     MoatCreature, RoyalGuard, DoorGuard, Drink, MarketListing,
     InnChat, BarrelLiftRecord, EquipmentSwapOffer,
-    RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES,
+    RACE_BONUSES, CLASS_BONUSES, LEVEL_XP, SPELLS, SPELLCASTER_CLASSES, RACES, EQUIPMENT_SLOTS,
     DRINK_INGREDIENTS,
     CLOSE_COMBAT_MOVES, COMBAT_SKILL_RANKS, HIT_INTENSITY, BATTLE_MASTER_RANKS,
     DISEASES, GIGOLOS, POISON_LEVELS, FATAL_DRINK_COMBOS, DRINK_STAT_EFFECTS,
@@ -224,7 +224,7 @@ def calculate_attack(attacker_strength, attacker_weapon_power, attacker_level):
 def calculate_defense(defender_defence, defender_armor_power):
     """Calculate defense reduction."""
     base = defender_defence + defender_armor_power
-    variation = random.randint(0, base // 3) if base > 3 else 0
+    variation = random.randint(-base // 4, base // 3) if base > 3 else 0
     return max(0, base + variation)
 
 
@@ -747,6 +747,7 @@ def leave_team(player):
         return False, "You are not in a team."
 
     team = membership.team
+    team_name = team.name  # Capture before potential deletion
     is_leader = (team.leader_id == player.id)
 
     db.session.delete(membership)
@@ -760,7 +761,7 @@ def leave_team(player):
             news = NewsEntry(
                 player_id=remaining.player_id,
                 category='social',
-                message=f"{remaining.player.name} is now leader of '{team.name}'."
+                message=f"{remaining.player.name} is now leader of '{team_name}'."
             )
             db.session.add(news)
         else:
@@ -770,10 +771,10 @@ def leave_team(player):
     news = NewsEntry(
         player_id=player.id,
         category='social',
-        message=f"{player.name} has left the team '{team.name}'."
+        message=f"{player.name} has left the team '{team_name}'."
     )
     db.session.add(news)
-    return True, f"You have left '{team.name}'."
+    return True, f"You have left '{team_name}'."
 
 
 def get_team_rankings():
@@ -879,7 +880,7 @@ def challenge_king(challenger):
     # Now fight the king
     combat_log.append(f"=== You face {king.name}, the {'King' if king.sex == 1 else 'Queen'}! ===")
 
-    king_hp = king.max_hp
+    king_hp = king.hp
     rounds = 0
     max_rounds = 20
 
@@ -926,6 +927,9 @@ def challenge_king(challenger):
 
 def crown_new_king(player):
     """Crown a player as the new king/queen."""
+    # Deactivate any existing king records to prevent duplicates
+    KingRecord.query.filter_by(is_current=True).update({'is_current': False})
+
     player.is_king = True
 
     record = KingRecord(
@@ -1300,6 +1304,7 @@ def pay_royal_guard_salaries(king_record):
     for guard in guards:
         if king_record.treasury >= guard.salary:
             king_record.treasury -= guard.salary
+            guard.player.gold += guard.salary
         else:
             # Can't afford - sack the guard
             sacked.append(guard)
@@ -1633,6 +1638,7 @@ def pvp_combat(attacker, defender):
         attacker.player_kills += 1
         defender.player_defeats += 1
         attacker.hp = max(1, atk_hp)
+        defender.hp = max(1, defender.max_hp // 4)
         attacker.chivalry += 1 if defender.level >= attacker.level else 0
         attacker.darkness += 2 if defender.level < attacker.level - 3 else 0
 
@@ -1792,7 +1798,7 @@ def drinking_contest(player):
             db.session.add(news)
             return True, f"You won the drinking contest! Prize: {prize} gold", log
 
-        if rounds > 20:
+        if rounds >= 20:
             log.append("The contest is called a draw after 20 rounds!")
             player.gold += cost  # Refund
             return True, "The drinking contest ended in a draw.", log
@@ -1851,9 +1857,10 @@ def buy_drug(player, drug_index):
 
     # 10% chance of overdose death
     if random.randint(1, 10) == 1:
-        player.hp = 0
+        player.hp = max(1, player.max_hp // 4)
         log.append("OVERDOSE! The drug was too much for your body!")
         log.append("You collapse to the ground. Everything goes dark...")
+        log.append("You wake up later, barely alive...")
         news = NewsEntry(
             player_id=player.id,
             category='death',
@@ -1944,9 +1951,10 @@ def buy_steroid(player, steroid_index):
 
     # 10% chance of death from bad batch
     if random.randint(1, 10) == 1:
-        player.hp = 0
+        player.hp = max(1, player.max_hp // 4)
         log.append("BAD BATCH! Your body rejects the steroid violently!")
         log.append("You collapse in agony. Everything fades...")
+        log.append("You wake up later, barely alive...")
         news = NewsEntry(
             player_id=player.id,
             category='death',
@@ -3357,7 +3365,7 @@ def store_item_in_chest(player, inv_item_id):
         return False, "Item data not found."
 
     # Check if item is currently equipped
-    for slot in ['weapon', 'armor', 'shield', 'helmet', 'ring', 'amulet']:
+    for slot in EQUIPMENT_SLOTS:
         if getattr(player, f'equipped_{slot}', None) == item.id:
             return False, f"Unequip {item.name} before storing it."
 
@@ -5096,10 +5104,12 @@ def _apply_outcome_effects(player, outcome):
     if isinstance(gold, tuple):
         gold = random.randint(gold[0], gold[1])
     if gold:
-        player.gold = max(0, player.gold + gold * max(1, player.level // 3))
         if gold > 0:
-            text += f" (+{gold * max(1, player.level // 3)} gold)"
+            scaled_gold = gold * max(1, player.level // 3)
+            player.gold = max(0, player.gold + scaled_gold)
+            text += f" (+{scaled_gold} gold)"
         else:
+            player.gold = max(0, player.gold + gold)
             text += f" ({gold} gold)"
 
     xp = outcome.get('xp', 0)
@@ -6478,7 +6488,6 @@ def beer_stealing(player):
     if dog_check < dog_difficulty:
         dmg = random.randint(5, 15)
         player.hp = max(1, player.hp - dmg)
-        player.stamina = max(0, player.stamina - 3)
         player.darkness += 1
         log.append(f"The dog bites you for {dmg} damage! You flee empty-handed.")
         add_news(f"{player.name} was caught trying to steal beer!", player_id=player.id, category='crime')
@@ -6486,7 +6495,6 @@ def beer_stealing(player):
         return {'success': False, 'message': 'The guard dog drove you off!', 'log': log}
 
     log.append("You wrestle the dog into submission!")
-    player.stamina = max(0, player.stamina - 2)
 
     # Phase 2: Merchant's sons (1-3)
     num_sons = random.randint(1, 3)
@@ -6498,14 +6506,12 @@ def beer_stealing(player):
         if player_roll < son_str:
             dmg = random.randint(3, 10)
             player.hp = max(1, player.hp - dmg)
-            player.stamina = max(0, player.stamina - 2)
             player.darkness += 2
             log.append(f"Son #{i+1} knocks you down for {dmg} damage! You retreat!")
             add_news(f"{player.name} was beaten during a beer heist!", player_id=player.id, category='crime')
             db.session.commit()
             return {'success': False, 'message': "The merchant's sons overpowered you!", 'log': log}
         log.append(f"You overpower son #{i+1}!")
-        player.stamina = max(0, player.stamina - 1)
 
     # Success!
     gold_reward = random.randint(50, 200) * player.level
@@ -6582,6 +6588,11 @@ def dormitory_fistfight(player, num_opponents):
 
         if player.hp <= 0:
             break
+
+    # Recover from knockout
+    if player.hp <= 0:
+        player.hp = max(1, player.max_hp // 4)
+        log.append("You wake up bruised but alive...")
 
     # XP reward
     xp_gain = defeated * player.level * 100
@@ -6710,7 +6721,7 @@ def gym_massage(player):
     sta_restore = random.randint(2, 8)
 
     player.hp = min(player.max_hp, player.hp + hp_restore)
-    player.stamina += sta_restore
+    player.stamina = min(player.stamina + sta_restore, player.strength + player.constitution)
 
     db.session.commit()
     return {
@@ -7511,33 +7522,6 @@ def royal_avenger_spell(king_player, target_id):
     }
 
 
-def send_to_orphanage(player, child_id):
-    """Send child to royal orphanage. Sets child location='orphanage'."""
-    child = db.session.get(Child, child_id)
-    if not child:
-        return {'success': False, 'message': 'Child not found.'}
-
-    # Must be parent
-    if child.mother_id != player.id and child.father_id != player.id:
-        return {'success': False, 'message': 'This is not your child.'}
-
-    if child.location == 'orphanage':
-        return {'success': False, 'message': f'{child.name} is already at the orphanage.'}
-
-    if child.location == 'kidnapped':
-        return {'success': False, 'message': f'{child.name} has been kidnapped and cannot be sent to the orphanage.'}
-
-    child.location = 'orphanage'
-    child.is_orphan = True
-
-    add_news(f"{player.name} sent their child {child.name} to the royal orphanage.", player_id=player.id, category='social')
-    db.session.commit()
-    return {
-        'success': True,
-        'message': f"You sent {child.name} to the royal orphanage.",
-    }
-
-
 def recruit_npc(player, npc_id):
     """Recruit an NPC to player's team. NPC must be in dormitory and not on a team."""
     npc = db.session.get(Player, npc_id)
@@ -7852,7 +7836,8 @@ def supreme_being_encounter(player, door_choice):
     boss_name = "Supreme Being"
 
     round_num = 0
-    while boss_hp > 0 and player.hp > 0:
+    max_rounds = 100
+    while boss_hp > 0 and player.hp > 0 and round_num < max_rounds:
         round_num += 1
 
         # Player attacks
@@ -7882,6 +7867,18 @@ def supreme_being_encounter(player, door_choice):
                 'log': log,
                 'reward_item': reward_item,
             }
+
+    # Stalemate check
+    if boss_hp > 0 and player.hp > 0:
+        log.append("The battle ends in a stalemate! The Supreme Being retreats to its realm.")
+        add_news(f"{player.name} fought the Supreme Being to a stalemate!", player_id=player.id)
+        db.session.commit()
+        return {
+            'success': False,
+            'message': 'The battle was inconclusive.',
+            'log': log,
+            'reward_item': reward_item,
+        }
 
     # Victory!
     xp_gain = 100000 * player.level

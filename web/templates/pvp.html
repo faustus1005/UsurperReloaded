@@ -39,7 +39,7 @@
                     </td>
                     <td>
                         <form method="POST" action="{{ url_for('pvp_fight', target_id=t.id) }}">
-                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Challenge {{ t.name }}?')">Fight</button>
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Challenge ' + {{ t.name|tojson }} + '?')">Fight</button>
                         </form>
                     </td>
                 </tr>

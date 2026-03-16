@@ -29,7 +29,7 @@
                     <td>
                         <a href="{{ url_for('admin_edit_drink', drink_id=d.id) }}" class="btn btn-sm">Edit</a>
                         <form method="POST" action="{{ url_for('admin_delete_drink', drink_id=d.id) }}"
-                              class="inline-form" onsubmit="return confirm('Delete {{ d.name }}?')">
+                              class="inline-form" onsubmit="return confirm('Delete ' + {{ d.name|tojson }} + '?')">
                             <button type="submit" class="btn btn-sm btn-danger">Del</button>
                         </form>
                     </td>

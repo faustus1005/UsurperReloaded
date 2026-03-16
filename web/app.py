@@ -16,6 +16,7 @@ from flask import (Flask, render_template, redirect, url_for, flash, request,
 from flask_login import (LoginManager, login_user, logout_user, login_required,
                           current_user)
 from werkzeug.security import generate_password_hash
+from flask_wtf.csrf import CSRFProtect
 
 from models import (
     db, User, Player, Item, InventoryItem, Monster, Mail, NewsEntry,
@@ -69,12 +70,13 @@ SSL_CERT = os.environ.get('SSL_CERT')
 SSL_KEY = os.environ.get('SSL_KEY')
 SSL_ADHOC = os.environ.get('SSL_ADHOC', '').lower() in ('1', 'true', 'yes')
 
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 if SSL_CERT or SSL_ADHOC:
     app.config['SESSION_COOKIE_SECURE'] = True
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 db.init_app(app)
+csrf = CSRFProtect(app)
 
 # Initialize database tables and seed data on first load.
 # This ensures tables exist whether the app is run directly (python app.py)
@@ -144,6 +146,14 @@ login_manager.login_message_category = 'info'
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+
+def safe_int(value, default=0):
+    """Safely convert a form value to int, returning default on failure."""
+    try:
+        return int(value) if value is not None else default
+    except (ValueError, TypeError):
+        return default
 
 
 def get_player():
@@ -801,7 +811,7 @@ def bank():
         db.session.commit()
         flash(f"You collected {wages_collected} gold in bank guard salary!", 'success')
 
-    bank_salary = (player.level * 1500) + (player.strength * 9) if not player.is_bank_guard else (player.level * 1500) + (player.strength * 9)
+    bank_salary = (player.level * 1500) + (player.strength * 9) if player.is_bank_guard else 0
     return render_template('bank.html', bank_salary=bank_salary)
 
 
@@ -878,6 +888,10 @@ def weapon_shop():
     if not player:
         return redirect(url_for('create_character'))
 
+    if not is_shop_open('shop_weapons'):
+        flash("The Weapon Shop has been closed by royal decree!", 'error')
+        return redirect(url_for('main_menu'))
+
     items = Item.query.filter_by(in_shop=True, item_type='Weapon').order_by(Item.value).all()
     shop_name = GameConfig.get('weapon_shop_name', 'Weapon Shop')
     return render_template('shop.html', items=items, shop_name=shop_name,
@@ -890,6 +904,10 @@ def armor_shop():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
+
+    if not is_shop_open('shop_armor'):
+        flash("The Armor Shop has been closed by royal decree!", 'error')
+        return redirect(url_for('main_menu'))
 
     armor_types = ['Body', 'Shield', 'Head', 'Arms', 'Hands', 'Legs', 'Feet',
                    'Waist', 'Neck', 'Face', 'Around Body', 'Fingers']
@@ -1634,6 +1652,22 @@ def pvp_fight(target_id):
         flash("Player not found.", 'error')
         return redirect(url_for('pvp'))
 
+    if player.hp <= 0:
+        flash("You are too injured to fight.", 'error')
+        return redirect(url_for('pvp'))
+
+    if player.player_fights <= 0:
+        flash("You have no player fights remaining today.", 'error')
+        return redirect(url_for('pvp'))
+
+    if player.is_imprisoned:
+        flash("You cannot fight while imprisoned.", 'error')
+        return redirect(url_for('pvp'))
+
+    if defender.is_imprisoned:
+        flash("That player is imprisoned.", 'error')
+        return redirect(url_for('pvp'))
+
     winner, loser, combat_log = game_logic.pvp_combat(player, defender)
     db.session.commit()
 
@@ -1775,6 +1809,7 @@ def create_drink():
         if val > 0:
             ingredients[attr] = val
     success, msg = game_logic.create_drink(player, name, comment, secret, ingredients)
+    db.session.commit()
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('orbs_bar'))
 
@@ -1823,8 +1858,8 @@ def send_drink():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    drink_id = int(request.form.get('drink_id', 0))
-    receiver_id = int(request.form.get('receiver_id', 0))
+    drink_id = safe_int(request.form.get('drink_id', 0))
+    receiver_id = safe_int(request.form.get('receiver_id', 0))
     success, msg = game_logic.send_drink(player, receiver_id, drink_id)
     if success:
         game_logic.send_drink_mail(player, receiver_id, drink_id)
@@ -1841,7 +1876,7 @@ def pickpocket():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    target_id = int(request.form.get('target_id', 0))
+    target_id = safe_int(request.form.get('target_id', 0))
     success, msg, log = game_logic.pickpocket(player, target_id)
     if success and log:
         session['pickpocket_log'] = log
@@ -2262,7 +2297,7 @@ def home_chest():
         if item:
             # Check if equipped
             equipped = False
-            for slot in ['weapon', 'armor', 'shield', 'helmet', 'ring', 'amulet']:
+            for slot in EQUIPMENT_SLOTS:
                 if getattr(player, f'equipped_{slot}', None) == item.id:
                     equipped = True
                     break
@@ -2837,9 +2872,14 @@ def market_list_item():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    inv_id = int(request.form.get('inv_id', 0))
-    price = int(request.form.get('price', 0))
+    try:
+        inv_id = int(request.form.get('inv_id', 0))
+        price = int(request.form.get('price', 0))
+    except (ValueError, TypeError):
+        flash("Invalid input.", 'error')
+        return redirect(url_for('player_market'))
     success, msg = game_logic.list_item_on_market(player, inv_id, price)
+    db.session.commit()
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('player_market'))
 
@@ -2851,6 +2891,7 @@ def market_buy_item(listing_id):
     if not player:
         return redirect(url_for('create_character'))
     success, msg = game_logic.buy_market_item(player, listing_id)
+    db.session.commit()
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('player_market'))
 
@@ -2862,6 +2903,7 @@ def market_cancel_listing(listing_id):
     if not player:
         return redirect(url_for('create_character'))
     success, msg = game_logic.cancel_market_listing(player, listing_id)
+    db.session.commit()
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('player_market'))
 
@@ -2993,6 +3035,7 @@ def release_bear():
     if not player:
         return redirect(url_for('create_character'))
     success, msg = game_logic.release_bear(player)
+    db.session.commit()
     flash(msg, 'success' if success else 'error')
     return redirect(url_for('uman_cave'))
 
@@ -3622,13 +3665,13 @@ def admin_delete_player(player_id):
     # Delete related records
     KingRecord.query.filter_by(player_id=player_id).delete()
     InventoryItem.query.filter_by(player_id=player_id).delete()
-    Mail.query.filter((Mail.sender_id == player_id) | (Mail.receiver_id == player_id)).delete()
+    Mail.query.filter((Mail.sender_id == player_id) | (Mail.receiver_id == player_id)).delete(synchronize_session=False)
     NewsEntry.query.filter_by(player_id=player_id).delete()
     TeamMember.query.filter_by(player_id=player_id).delete()
-    Bounty.query.filter((Bounty.target_id == player_id) | (Bounty.poster_id == player_id)).delete()
+    Bounty.query.filter((Bounty.target_id == player_id) | (Bounty.poster_id == player_id)).delete(synchronize_session=False)
     RoyalQuest.query.filter(
         (RoyalQuest.initiator_id == player_id) | (RoyalQuest.occupier_id == player_id)
-    ).delete()
+    ).delete(synchronize_session=False)
     db.session.delete(player)
     db.session.commit()
     flash(f'Player "{name}" deleted.', 'success')
@@ -4199,7 +4242,7 @@ def dormitory_fight():
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    num_opponents = int(request.form.get('num_opponents', 1))
+    num_opponents = safe_int(request.form.get('num_opponents', 1), 1)
     result = game_logic.dormitory_fistfight(player, num_opponents)
     db.session.commit()
     if result.get('log'):
@@ -4259,7 +4302,7 @@ def groggo():
         return redirect(url_for('main_menu'))
     if request.method == 'POST':
         action = request.form.get('action', '')
-        target_id = int(request.form.get('target_id', 0))
+        target_id = safe_int(request.form.get('target_id', 0))
         if action == 'disease':
             success, msg = game_logic.groggo_disease(player, target_id)
         elif action == 'summon_demon':
@@ -4284,7 +4327,7 @@ def gigolo():
         flash("You cannot visit the Hall of Dreams while imprisoned.", 'error')
         return redirect(url_for('main_menu'))
     if request.method == 'POST':
-        gigolo_id = int(request.form.get('gigolo_id', 0))
+        gigolo_id = safe_int(request.form.get('gigolo_id', 0))
         success, msg = game_logic.visit_gigolo(player, gigolo_id)
         db.session.commit()
         flash(msg, 'success' if success else 'error')
@@ -4303,13 +4346,13 @@ def good_deeds():
     if request.method == 'POST':
         action = request.form.get('action', '')
         if action == 'poor':
-            amount = int(request.form.get('amount', 0))
+            amount = safe_int(request.form.get('amount', 0))
             success, msg = game_logic.good_deed_poor(player, amount)
         elif action == 'church':
-            amount = int(request.form.get('amount', 0))
+            amount = safe_int(request.form.get('amount', 0))
             success, msg = game_logic.good_deed_church(player, amount)
         elif action == 'blessing':
-            amount = int(request.form.get('amount', 0))
+            amount = safe_int(request.form.get('amount', 0))
             success, msg = game_logic.good_deed_blessing(player, amount)
         else:
             success, msg = False, "Unknown deed."
@@ -4335,13 +4378,13 @@ def dark_deeds():
     if request.method == 'POST':
         action = request.form.get('action', '')
         if action == 'kidnap':
-            child_id = int(request.form.get('child_id', 0))
+            child_id = safe_int(request.form.get('child_id', 0))
             success, msg = game_logic.kidnap_child(player, child_id)
         elif action == 'poison':
-            child_id = int(request.form.get('child_id', 0))
+            child_id = safe_int(request.form.get('child_id', 0))
             success, msg = game_logic.poison_child(player, child_id)
         elif action == 'murder':
-            target_id = int(request.form.get('target_id', 0))
+            target_id = safe_int(request.form.get('target_id', 0))
             success, msg = game_logic.murder_player(player, target_id)
         elif action == 'loot':
             success, msg = game_logic.loot_chest(player)
@@ -4456,13 +4499,13 @@ def equipment_swap():
     if request.method == 'POST':
         action = request.form.get('action', '')
         if action == 'offer':
-            item_id = int(request.form.get('item_id', 0))
-            target_id = int(request.form.get('target_id', 0))
-            wanted_id = int(request.form.get('wanted_id', 0))
+            item_id = safe_int(request.form.get('item_id', 0))
+            target_id = safe_int(request.form.get('target_id', 0))
+            wanted_id = safe_int(request.form.get('wanted_id', 0))
             success, msg = game_logic.equipment_swap_offer(
                 player, target_id, item_id, wanted_id)
         elif action == 'respond':
-            offer_id = int(request.form.get('offer_id', 0))
+            offer_id = safe_int(request.form.get('offer_id', 0))
             accept = request.form.get('accept') == 'yes'
             success, msg = game_logic.equipment_swap_respond(
                 player, offer_id, accept)
@@ -4504,7 +4547,7 @@ def orphanage():
     if not player:
         return redirect(url_for('create_character'))
     if request.method == 'POST':
-        child_id = int(request.form.get('child_id', 0))
+        child_id = safe_int(request.form.get('child_id', 0))
         success, msg = game_logic.send_to_orphanage(player, child_id)
         db.session.commit()
         flash(msg, 'success' if success else 'error')
@@ -4543,6 +4586,10 @@ def shop_haggle(item_id):
     success, msg = game_logic.haggle_price(player, item_id)
     db.session.commit()
     flash(msg, 'success' if success else 'error')
+    # Redirect back to the correct shop based on item type
+    item = db.session.get(Item, item_id)
+    if item and item.item_type != 'Weapon':
+        return redirect(url_for('armor_shop'))
     return redirect(url_for('weapon_shop'))
 
 
@@ -4584,7 +4631,7 @@ def alchemist_craft():
         flash("Only Alchemists can craft poisons.", 'error')
         return redirect(url_for('main_menu'))
     if request.method == 'POST':
-        poison_level = int(request.form.get('poison_level', 0))
+        poison_level = safe_int(request.form.get('poison_level', 0))
         success, msg = game_logic.craft_poison(player, poison_level)
         db.session.commit()
         flash(msg, 'success' if success else 'error')
