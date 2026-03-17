@@ -8,6 +8,8 @@ import os
 import ssl
 import random
 import logging
+import time
+from logging.handlers import RotatingFileHandler
 from functools import wraps
 from datetime import datetime, timezone
 
@@ -36,6 +38,44 @@ from seed import seed_all
 import npc_engine
 
 logger = logging.getLogger(__name__)
+
+# --- Logging configuration ---
+_log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+os.makedirs(_log_dir, exist_ok=True)
+
+# General access log – every request/response
+_access_handler = RotatingFileHandler(
+    os.path.join(_log_dir, 'server.log'),
+    maxBytes=10 * 1024 * 1024,  # 10 MB
+    backupCount=10,
+)
+_access_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
+))
+_access_handler.setLevel(logging.INFO)
+
+# Security log – auth events (login, register, failures)
+_security_handler = RotatingFileHandler(
+    os.path.join(_log_dir, 'security.log'),
+    maxBytes=10 * 1024 * 1024,
+    backupCount=10,
+)
+_security_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
+))
+_security_handler.setLevel(logging.INFO)
+
+access_logger = logging.getLogger('usurper.access')
+access_logger.setLevel(logging.INFO)
+access_logger.addHandler(_access_handler)
+
+security_logger = logging.getLogger('usurper.security')
+security_logger.setLevel(logging.INFO)
+security_logger.addHandler(_security_handler)
+
+# Also send module-level logger output to server.log
+logger.addHandler(_access_handler)
+logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
 
@@ -149,6 +189,32 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
+# --- Request / response logging ---
+@app.before_request
+def _log_request_start():
+    request._start_time = time.time()
+
+
+@app.after_request
+def _log_request(response):
+    duration_ms = 0
+    start = getattr(request, '_start_time', None)
+    if start:
+        duration_ms = int((time.time() - start) * 1000)
+
+    user_id = current_user.get_id() if current_user.is_authenticated else '-'
+    access_logger.info(
+        '%s %s %s %s %dms user=%s',
+        request.remote_addr,
+        request.method,
+        request.path,
+        response.status_code,
+        duration_ms,
+        user_id,
+    )
+    return response
+
+
 def safe_int(value, default=0):
     """Safely convert a form value to int, returning default on failure."""
     try:
@@ -178,6 +244,10 @@ def admin_required(f):
     @login_required
     def decorated_function(*args, **kwargs):
         if not current_user.is_admin:
+            security_logger.warning(
+                'ADMIN_DENIED ip=%s username=%s user_id=%s path=%s',
+                request.remote_addr, current_user.username, current_user.get_id(), request.path,
+            )
             abort(403)
         return f(*args, **kwargs)
     return decorated_function
@@ -237,6 +307,7 @@ def register():
         elif password != confirm:
             flash('Passwords do not match.', 'error')
         elif User.query.filter(User.username.ilike(username)).first():
+            security_logger.warning('REGISTER_DUPLICATE ip=%s username=%s', request.remote_addr, username)
             flash('Username already taken.', 'error')
         else:
             user = User(username=username.lower())
@@ -247,6 +318,7 @@ def register():
             db.session.add(user)
             db.session.commit()
             login_user(user)
+            security_logger.info('REGISTER_OK ip=%s username=%s user_id=%d', request.remote_addr, user.username, user.id)
             if user.is_admin:
                 flash('Account created! You are the first user and have been granted admin privileges.', 'success')
             else:
@@ -270,6 +342,7 @@ def login():
             user.last_login = datetime.now(timezone.utc)
             db.session.commit()
             login_user(user)
+            security_logger.info('LOGIN_OK ip=%s username=%s user_id=%d', request.remote_addr, user.username, user.id)
 
             # Run daily maintenance
             player = get_player()
@@ -279,6 +352,11 @@ def login():
                     flash('A new day dawns. Your daily actions have been refreshed!', 'info')
 
             return redirect(url_for('index'))
+        # Log failed attempt – distinguish unknown user vs wrong password
+        if user:
+            security_logger.warning('LOGIN_FAIL_PASSWORD ip=%s username=%s user_id=%d', request.remote_addr, username, user.id)
+        else:
+            security_logger.warning('LOGIN_FAIL_NOUSER ip=%s username=%s', request.remote_addr, username)
         flash('Invalid username or password.', 'error')
 
     return render_template('login.html')
@@ -293,7 +371,10 @@ def logout():
     session.pop('combat_result', None)
     session.pop('dungeon_event', None)
     session.pop('encounter_player_id', None)
+    _user_id = current_user.get_id()
+    _username = current_user.username if hasattr(current_user, 'username') else '?'
     logout_user()
+    security_logger.info('LOGOUT ip=%s username=%s user_id=%s', request.remote_addr, _username, _user_id)
     flash('You have left the realm.', 'info')
     return redirect(url_for('index'))
 
