@@ -12,7 +12,8 @@ from models import (
     DRINK_INGREDIENTS,
     CLOSE_COMBAT_MOVES, COMBAT_SKILL_RANKS, HIT_INTENSITY, BATTLE_MASTER_RANKS,
     DISEASES, GIGOLOS, POISON_LEVELS, FATAL_DRINK_COMBOS, DRINK_STAT_EFFECTS,
-    MONSTER_SPELLS
+    MONSTER_SPELLS,
+    TRAINING_MASTERS, HORSE_TYPES, FAIRY_ENCOUNTERS
 )
 
 
@@ -173,6 +174,209 @@ def level_up(player):
                 break  # Learn one spell per level
 
     return True, f"Congratulations! You are now level {player.level}!"
+
+
+# ==================== TRAINING MASTER COMBAT (LORD-inspired) ====================
+
+def get_training_master(player_level):
+    """Get the training master that guards the player's next level range."""
+    for master in TRAINING_MASTERS:
+        if player_level <= master['max_level']:
+            return master
+    return TRAINING_MASTERS[-1]
+
+
+def generate_master_stats(master, player):
+    """Scale a training master's stats based on the player's current level."""
+    # Base stats from master definition, scaled slightly by player level
+    level_scale = 1.0 + (player.level % 10) * 0.05
+    return {
+        'name': master['name'],
+        'hp': int(master['hp'] * level_scale),
+        'max_hp': int(master['hp'] * level_scale),
+        'attack': int(master['attack'] * level_scale),
+        'defense': int(master['defense'] * level_scale),
+        'phrase': master['phrase'],
+        'max_level': master['max_level'],
+    }
+
+
+def master_combat_round(player, master_state, action):
+    """Execute one round of combat against a training master.
+
+    Returns (messages, master_defeated, player_defeated, master_state).
+    """
+    messages = []
+
+    if action == 'attack':
+        # Player attacks master
+        player_attack = player.get_total_attack() + random.randint(1, player.strength // 2 + 1)
+        damage = max(1, player_attack - master_state['defense'] // 2)
+        damage = int(damage * random.uniform(0.8, 1.2))
+        master_state['hp'] -= damage
+        messages.append(f"You strike {master_state['name']} for {damage} damage!")
+
+    elif action == 'power_attack':
+        # Risky power attack - more damage but master gets free counter
+        player_attack = player.get_total_attack() + random.randint(1, player.strength)
+        damage = max(1, int((player_attack - master_state['defense'] // 3) * 1.5))
+        damage = int(damage * random.uniform(0.7, 1.3))
+        master_state['hp'] -= damage
+        messages.append(f"You unleash a devastating power attack on {master_state['name']} for {damage} damage!")
+
+        # Master counter-attack (bonus)
+        counter = max(1, master_state['attack'] // 2 - player.get_total_defense() // 4)
+        counter = int(counter * random.uniform(0.8, 1.2))
+        player.hp -= counter
+        messages.append(f"{master_state['name']} counters for {counter} damage!")
+
+    elif action == 'defend':
+        # Reduced damage taken, minor chip damage dealt
+        chip = max(1, player.get_total_attack() // 4)
+        master_state['hp'] -= chip
+        messages.append(f"You fight defensively and nick {master_state['name']} for {chip} damage.")
+
+    # Check if master is defeated
+    if master_state['hp'] <= 0:
+        master_state['hp'] = 0
+        messages.append(f"You have defeated {master_state['name']}!")
+        return messages, True, False, master_state
+
+    # Master attacks back (unless player defended)
+    if action == 'defend':
+        m_damage = max(1, master_state['attack'] // 2 - player.get_total_defense() // 2)
+    else:
+        m_damage = max(1, master_state['attack'] - player.get_total_defense() // 3)
+    m_damage = int(m_damage * random.uniform(0.7, 1.3))
+    player.hp -= m_damage
+    messages.append(f"{master_state['name']} strikes you for {m_damage} damage!")
+
+    if player.hp <= 0:
+        player.hp = 0
+        messages.append(f"{master_state['name']} has defeated you! Train harder and try again.")
+        return messages, False, True, master_state
+
+    return messages, False, False, master_state
+
+
+# ==================== HORSE/MOUNT SYSTEM (LORD-inspired) ====================
+
+def get_available_horses(player):
+    """Return horse types the player can buy (level-gated)."""
+    horses = []
+    for i, horse in enumerate(HORSE_TYPES):
+        min_level = [1, 5, 15, 30, 60][i] if i < 5 else 1
+        if player.level >= min_level:
+            horses.append({**horse, 'min_level': min_level})
+    return horses
+
+
+def buy_horse(player, horse_index):
+    """Buy a horse from the stables."""
+    horses = get_available_horses(player)
+    if horse_index < 0 or horse_index >= len(horses):
+        return False, "Invalid horse selection."
+
+    horse = horses[horse_index]
+    if player.gold < horse['cost']:
+        return False, f"You need {horse['cost']} gold to buy a {horse['name']}."
+
+    player.gold -= horse['cost']
+    player.has_horse = True
+    player.horse_name = horse['name']
+    player.horse_type = horse['type']
+    player.horse_bonus_fights = horse['bonus_fights']
+    return True, f"You purchased a {horse['name']}! You now get {horse['bonus_fights']} extra dungeon fights per day."
+
+
+def release_horse(player):
+    """Release the player's horse."""
+    if not player.has_horse:
+        return False, "You don't have a horse."
+    name = player.horse_name
+    player.has_horse = False
+    player.horse_name = ''
+    player.horse_type = ''
+    player.horse_bonus_fights = 0
+    return True, f"You released {name} into the wild."
+
+
+# ==================== FAIRY ENCOUNTERS (LORD-inspired) ====================
+
+def fairy_encounter(player, dungeon_level):
+    """Resolve a fairy encounter in the dungeon.
+
+    Returns dict with 'type', 'message', and 'details'.
+    """
+    # Weighted random selection
+    total_weight = sum(f['weight'] for f in FAIRY_ENCOUNTERS)
+    roll = random.randint(1, total_weight)
+    cumulative = 0
+    chosen = FAIRY_ENCOUNTERS[0]
+    for f in FAIRY_ENCOUNTERS:
+        cumulative += f['weight']
+        if roll <= cumulative:
+            chosen = f
+            break
+
+    result = {'type': chosen['type'], 'message': chosen['message'], 'details': ''}
+
+    if chosen['type'] == 'heal':
+        heal = min(player.max_hp - player.hp, player.max_hp // 2 + random.randint(10, 30))
+        player.hp = min(player.max_hp, player.hp + heal)
+        mana_heal = min(player.max_mana - player.mana, player.max_mana // 3)
+        player.mana = min(player.max_mana, player.mana + mana_heal)
+        # Also cure poison
+        if player.is_poisoned:
+            player.is_poisoned = False
+            result['details'] = f"Healed {heal} HP, {mana_heal} mana, and cured your poison!"
+        else:
+            result['details'] = f"Healed {heal} HP and {mana_heal} mana!"
+
+    elif chosen['type'] == 'gold':
+        gold = random.randint(20, 50) * dungeon_level + random.randint(100, 500)
+        player.gold += gold
+        result['details'] = f"You received {gold} gold!"
+
+    elif chosen['type'] == 'xp':
+        xp = random.randint(10, 30) * dungeon_level + player.level * 5
+        player.experience += xp
+        result['details'] = f"You gained {xp} experience!"
+
+    elif chosen['type'] == 'horse':
+        if not player.has_horse:
+            # Grant a free horse appropriate to player level
+            horse_idx = min(len(HORSE_TYPES) - 1, player.level // 20)
+            horse = HORSE_TYPES[horse_idx]
+            player.has_horse = True
+            player.horse_name = horse['name']
+            player.horse_type = horse['type']
+            player.horse_bonus_fights = horse['bonus_fights']
+            result['details'] = f"The fairy conjured a {horse['name']} for you! (+{horse['bonus_fights']} daily fights)"
+        else:
+            # Already have a horse, give gold instead
+            gold = random.randint(50, 100) * dungeon_level
+            player.gold += gold
+            result['message'] = 'A fairy notices you already have a fine steed and gives you gold instead!'
+            result['details'] = f"You received {gold} gold!"
+
+    elif chosen['type'] == 'extra_fights':
+        fights = random.randint(2, 5)
+        player.fights_remaining += fights
+        result['details'] = f"You gained {fights} extra dungeon fights today!"
+
+    elif chosen['type'] == 'stat_boost':
+        stat = random.choice(['strength', 'defence', 'stamina', 'agility', 'dexterity', 'wisdom'])
+        boost = random.randint(1, 2)
+        setattr(player, stat, getattr(player, stat) + boost)
+        result['details'] = f"Your {stat} permanently increased by {boost}!"
+
+    elif chosen['type'] == 'dust':
+        dust = random.randint(1, 3)
+        player.fairy_dust += dust
+        result['details'] = f"You collected {dust} fairy dust! (Total: {player.fairy_dust})"
+
+    return result
 
 
 def get_dungeon_monster(dungeon_level):
@@ -613,7 +817,9 @@ def daily_maintenance(player):
         if (now - last) < timedelta(hours=20):
             return False
 
-    player.fights_remaining = 20
+    base_fights = 20
+    horse_bonus = player.horse_bonus_fights if player.has_horse else 0
+    player.fights_remaining = base_fights + horse_bonus
     player.player_fights = 3
     player.thefts_remaining = 2
     player.brawls_remaining = 2

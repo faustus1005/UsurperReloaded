@@ -62,6 +62,7 @@
             <div class="sidebar-nav-section">
                 <div class="sidebar-nav-header">[ Adventure ]</div>
                 <a href="{{ url_for('dungeon') }}" class="sidebar-link">Dungeons ({{ player.fights_remaining }})</a>
+                <a href="{{ url_for('stables') }}" class="sidebar-link">Stables{% if player.has_horse %} ({{ player.horse_name }}){% endif %}</a>
                 <a href="{{ url_for('pvp') }}" class="sidebar-link">PvP / Dormitory</a>
                 <a href="{{ url_for('castle') }}" class="sidebar-link">Castle</a>
                 <a href="{{ url_for('bounty_board') }}" class="sidebar-link">Bounty Board</a>

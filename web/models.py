@@ -206,6 +206,54 @@ LEVEL_XP = {
 }
 
 # Monster spells (used by monsters in combat)
+# Training Masters - LORD-inspired level gate system
+# Each master must be defeated in combat to advance past their level range
+TRAINING_MASTERS = [
+    {'name': 'Halder', 'max_level': 2, 'hp': 30, 'attack': 8, 'defense': 5,
+     'phrase': 'You are not yet ready, whelp!'},
+    {'name': 'Sandtiger', 'max_level': 5, 'hp': 80, 'attack': 18, 'defense': 12,
+     'phrase': 'Let me see if you have what it takes.'},
+    {'name': 'Aragorn', 'max_level': 10, 'hp': 200, 'attack': 40, 'defense': 25,
+     'phrase': 'Prepare yourself, adventurer.'},
+    {'name': 'Mistress Vena', 'max_level': 15, 'hp': 500, 'attack': 80, 'defense': 50,
+     'phrase': 'Few survive my training...'},
+    {'name': 'Asgoth', 'max_level': 25, 'hp': 1200, 'attack': 150, 'defense': 90,
+     'phrase': 'You face the wrath of Asgoth!'},
+    {'name': 'Grimjaw', 'max_level': 40, 'hp': 3000, 'attack': 300, 'defense': 180,
+     'phrase': 'Only the strongest may pass!'},
+    {'name': 'Darkstorm', 'max_level': 60, 'hp': 8000, 'attack': 600, 'defense': 400,
+     'phrase': 'I have crushed a thousand warriors...'},
+    {'name': 'Olivia', 'max_level': 80, 'hp': 20000, 'attack': 1200, 'defense': 800,
+     'phrase': 'Do not be deceived by my grace.'},
+    {'name': 'Turgon', 'max_level': 99, 'hp': 50000, 'attack': 2500, 'defense': 1500,
+     'phrase': 'I am the final master. Prepare to die!'},
+]
+
+# Horse types available in the game (LORD-inspired mount system)
+HORSE_TYPES = [
+    {'name': 'Old Donkey', 'type': 'donkey', 'bonus_fights': 2, 'cost': 500,
+     'description': 'Slow but reliable. Barely counts as a mount.'},
+    {'name': 'Brown Mare', 'type': 'mare', 'bonus_fights': 3, 'cost': 2000,
+     'description': 'A sturdy horse for everyday travel.'},
+    {'name': 'White Stallion', 'type': 'stallion', 'bonus_fights': 4, 'cost': 8000,
+     'description': 'A noble steed, swift and strong.'},
+    {'name': 'Black Warhorse', 'type': 'warhorse', 'bonus_fights': 5, 'cost': 25000,
+     'description': 'Bred for battle, feared by enemies.'},
+    {'name': 'Shadow Nightmare', 'type': 'nightmare', 'bonus_fights': 7, 'cost': 100000,
+     'description': 'A demonic steed wreathed in dark flames.'},
+]
+
+# Fairy encounter outcomes (LORD-inspired)
+FAIRY_ENCOUNTERS = [
+    {'type': 'heal', 'weight': 25, 'message': 'A tiny fairy appears in a flash of light and heals your wounds!'},
+    {'type': 'gold', 'weight': 20, 'message': 'A mischievous fairy drops a shower of gold coins at your feet!'},
+    {'type': 'xp', 'weight': 15, 'message': 'A radiant fairy blesses you with ancient wisdom!'},
+    {'type': 'horse', 'weight': 5, 'message': 'A powerful fairy summons a magical steed for you!'},
+    {'type': 'extra_fights', 'weight': 15, 'message': 'A playful fairy grants you renewed energy for more battles!'},
+    {'type': 'stat_boost', 'weight': 10, 'message': 'A wise fairy touches your forehead and you feel power surge through you!'},
+    {'type': 'dust', 'weight': 10, 'message': 'The fairy leaves behind a trail of sparkling fairy dust!'},
+]
+
 MONSTER_SPELLS = {
     1: {'name': 'Cause Damage', 'mana_cost': 10, 'multi_target': False,
         'description': 'The creature channels destructive energy!'},
@@ -692,6 +740,15 @@ class Player(db.Model):
 
     # Bard performances
     performances_remaining = db.Column(db.Integer, default=3)  # daily bard performance limit
+
+    # Horse/Mount system (LORD-inspired)
+    has_horse = db.Column(db.Boolean, default=False)
+    horse_name = db.Column(db.String(30), default='')
+    horse_type = db.Column(db.String(30), default='')  # e.g. 'White Stallion', 'Black Mare'
+    horse_bonus_fights = db.Column(db.Integer, default=0)  # extra daily dungeon fights from mount
+
+    # Fairy encounter tracking
+    fairy_dust = db.Column(db.Integer, default=0)  # accumulated fairy dust (currency/blessing)
 
     # Dark/Good deed quotas
     dark_deeds_remaining = db.Column(db.Integer, default=3)  # daily dark deed limit

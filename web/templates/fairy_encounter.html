@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Fairy Encounter{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header" style="background: linear-gradient(135deg, #1a0a2e, #2d1b4e); border-color: #8844cc;">Fairy Encounter</div>
+    <div class="panel-body" style="text-align: center;">
+        <p style="font-size: 2em; margin-bottom: 0.5em;">&#10024;</p>
+        <p class="text-blue mb-2" style="font-size: 1.1em;">
+            {{ result.message }}
+        </p>
+        {% if result.details %}
+        <p class="text-gold mb-2" style="font-size: 1.05em;">
+            {{ result.details }}
+        </p>
+        {% endif %}
+        <p class="text-dim" style="font-style: italic;">
+            The fairy vanishes in a shower of sparkling light...
+        </p>
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('dungeon') }}" class="btn btn-primary">Continue Exploring</a>
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}
