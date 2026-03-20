@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "macros.html" import location_img with context %}
+{% block title_suffix %} - Stables{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Stables</div>
+    <div class="panel-body">
+        {{ location_img('stables') }}
+        <p class="text-secondary mb-2">
+            The warm smell of hay and horses fills the air. A weathered stablemaster
+            eyes you from his workbench. "A good mount means more time in the dungeon, friend."
+        </p>
+
+        {% if player.has_horse %}
+        <div class="item-card" style="border-color: #886622;">
+            <div class="item-info">
+                <div class="item-name text-gold">Your Mount: {{ player.horse_name }}</div>
+                <div class="item-stats">+{{ player.horse_bonus_fights }} bonus dungeon fights per day</div>
+            </div>
+            <div class="item-actions">
+                <form method="POST" action="{{ url_for('release_horse') }}" style="display:inline"
+                      onsubmit="return confirm('Release {{ player.horse_name }}? This cannot be undone!')">
+                    <button type="submit" class="btn btn-sm btn-danger">Release</button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-dim mb-1">You have no mount. Purchase one below to gain extra dungeon fights each day!</p>
+        {% endif %}
+
+        <p class="text-secondary mb-1">Gold: <span class="text-gold">{{ player.gold }}</span></p>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">Horses for Sale</div>
+    <div class="panel-body">
+        {% for horse in horses %}
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">{{ horse.name }}</div>
+                <div class="text-dim" style="font-size: 0.85em;">{{ horse.description }}</div>
+                <div class="item-stats">
+                    +{{ horse.bonus_fights }} daily dungeon fights
+                    &mdash; Requires Level {{ horse.min_level }}+
+                </div>
+            </div>
+            <div class="item-actions">
+                <span class="item-price">{{ horse.cost }}g</span>
+                <form method="POST" action="{{ url_for('buy_horse', index=loop.index0) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-primary"
+                            {% if player.gold < horse.cost %}disabled{% endif %}>
+                        {% if player.has_horse %}Replace Mount{% else %}Buy{% endif %}
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% if not horses %}
+        <p class="text-dim">No horses are available at your level yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

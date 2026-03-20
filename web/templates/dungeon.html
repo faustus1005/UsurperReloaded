@@ -19,6 +19,12 @@
             <div class="stat-item"><span class="label">Mana</span><span class="value mana">{{ player.mana }} / {{ player.max_mana }}</span></div>
             {% endif %}
             <div class="stat-item"><span class="label">Healing Potions</span><span class="value">{{ player.healing_potions }}</span></div>
+            {% if player.has_horse %}
+            <div class="stat-item"><span class="label">Mount</span><span class="value text-gold">{{ player.horse_name }} (+{{ player.horse_bonus_fights }})</span></div>
+            {% endif %}
+            {% if player.fairy_dust > 0 %}
+            <div class="stat-item"><span class="label">Fairy Dust</span><span class="value text-blue">{{ player.fairy_dust }}</span></div>
+            {% endif %}
         </div>
 
         {% if player.fights_remaining > 0 and player.hp > 0 %}

@@ -31,7 +31,8 @@ from models import (
     ITEM_TYPES, DRINK_INGREDIENTS,
     CLOSE_COMBAT_MOVES, COMBAT_SKILL_RANKS, HIT_INTENSITY,
     GIGOLOS, POISON_LEVELS, DISEASES, FATAL_DRINK_COMBOS,
-    DRINK_STAT_EFFECTS, MONSTER_SPELLS
+    DRINK_STAT_EFFECTS, MONSTER_SPELLS,
+    TRAINING_MASTERS, HORSE_TYPES, FAIRY_ENCOUNTERS
 )
 import game as game_logic
 from seed import seed_all
@@ -572,6 +573,13 @@ def dungeon_explore():
 
     dungeon_level = player.dungeon_level if player.dungeon_level else min(player.level, 100)
 
+    # 8% chance of fairy encounter (LORD-inspired)
+    if random.randint(1, 100) <= 8:
+        result = game_logic.fairy_encounter(player, dungeon_level)
+        db.session.commit()
+        session['fairy_encounter'] = result
+        return redirect(url_for('fairy_encounter_page'))
+
     # 30% chance of non-combat event
     if random.randint(1, 100) <= 30:
         # 50% chance of new interactive event vs old simple event
@@ -811,6 +819,23 @@ def combat_result():
     session.pop('combat_result', None)
 
     return render_template('combat_result.html', combat_log=combat_log, result=result)
+
+
+# ==================== FAIRY ENCOUNTERS (LORD-inspired) ====================
+
+@app.route('/fairy')
+@login_required
+def fairy_encounter_page():
+    """Display the result of a fairy encounter."""
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    result = session.pop('fairy_encounter', None)
+    if not result:
+        return redirect(url_for('dungeon'))
+
+    return render_template('fairy_encounter.html', result=result)
 
 
 # ==================== TOWN LOCATIONS ====================
@@ -1162,7 +1187,7 @@ def sell_item(inv_item_id):
     return redirect(url_for('inventory'))
 
 
-# ==================== LEVEL MASTER ====================
+# ==================== LEVEL MASTER (with Training Master Combat Gate) ====================
 
 @app.route('/level_master')
 @login_required
@@ -1171,31 +1196,169 @@ def level_master():
     if not player:
         return redirect(url_for('create_character'))
 
-    master_name = GameConfig.get('level_master_name', 'Gandalf the Trainer')
     can_level = player.can_level_up()
     xp_needed = player.xp_for_next_level()
-    return render_template('level_master.html', master_name=master_name,
-                           can_level=can_level, xp_needed=xp_needed)
+    master = game_logic.get_training_master(player.level)
+    master_combat = session.get('master_combat')
+
+    return render_template('level_master.html', master=master,
+                           can_level=can_level, xp_needed=xp_needed,
+                           master_combat=master_combat)
+
+
+@app.route('/level_master/challenge', methods=['POST'])
+@login_required
+def challenge_master():
+    """Initiate combat with the training master to level up."""
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    if not player.can_level_up():
+        flash("You don't have enough experience to challenge a master.", 'warning')
+        return redirect(url_for('level_master'))
+
+    if player.hp <= 0:
+        flash("You are too wounded to fight.", 'error')
+        return redirect(url_for('level_master'))
+
+    master = game_logic.get_training_master(player.level)
+    master_state = game_logic.generate_master_stats(master, player)
+
+    session['master_combat'] = master_state
+    session['master_combat_log'] = [
+        f"{master_state['name']} steps forward: \"{master_state['phrase']}\"",
+        "The training fight begins!"
+    ]
+    db.session.commit()
+    return redirect(url_for('master_fight'))
+
+
+@app.route('/level_master/fight')
+@login_required
+def master_fight():
+    """Display the master combat screen."""
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    master_state = session.get('master_combat')
+    if not master_state:
+        return redirect(url_for('level_master'))
+
+    combat_log = session.get('master_combat_log', [])
+    return render_template('master_fight.html', master=master_state,
+                           combat_log=combat_log)
+
+
+@app.route('/level_master/fight/action', methods=['POST'])
+@login_required
+def master_fight_action():
+    """Process a combat action against the training master."""
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    master_state = session.get('master_combat')
+    if not master_state:
+        return redirect(url_for('level_master'))
+
+    action = request.form.get('action', 'attack')
+    if action not in ('attack', 'power_attack', 'defend'):
+        action = 'attack'
+
+    messages, master_defeated, player_defeated, master_state = \
+        game_logic.master_combat_round(player, master_state, action)
+
+    combat_log = session.get('master_combat_log', [])
+    combat_log.extend(messages)
+
+    if master_defeated:
+        # Level up!
+        success, level_msg = game_logic.level_up(player)
+        if success:
+            combat_log.append(level_msg)
+            news = NewsEntry(
+                player_id=player.id,
+                category='social',
+                message=f"{player.name} defeated {master_state['name']} and advanced to level {player.level}!"
+            )
+            db.session.add(news)
+        session.pop('master_combat', None)
+        session['master_combat_log'] = combat_log
+        db.session.commit()
+        flash(f"Victory! {level_msg}", 'success')
+        return redirect(url_for('level_master'))
+
+    if player_defeated:
+        # Player lost - heal to 1 HP (training, not lethal)
+        player.hp = max(1, player.max_hp // 10)
+        session.pop('master_combat', None)
+        session['master_combat_log'] = combat_log
+        db.session.commit()
+        flash(f"{master_state['name']} defeated you. Rest and try again!", 'warning')
+        return redirect(url_for('level_master'))
+
+    session['master_combat'] = master_state
+    session['master_combat_log'] = combat_log
+    db.session.commit()
+    return redirect(url_for('master_fight'))
 
 
 @app.route('/level_master/train', methods=['POST'])
 @login_required
 def train_level():
+    """Legacy train route - now redirects to challenge."""
+    return redirect(url_for('challenge_master'))
+
+
+# ==================== HORSE STABLES (LORD-inspired) ====================
+
+@app.route('/stables')
+@login_required
+def stables():
+    """View the horse stables."""
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
 
-    success, msg = game_logic.level_up(player)
+    available_horses = game_logic.get_available_horses(player)
+    return render_template('stables.html', horses=available_horses)
+
+
+@app.route('/stables/buy/<int:index>', methods=['POST'])
+@login_required
+def buy_horse(index):
+    """Buy a horse from the stables."""
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.buy_horse(player, index)
     if success:
         news = NewsEntry(
             player_id=player.id,
             category='social',
-            message=f"{player.name} has advanced to level {player.level}!"
+            message=f"{player.name} purchased a {player.horse_name} from the stables!"
         )
         db.session.add(news)
     db.session.commit()
     flash(msg, 'success' if success else 'warning')
-    return redirect(url_for('level_master'))
+    return redirect(url_for('stables'))
+
+
+@app.route('/stables/release', methods=['POST'])
+@login_required
+def release_horse():
+    """Release the player's horse."""
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    success, msg = game_logic.release_horse(player)
+    db.session.commit()
+    flash(msg, 'success' if success else 'warning')
+    return redirect(url_for('stables'))
 
 
 # ==================== SOCIAL ====================
@@ -3707,6 +3870,11 @@ def admin_edit_player(player_id):
         player.tax_relief = request.form.get('tax_relief') == 'on'
         player.is_bank_guard = request.form.get('is_bank_guard') == 'on'
         player.has_tamed_bear = request.form.get('has_tamed_bear') == 'on'
+        player.has_horse = request.form.get('has_horse') == 'on'
+        player.horse_name = request.form.get('horse_name', player.horse_name).strip()
+        player.horse_type = request.form.get('horse_type', player.horse_type).strip()
+        player.horse_bonus_fights = int(request.form.get('horse_bonus_fights', player.horse_bonus_fights))
+        player.fairy_dust = int(request.form.get('fairy_dust', player.fairy_dust))
         player.is_pregnant = request.form.get('is_pregnant') == 'on'
         player.married = request.form.get('married') == 'on'
         db.session.commit()

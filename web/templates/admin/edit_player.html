@@ -273,6 +273,37 @@
             </fieldset>
 
             <fieldset class="admin-fieldset">
+                <legend>Horse/Mount</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label><input type="checkbox" name="has_horse" {% if player.has_horse %}checked{% endif %}> Has Horse</label>
+                    </div>
+                    <div class="admin-field">
+                        <label>Horse Name</label>
+                        <input type="text" name="horse_name" value="{{ player.horse_name }}" class="admin-input">
+                    </div>
+                    <div class="admin-field">
+                        <label>Horse Type</label>
+                        <input type="text" name="horse_type" value="{{ player.horse_type }}" class="admin-input">
+                    </div>
+                    <div class="admin-field">
+                        <label>Bonus Fights</label>
+                        <input type="number" name="horse_bonus_fights" value="{{ player.horse_bonus_fights }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
+                <legend>Fairy Dust</legend>
+                <div class="admin-field-row">
+                    <div class="admin-field">
+                        <label>Fairy Dust</label>
+                        <input type="number" name="fairy_dust" value="{{ player.fairy_dust }}" class="admin-input admin-input-sm">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="admin-fieldset">
                 <legend>Prison</legend>
                 <div class="admin-field-row">
                     <div class="admin-field">

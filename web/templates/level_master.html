@@ -3,15 +3,15 @@
 {% block title_suffix %} - Level Master{% endblock %}
 {% block content %}
 <div class="panel">
-    <div class="panel-header">{{ master_name }}</div>
+    <div class="panel-header">Training Master: {{ master.name }}</div>
     <div class="panel-body">
         {{ location_img('level_master') }}
         <p class="text-secondary mb-2">
-            The ancient master studies you carefully.
+            {{ master.name }} stands before you, a veteran of countless battles.
             {% if can_level %}
-            "I sense great power within you. You are ready to advance!"
+            "I sense great power within you. Challenge me in combat to prove your worth and advance!"
             {% else %}
-            "You must prove yourself further before I can train you."
+            "You must gain more experience before you are worthy to challenge me."
             {% endif %}
         </p>
 
@@ -19,12 +19,24 @@
             <div class="stat-item"><span class="label">Current Level</span><span class="value">{{ player.level }}</span></div>
             <div class="stat-item"><span class="label">Experience</span><span class="value">{{ player.experience }}</span></div>
             <div class="stat-item"><span class="label">XP Needed</span><span class="value">{{ xp_needed }}</span></div>
+            <div class="stat-item"><span class="label">Your Master</span><span class="value text-gold">{{ master.name }}</span></div>
+            <div class="stat-item"><span class="label">Trains to Level</span><span class="value">{{ master.max_level }}</span></div>
+            <div class="stat-item"><span class="label">Your HP</span><span class="value hp">{{ player.hp }} / {{ player.max_hp }}</span></div>
         </div>
 
-        {% if can_level %}
-        <form method="POST" action="{{ url_for('train_level') }}">
-            <button type="submit" class="btn btn-primary btn-block">Train to Level {{ player.level + 1 }}!</button>
+        {% if master_combat %}
+        <p class="text-gold text-center mb-1">You are in the middle of a training fight!</p>
+        <a href="{{ url_for('master_fight') }}" class="btn btn-primary btn-block">Continue Fight</a>
+        {% elif can_level %}
+        <form method="POST" action="{{ url_for('challenge_master') }}">
+            <button type="submit" class="btn btn-primary btn-block"
+                    {% if player.hp <= 0 %}disabled{% endif %}>
+                Challenge {{ master.name }} to advance to Level {{ player.level + 1 }}!
+            </button>
         </form>
+        {% if player.hp <= 0 %}
+        <p class="text-red text-center mt-1">You are too wounded to fight. Rest at the inn first.</p>
+        {% endif %}
         {% else %}
         <p class="text-dim text-center">
             You need {{ xp_needed - player.experience }} more experience to reach level {{ player.level + 1 }}.

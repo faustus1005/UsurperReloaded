@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Training Master{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">Training Combat &mdash; {{ master.name }}</div>
+    <div class="panel-body">
+        <div class="combat-area">
+            <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <h3 class="text-gold mb-1">{{ player.name }}</h3>
+                    <div>
+                        <span class="text-secondary">HP:</span>
+                        <span class="hp">{{ player.hp }} / {{ player.max_hp }}</span>
+                        <div class="health-bar">
+                            <div class="health-bar-fill hp" style="width: {{ (player.hp / player.max_hp * 100)|int if player.max_hp > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <h3 class="text-red mb-1">{{ master.name }}</h3>
+                    <div>
+                        <span class="text-secondary">HP:</span>
+                        <span class="text-red">{{ master.hp }} / {{ master.max_hp }}</span>
+                        <div class="health-bar">
+                            <div class="health-bar-fill hp" style="width: {{ (master.hp / master.max_hp * 100)|int if master.max_hp > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                    <div class="text-dim mt-1">Trains up to Level {{ master.max_level }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="combat-log">
+            {% for msg in combat_log %}
+            {% if msg %}
+            <p>{{ msg }}</p>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="combat-actions">
+            <form method="POST" action="{{ url_for('master_fight_action') }}" style="display:inline">
+                <input type="hidden" name="action" value="attack">
+                <button type="submit" class="btn btn-primary">Attack</button>
+            </form>
+            <form method="POST" action="{{ url_for('master_fight_action') }}" style="display:inline">
+                <input type="hidden" name="action" value="power_attack">
+                <button type="submit" class="btn btn-danger" title="High damage but the master gets a free counter-attack">Power Attack</button>
+            </form>
+            <form method="POST" action="{{ url_for('master_fight_action') }}" style="display:inline">
+                <input type="hidden" name="action" value="defend">
+                <button type="submit" class="btn" title="Reduced damage taken, small chip damage dealt">Defend</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
