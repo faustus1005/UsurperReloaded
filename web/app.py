@@ -147,6 +147,38 @@ with app.app_context():
         ('close_combat_skills', 'TEXT DEFAULT "{}"'),
         ('poison_level', 'INTEGER DEFAULT 0'),
         ('prayers_remaining', 'INTEGER DEFAULT 3'),
+        # Door guards
+        ('door_guard_id', 'INTEGER REFERENCES door_guards(id)'),
+        ('door_guard_count', 'INTEGER DEFAULT 0'),
+        # Prison escape
+        ('prison_days', 'INTEGER DEFAULT 0'),
+        ('escape_attempts', 'INTEGER DEFAULT 0'),
+        # Player Market
+        ('market_listings', 'INTEGER DEFAULT 0'),
+        # Wrestling
+        ('wrestling_wins', 'INTEGER DEFAULT 0'),
+        ('wrestling_losses', 'INTEGER DEFAULT 0'),
+        ('wrestling_matches', 'INTEGER DEFAULT 2'),
+        # Bear Taming
+        ('has_tamed_bear', 'BOOLEAN DEFAULT 0'),
+        ('bear_name', 'VARCHAR(30) DEFAULT ""'),
+        ('bear_strength', 'INTEGER DEFAULT 0'),
+        # Bard performances
+        ('performances_remaining', 'INTEGER DEFAULT 3'),
+        # Horse/Mount system
+        ('has_horse', 'BOOLEAN DEFAULT 0'),
+        ('horse_name', 'VARCHAR(30) DEFAULT ""'),
+        ('horse_type', 'VARCHAR(30) DEFAULT ""'),
+        ('horse_bonus_fights', 'INTEGER DEFAULT 0'),
+        # Fairy encounter tracking
+        ('fairy_dust', 'INTEGER DEFAULT 0'),
+        # God/religion
+        ('god_name', 'VARCHAR(30) DEFAULT ""'),
+        ('is_god', 'BOOLEAN DEFAULT 0'),
+        # Family
+        ('is_pregnant', 'BOOLEAN DEFAULT 0'),
+        ('pregnancy_days', 'INTEGER DEFAULT 0'),
+        ('children_count', 'INTEGER DEFAULT 0'),
     ]
     for _col, _type in _new_player_cols:
         try:
