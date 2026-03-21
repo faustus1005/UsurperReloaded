@@ -206,6 +206,54 @@ a:hover {
     color: var(--gold-dark);
 }
 
+/* Collapsible nav groups */
+.sidebar-nav-group {
+    /* container for parent toggle + child items */
+}
+.sidebar-nav-group-toggle {
+    display: block;
+    padding: 2px 8px;
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(0, 51, 68, 0.5);
+    font-size: 0.9em;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.1s, background 0.1s;
+    user-select: none;
+}
+.sidebar-nav-group-toggle:before {
+    content: '> ';
+    color: var(--text-primary);
+}
+.sidebar-nav-group-toggle:hover {
+    color: var(--gold);
+    background: rgba(0, 20, 40, 0.6);
+    text-decoration: none;
+}
+.sidebar-nav-group-toggle:hover:before {
+    color: var(--gold-dark);
+}
+.sidebar-nav-group-toggle .nav-toggle-icon {
+    float: right;
+    color: var(--text-dim);
+    font-size: 0.85em;
+}
+.sidebar-nav-group-items {
+    /* child links container */
+}
+.sidebar-nav-group-items .sidebar-link {
+    padding-left: 18px;
+    font-size: 0.83em;
+    color: var(--text-dim);
+}
+.sidebar-nav-group-items .sidebar-link:before {
+    content: '- ';
+    color: var(--border-color);
+}
+.sidebar-nav-group.collapsed .sidebar-nav-group-items {
+    display: none;
+}
+
 /* ==================== MAIN CONTENT ==================== */
 
 .main-content {

@@ -63,7 +63,7 @@
                 <div class="sidebar-nav-header">[ Adventure ]</div>
                 <a href="{{ url_for('dungeon') }}" class="sidebar-link">Dungeons ({{ player.fights_remaining }})</a>
                 <a href="{{ url_for('stables') }}" class="sidebar-link">Stables{% if player.has_horse %} ({{ player.horse_name }}){% endif %}</a>
-                <a href="{{ url_for('pvp') }}" class="sidebar-link">PvP / Dormitory</a>
+                <a href="{{ url_for('pvp') }}" class="sidebar-link">PvP</a>
                 <a href="{{ url_for('castle') }}" class="sidebar-link">Castle</a>
                 <a href="{{ url_for('bounty_board') }}" class="sidebar-link">Bounty Board</a>
                 <a href="{{ url_for('death_maze') }}" class="sidebar-link">Death Maze</a>
@@ -82,8 +82,22 @@
                 <a href="{{ url_for('magic_shop') }}" class="sidebar-link">Magic Shop</a>
                 <a href="{{ url_for('healing_shop') }}" class="sidebar-link">Healing Hut</a>
                 <a href="{{ url_for('general_store') }}" class="sidebar-link">General Store</a>
-                <a href="{{ url_for('shady_dealer') }}" class="sidebar-link">Dark Alley</a>
-                <a href="{{ url_for('bank') }}" class="sidebar-link">Bank</a>
+                <div class="sidebar-nav-group" data-nav-group="dark-alley">
+                    <span class="sidebar-nav-group-toggle" onclick="toggleNavGroup('dark-alley')">Dark Alley <span class="nav-toggle-icon">[-]</span></span>
+                    <div class="sidebar-nav-group-items">
+                        <a href="{{ url_for('shady_dealer') }}" class="sidebar-link">Shady Dealer</a>
+                        <a href="{{ url_for('drug_palace') }}" class="sidebar-link">Drug Palace</a>
+                        <a href="{{ url_for('steroid_shop') }}" class="sidebar-link">Steroid Shop</a>
+                        <a href="{{ url_for('alchemist_shop') }}" class="sidebar-link">Alchemist's Heaven</a>
+                    </div>
+                </div>
+                <div class="sidebar-nav-group" data-nav-group="bank">
+                    <span class="sidebar-nav-group-toggle" onclick="toggleNavGroup('bank')">Bank <span class="nav-toggle-icon">[-]</span></span>
+                    <div class="sidebar-nav-group-items">
+                        <a href="{{ url_for('bank') }}" class="sidebar-link">Bank</a>
+                        <a href="{{ url_for('bank') }}" class="sidebar-link">Rob the Bank</a>
+                    </div>
+                </div>
                 <a href="{{ url_for('player_market') }}" class="sidebar-link">Player Market</a>
                 <a href="{{ url_for('alchemist_craft') }}" class="sidebar-link">Alchemist</a>
             </div>
@@ -93,8 +107,15 @@
                 <div class="sidebar-nav-header">[ Social ]</div>
                 <a href="{{ url_for('tavern') }}" class="sidebar-link">Tavern</a>
                 <a href="{{ url_for('orbs_bar') }}" class="sidebar-link">Orb's Bar</a>
-                <a href="{{ url_for('inn') }}" class="sidebar-link">Inn</a>
-                <a href="{{ url_for('inn_chat') }}" class="sidebar-link">Inn Chat</a>
+                <div class="sidebar-nav-group" data-nav-group="inn">
+                    <span class="sidebar-nav-group-toggle" onclick="toggleNavGroup('inn')">Inn <span class="nav-toggle-icon">[-]</span></span>
+                    <div class="sidebar-nav-group-items">
+                        <a href="{{ url_for('inn') }}" class="sidebar-link">Rest & Guards</a>
+                        <a href="{{ url_for('inn_chat') }}" class="sidebar-link">Inn Chat</a>
+                        <a href="{{ url_for('dormitory') }}" class="sidebar-link">Dormitory</a>
+                        <a href="{{ url_for('pvp') }}" class="sidebar-link">Attack Sleepers</a>
+                    </div>
+                </div>
                 <a href="{{ url_for('love_corner') }}" class="sidebar-link">Love Corner</a>
                 <a href="{{ url_for('beauty_nest') }}" class="sidebar-link">Beauty Nest</a>
                 <a href="{{ url_for('teams') }}" class="sidebar-link">Teams</a>
@@ -103,7 +124,6 @@
                 <a href="{{ url_for('uman_cave') }}" class="sidebar-link">Uman Cave</a>
                 <a href="{{ url_for('gym') }}" class="sidebar-link">Gym</a>
                 <a href="{{ url_for('beer_stealing') }}" class="sidebar-link">Beer Stealing</a>
-                <a href="{{ url_for('dormitory') }}" class="sidebar-link">Dormitory</a>
                 <a href="{{ url_for('equipment_swap') }}" class="sidebar-link">Equipment Swap</a>
                 <a href="{{ url_for('combat_train') }}" class="sidebar-link">Combat Training</a>
                 <a href="{{ url_for('groggo') }}" class="sidebar-link">Groggo</a>
@@ -116,7 +136,13 @@
                 <a href="{{ url_for('status') }}" class="sidebar-link">Status</a>
                 <a href="{{ url_for('inventory') }}" class="sidebar-link">Inventory</a>
                 <a href="{{ url_for('level_master') }}" class="sidebar-link{% if player.can_level_up() %} highlight{% endif %}">Level Master{% if player.can_level_up() %} *{% endif %}</a>
-                <a href="{{ url_for('home') }}" class="sidebar-link">Home</a>
+                <div class="sidebar-nav-group" data-nav-group="home">
+                    <span class="sidebar-nav-group-toggle" onclick="toggleNavGroup('home')">Home <span class="nav-toggle-icon">[-]</span></span>
+                    <div class="sidebar-nav-group-items">
+                        <a href="{{ url_for('home') }}" class="sidebar-link">Home</a>
+                        <a href="{{ url_for('dark_deeds') }}" class="sidebar-link">Rob Player Homes</a>
+                    </div>
+                </div>
                 <a href="{{ url_for('temple') }}" class="sidebar-link">Temple</a>
                 <a href="{{ url_for('good_deeds') }}" class="sidebar-link">Good Deeds</a>
                 <a href="{{ url_for('dark_deeds') }}" class="sidebar-link">Dark Deeds</a>
@@ -228,6 +254,35 @@
                 sw.classList.add('collapsed');
                 btn.textContent = '[+]';
                 document.body.classList.add('scroll-collapsed');
+            }
+        }
+    })();
+    </script>
+    <script>
+    function toggleNavGroup(name) {
+        var group = document.querySelector('[data-nav-group="' + name + '"]');
+        if (!group) return;
+        var icon = group.querySelector('.nav-toggle-icon');
+        var state = JSON.parse(localStorage.getItem('navGroupState') || '{}');
+        if (group.classList.contains('collapsed')) {
+            group.classList.remove('collapsed');
+            if (icon) icon.textContent = '[-]';
+            delete state[name];
+        } else {
+            group.classList.add('collapsed');
+            if (icon) icon.textContent = '[+]';
+            state[name] = 1;
+        }
+        localStorage.setItem('navGroupState', JSON.stringify(state));
+    }
+    (function() {
+        var state = JSON.parse(localStorage.getItem('navGroupState') || '{}');
+        for (var name in state) {
+            var group = document.querySelector('[data-nav-group="' + name + '"]');
+            if (group) {
+                group.classList.add('collapsed');
+                var icon = group.querySelector('.nav-toggle-icon');
+                if (icon) icon.textContent = '[+]';
             }
         }
     })();
