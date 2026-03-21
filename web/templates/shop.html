@@ -36,6 +36,9 @@
                     <button type="submit" class="btn btn-sm btn-success"
                             {% if player.gold < item.value %}disabled{% endif %}>Buy</button>
                 </form>
+                <form method="POST" action="{{ url_for('shop_haggle', item_id=item.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-secondary">Haggle</button>
+                </form>
             </div>
         </div>
         {% endfor %}
