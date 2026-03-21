@@ -282,6 +282,36 @@
             </div>
         </div>
 
+        {# --- ROYAL SPELLS --- #}
+        <div class="panel mb-1">
+            <div class="panel-header">Royal Spells</div>
+            <div class="panel-body">
+                <div class="mb-1">
+                    <strong>Angel</strong> <span class="text-dim">(Fully heals a player, cures diseases. Cost: target level &times; 1000g from treasury)</span>
+                    <form method="POST" action="" class="inline-form" id="angel-form">
+                        <select name="target_id" class="form-control" style="width: auto;" id="angel-target">
+                            {% for p in hirable_players %}
+                            <option value="{{ p.id }}">{{ p.name }} (Lv{{ p.level }})</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-primary btn-sm" onclick="this.form.action='/king/angel/' + document.getElementById('angel-target').value; return confirm('Cast Angel on this player?')">Cast Angel</button>
+                    </form>
+                </div>
+                <hr class="separator">
+                <div class="mb-1">
+                    <strong>Avenger</strong> <span class="text-dim">(Deals damage to a player. Cost: target level &times; 2000g from treasury. Increases darkness.)</span>
+                    <form method="POST" action="" class="inline-form" id="avenger-form">
+                        <select name="target_id" class="form-control" style="width: auto;" id="avenger-target">
+                            {% for p in hirable_players %}
+                            <option value="{{ p.id }}">{{ p.name }} (Lv{{ p.level }})</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="this.form.action='/king/avenger/' + document.getElementById('avenger-target').value; return confirm('Cast Avenger on this player? This is a dark deed!')">Cast Avenger</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         {# --- QUESTS & ABDICATION --- #}
         <div class="panel mb-1">
             <div class="panel-header">Royal Quests</div>

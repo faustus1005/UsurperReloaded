@@ -4833,12 +4833,22 @@ def shop_haggle(item_id):
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    success, msg = game_logic.haggle_price(player, item_id)
-    db.session.commit()
-    flash(msg, 'success' if success else 'error')
-    # Redirect back to the correct shop based on item type
     item = db.session.get(Item, item_id)
-    if item and item.item_type != 'Weapon':
+    if not item:
+        flash("Item not found.", 'error')
+        return redirect(url_for('weapon_shop'))
+    new_price = game_logic.haggle_price(player, item.value)
+    if new_price < item.value:
+        discount = item.value - new_price
+        flash(f"You haggled the price of {item.name} down by {discount}g! New price: {new_price}g.", 'success')
+        session['haggle_prices'] = session.get('haggle_prices', {})
+        session['haggle_prices'][str(item_id)] = new_price
+        session.modified = True
+    else:
+        flash("The shopkeeper won't budge on the price.", 'error')
+    db.session.commit()
+    # Redirect back to the correct shop based on item type
+    if item.item_type != 'Weapon':
         return redirect(url_for('armor_shop'))
     return redirect(url_for('weapon_shop'))
 
@@ -4851,10 +4861,10 @@ def king_angel(target_id):
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    success, msg = game_logic.royal_angel_spell(player, target_id)
+    result = game_logic.royal_angel_spell(player, target_id)
     db.session.commit()
-    flash(msg, 'success' if success else 'error')
-    return redirect(url_for('main_menu'))
+    flash(result['message'], 'success' if result['success'] else 'error')
+    return redirect(url_for('castle'))
 
 
 @app.route('/king/avenger/<int:target_id>', methods=['POST'])
@@ -4863,10 +4873,10 @@ def king_avenger(target_id):
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    success, msg = game_logic.royal_avenger_spell(player, target_id)
+    result = game_logic.royal_avenger_spell(player, target_id)
     db.session.commit()
-    flash(msg, 'success' if success else 'error')
-    return redirect(url_for('main_menu'))
+    flash(result['message'], 'success' if result['success'] else 'error')
+    return redirect(url_for('castle'))
 
 
 # ==================== ALCHEMIST CRAFT ====================
@@ -4898,10 +4908,10 @@ def npc_recruit(npc_id):
     player = get_player()
     if not player:
         return redirect(url_for('create_character'))
-    success, msg = game_logic.recruit_npc(player, npc_id)
+    result = game_logic.recruit_npc(player, npc_id)
     db.session.commit()
-    flash(msg, 'success' if success else 'error')
-    return redirect(url_for('main_menu'))
+    flash(result['message'], 'success' if result['success'] else 'error')
+    return redirect(url_for('npc_list'))
 
 
 # ==================== INIT ====================

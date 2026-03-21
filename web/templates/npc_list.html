@@ -19,6 +19,7 @@
                     <th>Team</th>
                     <th>Status</th>
                     <th>Alignment</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -44,6 +45,13 @@
                     </td>
                     <td class="alignment-{% if npc.chivalry > npc.darkness %}good{% elif npc.darkness > npc.chivalry %}evil{% else %}neutral{% endif %}">
                         {{ npc.alignment_string() }}
+                    </td>
+                    <td>
+                        {% if npc.npc_location == 'dormitory' and not npc.team_name %}
+                        <form method="POST" action="{{ url_for('npc_recruit', npc_id=npc.id) }}" style="display:inline">
+                            <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm('Recruit ' + {{ npc.name|tojson }} + ' to your team?')">Recruit</button>
+                        </form>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
