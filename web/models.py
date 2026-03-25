@@ -673,6 +673,11 @@ class Player(db.Model):
     intimacy_acts = db.Column(db.Integer, default=5)  # daily intimate interactions
     beauty_nest_visits = db.Column(db.Integer, default=3)  # daily visits to The Beauty Nest
 
+    # Selene (LORD-inspired Violet character)
+    selene_charm = db.Column(db.Integer, default=0)  # relationship level with Selene (0-100)
+    selene_flirted_today = db.Column(db.Boolean, default=False)  # once-per-day flirt limit
+    selene_married = db.Column(db.Boolean, default=False)  # married to Selene
+
     # Dungeon
     dungeon_level = db.Column(db.Integer, default=1)  # current dungeon level
 
