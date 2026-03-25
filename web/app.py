@@ -179,6 +179,10 @@ with app.app_context():
         ('is_pregnant', 'BOOLEAN DEFAULT 0'),
         ('pregnancy_days', 'INTEGER DEFAULT 0'),
         ('children_count', 'INTEGER DEFAULT 0'),
+        # Selene (LORD-inspired Violet character)
+        ('selene_charm', 'INTEGER DEFAULT 0'),
+        ('selene_flirted_today', 'BOOLEAN DEFAULT 0'),
+        ('selene_married', 'BOOLEAN DEFAULT 0'),
     ]
     for _col, _type in _new_player_cols:
         try:
@@ -2311,6 +2315,46 @@ def beauty_nest_visit(index):
     else:
         flash(msg, 'error' if not success else 'info')
     return redirect(url_for('beauty_nest'))
+
+
+# ==================== SELENE - THE MOONLIT GROVE ====================
+
+@app.route('/selene')
+@login_required
+def selene():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    if player.is_imprisoned:
+        flash("You cannot visit the grove while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+
+    info = game_logic.get_selene_info(player)
+    return render_template('selene.html', info=info)
+
+
+@app.route('/selene/flirt', methods=['POST'])
+@login_required
+def selene_flirt():
+    player = get_player()
+    if not player:
+        return redirect(url_for('create_character'))
+
+    if player.is_imprisoned:
+        flash("You cannot visit the grove while imprisoned.", 'error')
+        return redirect(url_for('main_menu'))
+
+    action_key = request.form.get('action', '')
+    success, msg, log = game_logic.selene_flirt(player, action_key)
+    db.session.commit()
+
+    if log:
+        for entry in log:
+            flash(entry, 'info')
+    if not success:
+        flash(msg, 'error')
+    return redirect(url_for('selene'))
 
 
 # ==================== LOVE CORNER / RELATIONSHIPS ====================

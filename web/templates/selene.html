@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title_suffix %} - The Moonlit Grove{% endblock %}
+{% block content %}
+<div class="panel">
+    <div class="panel-header">The Moonlit Grove</div>
+    <div class="panel-body">
+        <p class="text-secondary mb-2">
+            You follow a winding path through ancient silver-barked trees until you reach a clearing
+            bathed in pale moonlight. A woman sits on a carved stone bench beside a softly glowing pool.
+            Her hair is the color of starlight, her eyes like liquid silver. This is <span class="text-green">Selene</span>,
+            the guardian of the grove.
+        </p>
+
+        {% if info.married %}
+        <p class="text-dim mb-1">
+            Selene rises and embraces you tenderly. "Welcome home, my love," she whispers.
+        </p>
+        {% else %}
+        <p class="text-dim mb-1">
+            {{ info.description }}
+        </p>
+        {% endif %}
+
+        <hr class="separator">
+
+        <p class="text-secondary mb-1">
+            Relationship: <span class="text-gold">{{ info.title }}</span>
+            &mdash;
+            Charm: <span class="text-gold">{{ info.charm }}</span> / 100
+        </p>
+
+        {# Charm bar #}
+        <div style="background: var(--bg-dark, #111); border: 1px solid var(--border, #333); height: 12px; width: 100%; max-width: 300px; margin: 6px 0;">
+            <div style="background: var(--gold, #c90); height: 100%; width: {{ info.charm }}%;"></div>
+        </div>
+
+        {% if info.flirted_today %}
+        <p class="text-dim mt-2">
+            Selene smiles softly. "It was lovely seeing you today. Come back tomorrow?"
+        </p>
+        {% elif info.actions %}
+        <hr class="separator">
+        <p class="text-dim mb-1">Your command, {{ player.name }}?</p>
+
+        <div style="margin-top: 8px;">
+            <p class="text-dim mb-1" style="font-size: 0.85em;">(N)ever Mind</p>
+            {% for key, action in info.actions %}
+            <form method="POST" action="{{ url_for('selene_flirt') }}" style="display: inline-block; margin: 2px 0;">
+                <input type="hidden" name="action" value="{{ key }}">
+                <button type="submit" class="btn btn-sm btn-primary" style="min-width: 200px; text-align: left;">
+                    {{ action.label }}
+                </button>
+            </form>
+            <br>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-dim mt-2">Selene watches you curiously from afar.</p>
+        {% endif %}
+
+        {% if info.married %}
+        <hr class="separator">
+        <p class="text-secondary" style="font-size: 0.85em;">
+            As Selene's spouse, you receive daily blessings: +2 dungeon fights, bonus XP,
+            +1 Chivalry, and occasional stat boosts.
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="text-center mt-1">
+    <a href="{{ url_for('main_menu') }}" class="btn">Back to Town</a>
+</div>
+{% endblock %}

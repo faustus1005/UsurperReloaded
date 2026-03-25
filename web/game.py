@@ -96,6 +96,7 @@ def create_character(player, name, race, player_class, sex):
     player.gym_sessions = 4
     player.massage_visits = 3
     player.prayers_remaining = 3
+    player.selene_flirted_today = False
     player.dungeon_level = 1
 
     # Starting spells for spellcasters
@@ -835,6 +836,7 @@ def daily_maintenance(player):
     player.gym_sessions = int(GameConfig.get('gym_sessions_per_day', '4') or '4')
     player.massage_visits = int(GameConfig.get('massage_visits_per_day', '3') or '3')
     player.prayers_remaining = int(GameConfig.get('prayers_per_day', '3') or '3')
+    player.selene_flirted_today = False
     player.hp = player.max_hp
     player.mana = player.max_mana
     player.last_maintenance = now
@@ -850,6 +852,9 @@ def daily_maintenance(player):
 
     # Bank guard wage accrual
     accumulate_bank_wages(player)
+
+    # Selene daily marriage blessing
+    selene_daily_blessing(player)
 
     # Run global maintenance tasks once (keyed off this player trigger)
     quest_maintenance()
@@ -5861,6 +5866,261 @@ def beauty_nest_visit(player, companion_index):
             log.append("Your spouse has been notified of your infidelity...")
 
     return True, f"You visited {nest_name}.", log
+
+
+# ==================== SELENE - THE MOONLIT GROVE ====================
+
+# Selene relationship thresholds
+SELENE_LEVELS = [
+    (0, 'Stranger', 'Selene barely notices you.'),
+    (10, 'Acquaintance', 'Selene offers you a polite nod.'),
+    (25, 'Friend', 'Selene smiles warmly when she sees you.'),
+    (40, 'Close Friend', 'Selene\'s eyes light up at your arrival.'),
+    (55, 'Romantic Interest', 'Selene blushes when your eyes meet.'),
+    (70, 'Lover', 'Selene takes your hand and pulls you close.'),
+    (85, 'Soulmate', 'Selene whispers that she cannot imagine life without you.'),
+    (100, 'Eternal Bond', 'Selene gazes at you with boundless devotion.'),
+]
+
+SELENE_FLIRT_ACTIONS = {
+    'wink': {
+        'label': 'Wink',
+        'min_charm': 0,
+        'charm_gain': (1, 3),
+        'success_msg': [
+            'You catch Selene\'s eye and wink. She giggles softly and turns away, her pale cheeks flushing.',
+            'You give Selene a sly wink. She raises an eyebrow and smiles. "Charming," she murmurs.',
+            'Selene catches your wink and lets out a melodic laugh. "You\'re bold, aren\'t you?"',
+        ],
+        'fail_msg': 'Selene doesn\'t seem to notice your wink.',
+        'fail_chance': 10,
+    },
+    'kiss_hand': {
+        'label': 'Kiss Her Hand',
+        'min_charm': 10,
+        'charm_gain': (2, 4),
+        'success_msg': [
+            'You take Selene\'s slender hand and press your lips to it. She sighs contentedly.',
+            'Selene offers her hand and you kiss it gently. "Such a gentleman," she whispers.',
+            'Your lips brush her knuckles. Selene\'s silver eyes shimmer in the moonlight.',
+        ],
+        'fail_msg': 'Selene pulls her hand away. "We barely know each other."',
+        'fail_chance': 15,
+    },
+    'peck_lips': {
+        'label': 'Peck Her On The Lips',
+        'min_charm': 25,
+        'charm_gain': (3, 5),
+        'success_msg': [
+            'You lean in and steal a quick kiss. Selene gasps, then smiles radiantly.',
+            'Your lips briefly meet hers. The moonlight seems to glow brighter for a moment.',
+            'Selene closes her eyes as you kiss her softly. "That was... nice," she breathes.',
+        ],
+        'fail_msg': 'Selene turns her cheek. "Not yet... but perhaps soon."',
+        'fail_chance': 20,
+    },
+    'sit_lap': {
+        'label': 'Sit Her On Your Lap',
+        'min_charm': 40,
+        'charm_gain': (3, 6),
+        'success_msg': [
+            'Selene settles into your lap, resting her head against your shoulder. The night is perfect.',
+            'You pull Selene close and she curls up in your arms, humming a soft melody.',
+            'Selene sits on your lap and traces patterns on your chest. "I feel safe with you."',
+        ],
+        'fail_msg': 'Selene shakes her head. "I\'m not ready for that kind of closeness."',
+        'fail_chance': 25,
+    },
+    'grab_backside': {
+        'label': 'Grab Her Backside',
+        'min_charm': 55,
+        'charm_gain': (2, 5),
+        'success_msg': [
+            'Selene yelps in surprise, then swats your arm playfully. "You rogue!"',
+            'Your hand finds its target. Selene blushes furiously but doesn\'t pull away.',
+        ],
+        'fail_msg': 'Selene slaps your hand away sharply. "Don\'t push your luck!"',
+        'fail_chance': 35,
+        'fail_charm_loss': 2,
+    },
+    'carry_upstairs': {
+        'label': 'Carry Her Upstairs',
+        'min_charm': 70,
+        'charm_gain': (4, 8),
+        'success_msg': [
+            'You sweep Selene off her feet. She wraps her arms around your neck and laughs. '
+            'The rest of the evening is... memorable.',
+            'Selene gasps as you lift her. "My hero," she whispers, as you carry her into the moonlight.',
+        ],
+        'fail_msg': 'Selene steps back. "I care for you deeply, but... not tonight."',
+        'fail_chance': 30,
+    },
+    'marry': {
+        'label': 'Marry Her',
+        'min_charm': 85,
+        'charm_gain': (10, 10),
+        'success_msg': [
+            'Selene\'s eyes fill with tears of joy. "Yes! A thousand times yes!" '
+            'Under the silver moon, you pledge your hearts to one another.',
+        ],
+        'fail_msg': 'Selene hesitates. "I love you, but I need a little more time..."',
+        'fail_chance': 20,
+        'is_marriage': True,
+    },
+}
+
+
+def get_selene_level(charm):
+    """Return (threshold, title, description) for the current charm level."""
+    result = SELENE_LEVELS[0]
+    for threshold, title, desc in SELENE_LEVELS:
+        if charm >= threshold:
+            result = (threshold, title, desc)
+    return result
+
+
+def get_selene_info(player):
+    """Get Selene display info for a player."""
+    charm = player.selene_charm or 0
+    _, title, desc = get_selene_level(charm)
+    available_actions = []
+    for key, action in SELENE_FLIRT_ACTIONS.items():
+        if charm >= action['min_charm']:
+            # Hide marriage option if already married to Selene
+            if action.get('is_marriage') and player.selene_married:
+                continue
+            available_actions.append((key, action))
+    return {
+        'charm': charm,
+        'title': title,
+        'description': desc,
+        'flirted_today': player.selene_flirted_today,
+        'married': player.selene_married,
+        'actions': available_actions,
+    }
+
+
+def selene_flirt(player, action_key):
+    """Perform a flirt action with Selene. Returns (success, message, bonus_log)."""
+    if player.selene_flirted_today:
+        return False, "You've already visited Selene today. She needs her rest... come back tomorrow.", []
+
+    if action_key not in SELENE_FLIRT_ACTIONS:
+        return False, "Invalid action.", []
+
+    action = SELENE_FLIRT_ACTIONS[action_key]
+    charm = player.selene_charm or 0
+
+    if charm < action['min_charm']:
+        return False, "You don't know Selene well enough for that yet.", []
+
+    # Marriage special case
+    if action.get('is_marriage'):
+        if player.selene_married:
+            return False, "You are already married to Selene!", []
+        if player.married:
+            return False, "You are already married to someone else! Divorce first.", []
+
+    log = []
+    player.selene_flirted_today = True
+
+    # Check for failure
+    fail_roll = random.randint(1, 100)
+    if fail_roll <= action['fail_chance']:
+        # Failed attempt
+        charm_loss = action.get('fail_charm_loss', 0)
+        if charm_loss:
+            player.selene_charm = max(0, charm - charm_loss)
+            log.append(f"Lost {charm_loss} charm with Selene.")
+        return False, action['fail_msg'], log
+
+    # Success!
+    lo, hi = action['charm_gain']
+    charm_gain = random.randint(lo, hi)
+
+    # Charisma bonus to charm gain
+    cha_bonus = player.charisma // 20
+    charm_gain += cha_bonus
+
+    player.selene_charm = min(100, charm + charm_gain)
+    log.append(random.choice(action['success_msg']))
+    log.append(f"Your relationship with Selene grew by {charm_gain} points.")
+
+    # Grant bonuses based on relationship level
+    bonus_log = _selene_grant_bonus(player)
+    log.extend(bonus_log)
+
+    # Marriage path
+    if action.get('is_marriage'):
+        player.selene_married = True
+        player.selene_charm = 100
+        log.append("You and Selene are now married! She will grant you her blessing each day.")
+
+        news = NewsEntry(
+            player_id=player.id,
+            category='social',
+            message=f"{player.name} and Selene of the Moonlit Grove have been wed under the silver moon!"
+        )
+        db.session.add(news)
+
+    return True, "Your visit to Selene went well.", log
+
+
+def _selene_grant_bonus(player):
+    """Grant stat/XP bonuses based on relationship level with Selene."""
+    charm = player.selene_charm or 0
+    log = []
+
+    # Base XP bonus (scales with level and relationship)
+    xp_bonus = player.level * (10 + charm // 5)
+    player.experience += xp_bonus
+    log.append(f"Selene's moonlight blessing grants you {xp_bonus:,} experience!")
+
+    # HP restore at friend+ level
+    if charm >= 25:
+        heal = min(player.max_hp - player.hp, player.max_hp // 4)
+        if heal > 0:
+            player.hp += heal
+            log.append(f"Selene's gentle touch restores {heal} HP.")
+
+    # Stat boost at romantic interest+ (once per visit, temporary feel via permanent small gain)
+    if charm >= 55:
+        stat = random.choice(['charisma', 'wisdom', 'agility'])
+        boost = 1
+        current = getattr(player, stat)
+        setattr(player, stat, current + boost)
+        log.append(f"Selene's presence fills you with inspiration. +{boost} {stat.capitalize()}!")
+
+    # Extra fight at lover+ level
+    if charm >= 70:
+        player.fights_remaining += 1
+        log.append("Selene whispers words of encouragement. +1 dungeon fight!")
+
+    # Chivalry at soulmate+ level
+    if charm >= 85:
+        chiv = random.randint(2, 5)
+        player.chivalry += chiv
+        log.append(f"Selene's pure love inspires your heart. +{chiv} Chivalry!")
+
+    return log
+
+
+def selene_daily_blessing(player):
+    """If married to Selene, grant a daily passive blessing (called during daily maintenance)."""
+    if not player.selene_married:
+        return
+
+    # Married to Selene grants a small daily bonus
+    xp = player.level * 50
+    player.experience += xp
+    player.fights_remaining += 2
+    player.chivalry += 1
+
+    # Small chance of a stat boost
+    if random.randint(1, 5) == 1:
+        stat = random.choice(['charisma', 'wisdom', 'strength', 'agility'])
+        current = getattr(player, stat)
+        setattr(player, stat, current + 1)
 
 
 # ==================== ORB'S BAR ====================
